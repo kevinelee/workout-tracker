@@ -1,0 +1,61 @@
+.volume-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chart-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chart-pill {
+  background: #1f2028;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--sans);
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  min-height: 36px;
+
+  &:hover { border-color: var(--accent-border); color: var(--text-h); }
+}
+
+.chart-pill--active {
+  background: rgba(192, 132, 252, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chart-tooltip {
+  background: #1f2028;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.chart-tooltip-date {
+  font-size: 11px;
+  color: var(--text);
+  margin: 0 0 2px;
+}
+
+.chart-tooltip-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0;
+}
+
+.chart-empty {
+  color: var(--text);
+  font-size: 14px;
+  text-align: center;
+  padding: 24px 0;
+  margin: 0;
+}

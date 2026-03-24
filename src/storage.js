@@ -6,6 +6,7 @@ const KEYS = {
   templates:  'wt:templates',
   sessions:   'wt:sessions',
   settings:   'wt:settings',
+  checkIns:   'wt:checkIns',    // array of 'YYYY-MM-DD' strings
 }
 
 function get(key) {
@@ -75,6 +76,20 @@ export function getSettings() {
 }
 export function saveSettings(settings) {
   set(KEYS.settings, settings)
+}
+
+// --- Check-Ins ---
+export function getCheckIns() {
+  return get(KEYS.checkIns) ?? []
+}
+export function saveCheckIn() {
+  const today = new Date().toISOString().slice(0, 10)
+  const all = getCheckIns()
+  if (!all.includes(today)) set(KEYS.checkIns, [...all, today])
+}
+export function hasCheckedInToday() {
+  const today = new Date().toISOString().slice(0, 10)
+  return getCheckIns().includes(today)
 }
 
 // --- PR Tracking ---

@@ -151,3 +151,60 @@
 
   &:hover { filter: brightness(1.1); }
 }
+
+/* Streak row */
+.home-streak-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1f2028;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  gap: 10px;
+}
+
+.home-streak-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.home-streak-fire { font-size: 20px; }
+
+.home-streak-count {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.home-streak-milestone {
+  font-size: 12px;
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.home-checkin-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--sans);
+  padding: 9px 16px;
+  cursor: pointer;
+  min-height: 40px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: filter 0.15s, background 0.15s;
+}
+
+.home-checkin-btn:hover:not(:disabled) { filter: brightness(1.1); }
+
+.home-checkin-btn--done {
+  background: #2e303a;
+  color: #4ade80;
+  cursor: default;
+}

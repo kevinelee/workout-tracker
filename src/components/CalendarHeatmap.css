@@ -1,0 +1,51 @@
+.heatmap {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+}
+
+.heatmap-days {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 0;
+  flex-shrink: 0;
+}
+
+.heatmap-day-label {
+  font-size: 10px;
+  color: var(--text);
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.heatmap-grid {
+  display: flex;
+  gap: 3px;
+}
+
+.heatmap-week {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.heatmap-cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: #2e303a;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.heatmap-cell--empty {
+  background: transparent;
+}
+
+.heatmap-cell--active {
+  background: var(--accent);
+}

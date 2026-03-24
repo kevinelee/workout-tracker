@@ -1,13 +1,16 @@
 import { useState } from 'react'
-import { getTemplates } from './storage'
+import { getTemplates, getSessions, getSettings, saveSettings, getCheckIns, getLastSessionForTemplate } from './storage'
 import HomeScreen from './screens/HomeScreen'
 import WorkoutBuilderScreen from './screens/WorkoutBuilderScreen'
 import SessionScreen from './screens/SessionScreen'
+import HistoryScreen from './screens/HistoryScreen'
+import SessionDetailScreen from './screens/SessionDetailScreen'
+import SettingsScreen from './screens/SettingsScreen'
+import PostWorkoutSummary from './components/PostWorkoutSummary'
 import './App.css'
 
 const NAV_TABS = [
   { id: 'home',     label: 'Home',     icon: '🏠' },
-  { id: 'workouts', label: 'Workouts', icon: '📋' },
   { id: 'history',  label: 'History',  icon: '📈' },
   { id: 'settings', label: 'Settings', icon: '⚙️' },
 ]
@@ -16,36 +19,60 @@ function useNav() {
   const [screen, setScreen] = useState({ name: 'home' })
   const [activeTab, setActiveTab] = useState('home')
 
-  function goHome() { setScreen({ name: 'home' }); setActiveTab('home') }
-  function goBuilder(template = null) { setScreen({ name: 'builder', template }) }
-  function goSession(template) { setScreen({ name: 'session', template }) }
-  function goTab(id) { setActiveTab(id); setScreen({ name: id }) }
+  function goHome()                  { setScreen({ name: 'home' }); setActiveTab('home') }
+  function goBuilder(template)       { setScreen({ name: 'builder', template }) }
+  function goSession(template)       { setScreen({ name: 'session', template }) }
+  function goSummary(session, template, prevSession) { setScreen({ name: 'summary', session, template, prevSession }) }
+  function goSessionDetail(session)  { setScreen({ name: 'sessionDetail', session }) }
+  function goTab(id)                 { setActiveTab(id); setScreen({ name: id }) }
 
-  return { screen, activeTab, goHome, goBuilder, goSession, goTab }
+  return { screen, activeTab, goHome, goBuilder, goSession, goSummary, goSessionDetail, goTab }
 }
 
 export default function App() {
-  const { screen, activeTab, goHome, goBuilder, goSession, goTab } = useNav()
+  const { screen, activeTab, goHome, goBuilder, goSession, goSummary, goSessionDetail, goTab } = useNav()
   const [templates, setTemplates] = useState(getTemplates)
+  const [sessions, setSessions]   = useState(getSessions)
+  const [settings, setSettings]   = useState(getSettings)
+  const checkIns = getCheckIns()
 
-  function refreshTemplates() { setTemplates(getTemplates()) }
-
-  function handleSaveTemplate() { refreshTemplates(); goHome() }
-
-  function handleFinishSession(session) {
-    // M4 will show a summary here; for now just return home
-    goHome()
+  function refreshData() {
+    setTemplates(getTemplates())
+    setSessions(getSessions())
   }
 
-  const fullscreen = screen.name === 'builder' || screen.name === 'session'
+  function handleSaveTemplate() { refreshData(); goHome() }
+
+  function handleFinishSession(session, template) {
+    setSessions(getSessions())
+    const prevSession = getLastSessionForTemplate(template.id)
+    // prevSession at this point is the one just before what we finished
+    // getSessions() now includes the new one, so find the one before it
+    const all = getSessions().filter(s => s.templateId === template.id && s.finishedAt && s.id !== session.id)
+    const prev = all.sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))[0] ?? null
+    goSummary(session, template, prev)
+  }
+
+  function handleSaveSettings(updated) {
+    saveSettings(updated)
+    setSettings(updated)
+  }
+
+  function templateName(id) {
+    return templates.find(t => t.id === id)?.name ?? 'Workout'
+  }
+
+  const fullscreen = ['builder', 'session', 'summary', 'sessionDetail'].includes(screen.name)
 
   function renderScreen() {
     switch (screen.name) {
       case 'home':
-      case 'workouts':
         return (
           <HomeScreen
             templates={templates}
+            sessions={sessions}
+            checkIns={checkIns}
+            settings={settings}
             onNew={() => goBuilder(null)}
             onEdit={t => goBuilder(t)}
             onStart={t => goSession(t)}
@@ -63,14 +90,42 @@ export default function App() {
         return (
           <SessionScreen
             template={screen.template}
-            onFinish={handleFinishSession}
+            onFinish={(session) => handleFinishSession(session, screen.template)}
             onBack={goHome}
           />
         )
+      case 'summary':
+        return (
+          <PostWorkoutSummary
+            session={screen.session}
+            template={screen.template}
+            prevSession={screen.prevSession}
+            onDone={goHome}
+          />
+        )
       case 'history':
-        return <Placeholder label="History" icon="📈" />
+        return (
+          <HistoryScreen
+            sessions={sessions}
+            templates={templates}
+            onViewSession={s => goSessionDetail(s)}
+          />
+        )
+      case 'sessionDetail':
+        return (
+          <SessionDetailScreen
+            session={screen.session}
+            templateName={templateName(screen.session.templateId)}
+            onBack={() => goTab('history')}
+          />
+        )
       case 'settings':
-        return <Placeholder label="Settings" icon="⚙️" />
+        return (
+          <SettingsScreen
+            settings={settings}
+            onSave={handleSaveSettings}
+          />
+        )
       default:
         return null
     }
@@ -103,15 +158,6 @@ export default function App() {
           ))}
         </nav>
       )}
-    </div>
-  )
-}
-
-function Placeholder({ label, icon }) {
-  return (
-    <div className="placeholder-screen">
-      <span className="placeholder-icon">{icon}</span>
-      <p>{label} coming soon.</p>
     </div>
   )
 }

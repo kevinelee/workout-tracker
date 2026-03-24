@@ -5,9 +5,9 @@
 ---
 
 ## Current Session
-**Milestone**: M2 — Exercise Library + Workout Builder
-**Focus**: Exercise search/autocomplete, workout template creation, per-set +/- input
-**Branch**: `feat/workout-builder`
+**Milestone**: M4 — Progress, PRs & Motivation
+**Focus**: Session history list, per-exercise volume charts, PR badges, post-workout summary
+**Branch**: `feat/progress`
 
 ---
 
@@ -45,7 +45,7 @@
 
 ---
 
-### 🔄 M2 — Exercise Library + Workout Builder
+### ✅ M2 — Exercise Library + Workout Builder
 **Goal**: User can browse exercises, build workout templates, and manage them with a fast, touch-friendly UI
 
 **Tasks**:
@@ -70,7 +70,7 @@
 
 ---
 
-### ⬜ M3 — Session Tracker (Active Workout)
+### ✅ M3 — Session Tracker (Active Workout)
 **Goal**: User can run a live workout session from a template and log actual performance
 
 **Tasks**:
