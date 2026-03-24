@@ -77,6 +77,38 @@ export function saveSettings(settings) {
   set(KEYS.settings, settings)
 }
 
+// --- PR Tracking ---
+// Returns the max weight ever completed for an exercise across all finished sessions
+export function getPRWeight(exerciseId) {
+  const sessions = getSessions()
+  let max = 0
+  for (const session of sessions) {
+    const log = session.logs?.find(l => l.exerciseId === exerciseId)
+    if (!log) continue
+    for (const set of log.sets) {
+      if (set.completed && set.weight > max) max = set.weight
+    }
+  }
+  return max
+}
+
+// Returns a map of { [exerciseId]: maxWeight } for a list of exercise ids
+export function getPRMap(exerciseIds) {
+  const sessions = getSessions()
+  const map = Object.fromEntries(exerciseIds.map(id => [id, 0]))
+  for (const session of sessions) {
+    for (const log of session.logs ?? []) {
+      if (!(log.exerciseId in map)) continue
+      for (const set of log.sets) {
+        if (set.completed && set.weight > map[log.exerciseId]) {
+          map[log.exerciseId] = set.weight
+        }
+      }
+    }
+  }
+  return map
+}
+
 // --- Dev util ---
 export function clearAll() {
   Object.values(KEYS).forEach(k => localStorage.removeItem(k))

@@ -1,0 +1,118 @@
+.builder {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* Header */
+.builder-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.builder-back {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 28px;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.builder-title {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-h);
+  text-align: center;
+}
+
+.builder-save-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--sans);
+  min-height: 40px;
+  cursor: pointer;
+  transition: filter 0.15s, opacity 0.15s;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  &:not(:disabled):hover { filter: brightness(1.1); }
+}
+
+/* Body */
+.builder-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+}
+
+.builder-name-input {
+  background: #1f2028;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: var(--text-h);
+  font-size: 18px;
+  font-weight: 600;
+  font-family: var(--sans);
+  width: 100%;
+  outline: none;
+  box-sizing: border-box;
+
+  &:focus { border-color: var(--accent); }
+  &::placeholder { color: var(--text); font-weight: 400; }
+}
+
+.builder-exercises {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.builder-hint {
+  text-align: center;
+  color: var(--text);
+  font-size: 14px;
+  margin: 0;
+  padding: 20px 0;
+}
+
+.builder-delete-btn {
+  background: none;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 10px;
+  color: #f87171;
+  font-size: 15px;
+  font-family: var(--sans);
+  padding: 14px;
+  width: 100%;
+  cursor: pointer;
+  min-height: 48px;
+  margin-top: 8px;
+  transition: background 0.15s;
+
+  &:hover { background: rgba(248, 113, 113, 0.08); }
+}

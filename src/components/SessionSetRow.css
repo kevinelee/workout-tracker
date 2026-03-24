@@ -1,0 +1,137 @@
+.ssr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  transition: opacity 0.2s;
+  position: relative;
+
+  &:last-child { border-bottom: none; }
+}
+
+.ssr--done {
+  opacity: 0.5;
+}
+
+.ssr-index {
+  width: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+/* Stepper */
+.ssr-stepper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.ssr-stepper-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text);
+}
+
+.ssr-stepper-controls {
+  display: flex;
+  align-items: center;
+  background: #16171d;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.ssr-step-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 20px;
+  font-weight: 300;
+  padding: 10px 12px;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 40px;
+  transition: background 0.1s;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) { background: rgba(192, 132, 252, 0.1); }
+  &:disabled { color: var(--border); cursor: default; }
+}
+
+.ssr-value {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+/* Complete button */
+.ssr-complete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  min-width: 48px;
+}
+
+.ssr-circle {
+  display: block;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  transition: border-color 0.15s;
+
+  .ssr-complete-btn:hover & {
+    border-color: #4ade80;
+  }
+}
+
+.ssr-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: #4ade80;
+  border-radius: 50%;
+  color: #16171d;
+  font-size: 16px;
+  font-weight: 700;
+  animation: pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes pop {
+  0%   { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+/* PR badge */
+.ssr-pr-badge {
+  position: absolute;
+  right: 52px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-weight: 700;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 6px;
+  padding: 2px 6px;
+  animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: none;
+}

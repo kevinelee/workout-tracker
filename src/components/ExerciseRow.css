@@ -1,0 +1,136 @@
+.ex-row {
+  background: #1f2028;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.ex-row-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ex-row-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg { width: 100%; height: 100%; }
+}
+
+.ex-row-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ex-row-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ex-row-meta {
+  font-size: 12px;
+  color: var(--text);
+  margin: 2px 0 0;
+}
+
+.ex-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ex-notes-btn,
+.ex-remove-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 16px;
+  min-height: 40px;
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s;
+}
+
+.ex-notes-btn {
+  color: var(--text);
+  opacity: 0.6;
+
+  &:hover, &.active {
+    background: rgba(192, 132, 252, 0.1);
+    opacity: 1;
+  }
+}
+
+.ex-remove-btn {
+  color: var(--text);
+  font-size: 13px;
+
+  &:hover {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.1);
+  }
+}
+
+/* Sets */
+.ex-sets {
+  padding: 6px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ex-add-set-btn {
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 14px;
+  font-family: var(--sans);
+  padding: 10px;
+  width: 100%;
+  cursor: pointer;
+  margin-top: 6px;
+  min-height: 44px;
+  transition: border-color 0.1s, background 0.1s;
+
+  &:hover {
+    border-color: var(--accent-border);
+    background: rgba(192, 132, 252, 0.06);
+  }
+}
+
+/* Notes */
+.ex-notes {
+  display: block;
+  width: 100%;
+  background: #16171d;
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--text-h);
+  font-size: 14px;
+  font-family: var(--sans);
+  padding: 12px 14px;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+  line-height: 1.5;
+
+  &::placeholder { color: var(--text); }
+}

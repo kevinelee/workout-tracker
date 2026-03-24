@@ -5,9 +5,9 @@
 ---
 
 ## Current Session
-**Milestone**: M1 — Project Setup + Data Model
-**Focus**: Scaffold Vite + React, define data model, wire up localStorage persistence
-**Branch**: `feat/project-setup`
+**Milestone**: M2 — Exercise Library + Workout Builder
+**Focus**: Exercise search/autocomplete, workout template creation, per-set +/- input
+**Branch**: `feat/workout-builder`
 
 ---
 
@@ -20,7 +20,7 @@
 
 ---
 
-### 🔄 M1 — Project Setup + Data Model
+### ✅ M1 — Project Setup + Data Model
 **Goal**: Working Vite + React app with a defined data shape and localStorage persistence
 
 **Tasks**:
@@ -45,7 +45,7 @@
 
 ---
 
-### ⬜ M2 — Exercise Library + Workout Builder
+### 🔄 M2 — Exercise Library + Workout Builder
 **Goal**: User can browse exercises, build workout templates, and manage them with a fast, touch-friendly UI
 
 **Tasks**:

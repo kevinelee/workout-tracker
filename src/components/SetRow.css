@@ -1,0 +1,88 @@
+.set-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.set-index {
+  width: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+/* Stepper */
+.stepper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.stepper-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text);
+}
+
+.stepper-controls {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: #16171d;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.stepper-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 20px;
+  font-weight: 300;
+  line-height: 1;
+  padding: 10px 14px;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+  flex-shrink: 0;
+  transition: background 0.1s;
+
+  &:hover:not(:disabled) { background: rgba(192, 132, 252, 0.1); }
+  &:disabled { color: var(--border); cursor: not-allowed; }
+}
+
+.stepper-value {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-h);
+  min-width: 32px;
+}
+
+/* Remove button */
+.set-remove-btn {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  flex-shrink: 0;
+  min-height: 36px;
+  min-width: 36px;
+  transition: color 0.1s, background 0.1s;
+
+  &:hover {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.1);
+  }
+}
