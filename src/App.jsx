@@ -287,6 +287,7 @@ export default function App() {
 
   function handleCancelOverride() {
     setPendingStart(null)
+    setStartingQuickStart(null)
   }
 
   function handleSessionUpdate(logs, prMap) {
@@ -427,7 +428,7 @@ export default function App() {
             session={screen.session}
             templateName={templateName(screen.session.templateId)}
             onBack={() => goTab('history')}
-            onDelete={() => { setSessions(getSessions()) }}
+            onDelete={async () => { setSessions(await getSessions()) }}
           />
         )
       case 'settings':
