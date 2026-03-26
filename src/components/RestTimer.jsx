@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './RestTimer.css'
 
 function fmt(seconds) {
@@ -7,14 +7,33 @@ function fmt(seconds) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-export default function RestTimer({ seconds, total, onSkip, onTick }) {
-  useEffect(() => {
-    if (seconds <= 0) { onSkip(); return }
-    const id = setTimeout(() => onTick(seconds - 1), 1000)
-    return () => clearTimeout(id)
-  }, [seconds])
+// duration = total seconds for this rest period
+export default function RestTimer({ duration, onDone, onSkip }) {
+  const endAtRef = useRef(Date.now() + duration * 1000)
+  const [remaining, setRemaining] = useState(duration)
 
-  const progress = total > 0 ? seconds / total : 0
+  useEffect(() => {
+    function tick() {
+      const r = Math.max(0, Math.ceil((endAtRef.current - Date.now()) / 1000))
+      setRemaining(r)
+      if (r <= 0) onDone()
+    }
+
+    tick() // immediate snapshot on mount
+    const id = setInterval(tick, 500) // poll every 500 ms so drift is at most 0.5 s
+
+    function onVisible() {
+      if (document.visibilityState === 'visible') tick() // snap immediately on resume
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const progress = duration > 0 ? remaining / duration : 0
   const circumference = 2 * Math.PI * 38
   const dashOffset = circumference * progress
 
@@ -31,7 +50,7 @@ export default function RestTimer({ seconds, total, onSkip, onTick }) {
               strokeDashoffset={dashOffset}
             />
           </svg>
-          <span className="rest-countdown">{fmt(seconds)}</span>
+          <span className="rest-countdown">{fmt(remaining)}</span>
         </div>
         <p className="rest-label">Rest</p>
         <button className="rest-skip-btn" onClick={onSkip}>Skip →</button>
