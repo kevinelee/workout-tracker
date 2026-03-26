@@ -63,18 +63,17 @@ export default function App() {
   const [authUser, setAuthUser]   = useState(null)
   const [authReady, setAuthReady] = useState(false)
 
-  // Bootstrap auth — restore session from existing cookie/token
+  // Bootstrap auth — onAuthStateChange fires with INITIAL_SESSION on mount,
+  // which handles both normal loads and magic link / invite token exchanges
+  // in one place, avoiding the race condition where getSession() resolves
+  // before the token is exchanged and flashes the login screen.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) bootstrapUser(session.user)
-      setAuthReady(true)
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        bootstrapUser(session.user)
+        await bootstrapUser(session.user)
       } else {
         setAuthUser(null)
+        setAuthReady(true)
       }
     })
     return () => subscription.unsubscribe()
@@ -88,7 +87,7 @@ export default function App() {
       getSettings(),
       getCheckIns(),
       hasCheckedInToday(),
-      getCustomExercises(), // populates the cache used by components
+      getCustomExercises(),
     ])
     setTemplates(tmpl)
     setSessions(sess)
@@ -96,6 +95,7 @@ export default function App() {
     setCheckIns(ci)
     setCheckedIn(chk)
     setAuthUser(user)
+    setAuthReady(true)  // only show the app once all data is loaded
   }
 
   async function handleSignOut() {
