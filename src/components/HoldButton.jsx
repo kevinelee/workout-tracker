@@ -9,7 +9,8 @@ export default function HoldButton({ onTap, children, disabled, className, 'aria
   const phase1Ref  = useRef(null)
   const phase2Ref  = useRef(null)
 
-  function startHold() {
+  function startHold(e) {
+    e.preventDefault() // suppress iOS text-selection / callout on long press
     if (disabled) return
     onTap()
     // Phase 1: start rapid fire after 400ms hold
@@ -37,9 +38,11 @@ export default function HoldButton({ onTap, children, disabled, className, 'aria
       className={className}
       aria-label={ariaLabel}
       disabled={disabled}
+      style={{ userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'manipulation' }}
       onPointerDown={startHold}
       onPointerUp={stopHold}
       onPointerLeave={stopHold}
+      onContextMenu={e => e.preventDefault()}
     >
       {children}
     </button>
