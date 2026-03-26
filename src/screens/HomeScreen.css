@@ -164,10 +164,33 @@
   font-weight: 600;
   font-family: var(--sans);
   min-height: 44px;
+  min-width: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   transition: filter 0.15s;
 
   &:hover { filter: brightness(1.1); }
+  &:disabled { opacity: 0.6; cursor: default; filter: none; }
+}
+
+.home-start-btn--loading {
+  opacity: 1;
+}
+
+.home-start-spinner {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Active session resume banner */
@@ -276,12 +299,22 @@
   padding: 16px;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.2s ease-in-out, background 0.15s;
+  transition: border-color 0.2s ease-in-out, background 0.15s, opacity 0.2s;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: var(--surface-2);
     border-color: var(--accent);
   }
+}
+
+.home-quickstart-card--loading {
+  border-color: var(--accent);
+  cursor: default;
+}
+
+.home-quickstart-card--dimmed {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .home-quickstart-emoji {

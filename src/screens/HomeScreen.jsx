@@ -11,7 +11,7 @@ function fmtElapsed(seconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-export default function HomeScreen({ templates, sessions, checkIns, checkedIn, streak, settings, activeSession, onNew, onEdit, onStart, onQuickStart, onCheckIn, onResumeSession }) {
+export default function HomeScreen({ templates, sessions, checkIns, checkedIn, streak, settings, activeSession, startingTemplateId, startingQuickStart, onNew, onEdit, onStart, onQuickStart, onCheckIn, onResumeSession }) {
   const milestone = streakMilestone(streak)
   const [sessionElapsed, setSessionElapsed] = useState(0)
 
@@ -30,7 +30,7 @@ export default function HomeScreen({ templates, sessions, checkIns, checkedIn, s
     <div className={`home ${settings.controllerSide === 'left' ? 'home--left' : ''}`}>
       <div className="home-header">
         <h2 className="home-title">My Workouts</h2>
-        <button className="home-new-btn" onClick={onNew}>+ New</button>
+        <button className="home-new-btn" onClick={onNew}>+</button>
       </div>
 
       {/* Active session resume banner */}
@@ -80,7 +80,15 @@ export default function HomeScreen({ templates, sessions, checkIns, checkedIn, s
                 </div>
                 <div className="home-card-actions">
                   <button className="home-edit-btn" onClick={() => onEdit(t)} aria-label="Edit workout">✏️</button>
-                  <button className="home-start-btn" onClick={() => onStart(t)}>Start</button>
+                  <button
+                    className={`home-start-btn ${startingTemplateId === t.id ? 'home-start-btn--loading' : ''}`}
+                    onClick={() => onStart(t)}
+                    disabled={!!startingTemplateId}
+                  >
+                    {startingTemplateId === t.id
+                      ? <span className="home-start-spinner" />
+                      : 'Start'}
+                  </button>
                 </div>
               </div>
             </li>
@@ -92,17 +100,24 @@ export default function HomeScreen({ templates, sessions, checkIns, checkedIn, s
       <div className="home-quickstart">
         <p className="home-quickstart-label">Quick Start</p>
         <div className="home-quickstart-grid">
-          {starterTemplates.map(starter => (
-            <button
-              key={starter.label}
-              className="home-quickstart-card"
-              onClick={() => onQuickStart(starter)}
-            >
-              <span className="home-quickstart-emoji">{starter.emoji}</span>
-              <span className="home-quickstart-name">{starter.label}</span>
-              <span className="home-quickstart-desc">{starter.description}</span>
-            </button>
-          ))}
+          {starterTemplates.map(starter => {
+            const isLoading = startingQuickStart === starter.label
+            return (
+              <button
+                key={starter.label}
+                className={`home-quickstart-card${isLoading ? ' home-quickstart-card--loading' : ''}${startingQuickStart && !isLoading ? ' home-quickstart-card--dimmed' : ''}`}
+                onClick={() => onQuickStart(starter)}
+                disabled={!!startingQuickStart}
+              >
+                {isLoading
+                  ? <span className="qs-spinner" />
+                  : <span className="home-quickstart-emoji">{starter.emoji}</span>
+                }
+                <span className="home-quickstart-name">{starter.label}</span>
+                <span className="home-quickstart-desc">{starter.description}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>

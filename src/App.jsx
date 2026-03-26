@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   getTemplates, getSessions, getSettings, saveSettings, getCheckIns, saveCheckIn,
   getLastSessionForTemplate, getPRMap,
-  getActiveSession, saveActiveSession, clearActiveSession, saveTemplate,
+  getActiveSession, saveActiveSession, clearActiveSession, saveTemplate, deleteTemplate,
   setStorageUser, clearUserCache, getCustomExercises, hasCheckedInToday,
 } from './storage'
 import { supabase, signOut } from './lib/supabase'
@@ -23,6 +23,7 @@ import './App.css'
 function initLogsFromTemplate(template) {
   return template.exercises.map(te => ({
     exerciseId: te.exerciseId,
+    targetCount: te.sets.length,
     sets: te.sets.map(s => ({ reps: s.reps, weight: s.weight, completed: false, isPR: false })),
     notes: te.notes ?? '',
   }))
@@ -33,10 +34,11 @@ function initLogsFromSession(template, lastSession) {
   return template.exercises.map(te => {
     const lastLog = lastSession.logs?.find(l => l.exerciseId === te.exerciseId)
     if (!lastLog) {
-      return { exerciseId: te.exerciseId, sets: te.sets.map(s => ({ ...s, completed: false, isPR: false })), notes: '' }
+      return { exerciseId: te.exerciseId, targetCount: te.sets.length, sets: te.sets.map(s => ({ ...s, completed: false, isPR: false })), notes: '' }
     }
     return {
       exerciseId: te.exerciseId,
+      targetCount: te.sets.length,
       sets: lastLog.sets.map(s => ({ reps: s.reps, weight: s.weight, completed: false, isPR: false })),
       notes: lastLog.notes ?? '',
     }
@@ -62,6 +64,9 @@ function useNav() {
 export default function App() {
   const [authUser, setAuthUser]   = useState(null)
   const [authReady, setAuthReady] = useState(false)
+  // Track the user ID we've already bootstrapped so TOKEN_REFRESHED and
+  // duplicate INITIAL_SESSION events don't re-run all Supabase queries.
+  const bootstrappedUidRef = useRef(null)
 
   // Bootstrap auth — onAuthStateChange fires with INITIAL_SESSION on mount,
   // which handles both normal loads and magic link / invite token exchanges
@@ -70,8 +75,11 @@ export default function App() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
+        // Already bootstrapped for this user (e.g. TOKEN_REFRESHED on resume) — skip.
+        if (bootstrappedUidRef.current === session.user.id) return
         await bootstrapUser(session.user)
       } else {
+        bootstrappedUidRef.current = null
         setAuthUser(null)
         setAuthReady(true)
       }
@@ -80,25 +88,39 @@ export default function App() {
   }, [])
 
   async function bootstrapUser(user) {
+    bootstrappedUidRef.current = user.id
     setStorageUser(user.id)
-    const [tmpl, sess, stg, ci, chk] = await Promise.all([
-      getTemplates(),
-      getSessions(),
-      getSettings(),
-      getCheckIns(),
-      hasCheckedInToday(),
-      getCustomExercises(),
-    ])
-    setTemplates(tmpl)
-    setSessions(sess)
-    setSettings(stg)
-    setCheckIns(ci)
-    setCheckedIn(chk)
-    setAuthUser(user)
-    setAuthReady(true)  // only show the app once all data is loaded
+    try {
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('bootstrap timeout')), 10000)
+      )
+      const load = Promise.all([
+        getTemplates(),
+        getSessions(),
+        getSettings(),
+        getCheckIns(),
+        hasCheckedInToday(),
+        getCustomExercises(),
+      ])
+      const [tmpl, sess, stg, ci, chk] = await Promise.race([load, timeout])
+      setTemplates(tmpl)
+      setSessions(sess)
+      setSettings(stg)
+      setCheckIns(ci)
+      setCheckedIn(chk)
+      setAuthUser(user)
+    } catch (err) {
+      console.error('bootstrapUser failed:', err)
+      // Still mark the user as authenticated so the app shows something.
+      // Data will be empty but the user can retry from a working state.
+      setAuthUser(user)
+    } finally {
+      setAuthReady(true)
+    }
   }
 
   async function handleSignOut() {
+    bootstrappedUidRef.current = null
     await signOut()
     clearUserCache()
     setTemplates([])
@@ -129,6 +151,8 @@ export default function App() {
   const [startSheetOpen,    setStartSheetOpen]    = useState(false)
   const [startSheetClosing, setStartSheetClosing] = useState(false)
   const [pendingStart, setPendingStart]           = useState(null) // template waiting for override confirm
+  const [startingTemplateId, setStartingTemplateId] = useState(null)
+  const [startingQuickStart, setStartingQuickStart] = useState(null) // label of quick start being loaded
 
 
   // Drag-to-dismiss state
@@ -203,6 +227,8 @@ export default function App() {
   async function handleDeleteTemplate() { await refreshData(); goHome() }
 
   async function doStartSession(template) {
+    setStartingTemplateId(template.id)
+    setStartingQuickStart(null)
     const session = createSession({ templateId: template.id, logs: [] })
     const exerciseIds = template.exercises.map(e => e.exerciseId)
     const prMap = await getPRMap(exerciseIds)
@@ -210,6 +236,7 @@ export default function App() {
     const data = { template, sessionId: session.id, startedAt: session.startedAt, logs, prMap }
     saveActiveSession(data)
     setActiveSession(data)
+    setStartingTemplateId(null)
     closeStartSheet()
     goSession()
     setActiveTab('session')
@@ -237,10 +264,17 @@ export default function App() {
   }
 
   async function handleQuickStartStarter(starter) {
-    const template = starter.build()
-    await saveTemplate(template)
-    await refreshData()
-    attemptStart(template)
+    if (startingQuickStart) return
+    setStartingQuickStart(starter.label)
+    try {
+      const template = { ...starter.build(), isQuickStart: true }
+      await saveTemplate(template)
+      await refreshData()
+      attemptStart(template)
+    } catch (err) {
+      console.error('Failed to start quick start:', err)
+      setStartingQuickStart(null)
+    }
   }
 
   function handleConfirmOverride() {
@@ -265,8 +299,13 @@ export default function App() {
   async function handleSessionFinish(session, template) {
     clearActiveSession()
     setActiveSession(null)
+    // If the template was a quick start that the user chose not to save, clean it up
+    if (template.isQuickStart) {
+      await deleteTemplate(template.id)
+    }
     const all = await getSessions()
     setSessions(all)
+    await refreshData()
     const prev = all
       .filter(s => s.templateId === template.id && s.finishedAt && s.id !== session.id)
       .sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))[0] ?? null
@@ -296,9 +335,9 @@ export default function App() {
 
   // Show nothing while checking auth state, then gate on auth
   if (!authReady) return (
-    <div style={{ minHeight: '100svh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-      <span style={{ fontSize: 48, animation: 'spin 1s linear infinite' }}>💪</span>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <div className="app-loading">
+      <div className="app-loading-spinner" />
+      <img src="/avg-logo.png" alt="avg" className="app-loading-logo" />
     </div>
   )
   if (!authUser) return <AuthScreen onAuth={user => bootstrapUser(user)} />
@@ -327,7 +366,7 @@ export default function App() {
       case 'home':
         return (
           <HomeScreen
-            templates={templates}
+            templates={templates.filter(t => !t.isQuickStart)}
             sessions={sessions}
             checkIns={checkIns}
             checkedIn={checkedIn}
@@ -337,7 +376,9 @@ export default function App() {
             onNew={() => goBuilder(null)}
             onEdit={t => goBuilder(t)}
             onStart={handleStartSession}
+            startingTemplateId={startingTemplateId}
             onQuickStart={handleQuickStartStarter}
+            startingQuickStart={startingQuickStart}
             onCheckIn={handleCheckIn}
             onResumeSession={() => { goSession(); setActiveTab('session') }}
           />
@@ -396,6 +437,7 @@ export default function App() {
             onSave={handleSaveSettings}
             sessions={sessions}
             templates={templates}
+            onSignOut={handleSignOut}
           />
         )
       default:
@@ -407,12 +449,12 @@ export default function App() {
     <div className="app">
       {!fullscreen && (
         <header className="app-header">
-          <span className="app-logo">💪</span>
-          <h1 className="app-title">Workout Tracker</h1>
-          {settings.checkInEnabled && checkedIn && (
-            <span className="app-streak-badge" key={streak}>🔥 {streak}</span>
-          )}
-          <button className="app-signout-btn" onClick={handleSignOut} aria-label="Sign out">⏻</button>
+          {settings.checkInEnabled && checkedIn
+            ? <span className="app-streak-badge" key={streak}>🔥 {streak}</span>
+            : <span className="app-header-spacer" />
+          }
+          <img src="/avg-logo.png" alt="avg" className="app-logo-img" />
+          <span className="app-header-spacer" />
         </header>
       )}
 
@@ -442,17 +484,24 @@ export default function App() {
             />
             <p className="sheet-title">Start a Workout</p>
             <div className="sheet-quickstart-grid">
-              {starterTemplates.map(starter => (
-                <button
-                  key={starter.label}
-                  className="sheet-quickstart-card"
-                  onClick={() => handleQuickStartStarter(starter)}
-                >
-                  <span className="sheet-quickstart-emoji">{starter.emoji}</span>
-                  <span className="sheet-quickstart-name">{starter.label}</span>
-                  <span className="sheet-quickstart-desc">{starter.description}</span>
-                </button>
-              ))}
+              {starterTemplates.map(starter => {
+                const isLoading = startingQuickStart === starter.label
+                return (
+                  <button
+                    key={starter.label}
+                    className={`sheet-quickstart-card${isLoading ? ' sheet-quickstart-card--loading' : ''}${startingQuickStart && !isLoading ? ' sheet-quickstart-card--dimmed' : ''}`}
+                    onClick={() => handleQuickStartStarter(starter)}
+                    disabled={!!startingQuickStart}
+                  >
+                    {isLoading
+                      ? <span className="qs-spinner" />
+                      : <span className="sheet-quickstart-emoji">{starter.emoji}</span>
+                    }
+                    <span className="sheet-quickstart-name">{starter.label}</span>
+                    <span className="sheet-quickstart-desc">{starter.description}</span>
+                  </button>
+                )
+              })}
             </div>
             <button className="sheet-custom-btn" onClick={() => { closeStartSheet(); setTimeout(() => goBuilder(null), 220) }}>
               Build Custom Workout
