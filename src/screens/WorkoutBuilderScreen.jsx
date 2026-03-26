@@ -1,9 +1,28 @@
 import { useState } from 'react'
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { createWorkoutTemplate, createTemplateExercise, createSet } from '../data/models'
 import { saveTemplate, deleteTemplate } from '../storage'
 import ExerciseSearch from '../components/ExerciseSearch'
 import ExerciseRow from '../components/ExerciseRow'
 import './WorkoutBuilderScreen.css'
+
+function SortableExerciseRow({ id, ...props }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1 : 0,
+    position: 'relative',
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      <ExerciseRow {...props} dragHandleListeners={listeners} dragHandleAttributes={attributes} />
+    </div>
+  )
+}
 
 export default function WorkoutBuilderScreen({ template: initial, onSave, onBack, onDelete }) {
   const isNew = !initial
@@ -13,6 +32,7 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
     initial?.exercises ?? []
   )
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   function handleSelectExercise(exercise) {
     // Don't add duplicates
@@ -32,12 +52,18 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
   }
 
   async function handleSave() {
-    if (!name.trim() || exercises.length === 0) return
-    const template = isNew
-      ? createWorkoutTemplate({ name: name.trim(), exercises })
-      : { ...initial, name: name.trim(), exercises }
-    await saveTemplate(template)
-    onSave(template)
+    if (!name.trim() || exercises.length === 0 || saving) return
+    setSaving(true)
+    try {
+      const template = isNew
+        ? createWorkoutTemplate({ name: name.trim(), exercises })
+        : { ...initial, name: name.trim(), exercises }
+      await saveTemplate(template)
+      onSave(template)
+    } catch (err) {
+      console.error('Failed to save template:', err)
+      setSaving(false)
+    }
   }
 
   async function handleDelete() {
@@ -46,10 +72,31 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
     onDelete()
   }
 
-  const canSave = name.trim().length > 0 && exercises.length > 0
+  const canSave = name.trim().length > 0 && exercises.length > 0 && !saving
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+  )
+
+  function handleDragEnd(event) {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      const oldIndex = exercises.findIndex(e => e.exerciseId === active.id)
+      const newIndex = exercises.findIndex(e => e.exerciseId === over.id)
+      setExercises(prev => arrayMove(prev, oldIndex, newIndex))
+    }
+  }
+
+  function handleBuilderClick(e) {
+    const interactive = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON']
+    if (!interactive.includes(e.target.tagName)) {
+      document.activeElement?.blur()
+    }
+  }
 
   return (
-    <div className="builder">
+    <div className="builder" onClick={handleBuilderClick}>
       {/* Header */}
       <div className="builder-header">
         <button className="builder-back" onClick={onBack} aria-label="Back">‹</button>
@@ -59,7 +106,7 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
           onClick={handleSave}
           disabled={!canSave}
         >
-          Save
+          {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
 
@@ -71,6 +118,8 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
           value={name}
           onChange={e => setName(e.target.value)}
           autoFocus={isNew}
+          enterKeyHint="done"
+          onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
         />
 
         {/* Exercise search */}
@@ -81,16 +130,21 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
 
         {/* Exercise list */}
         {exercises.length > 0 && (
-          <div className="builder-exercises">
-            {exercises.map((ex, i) => (
-              <ExerciseRow
-                key={`${ex.exerciseId}-${i}`}
-                templateExercise={ex}
-                onChange={updated => updateExercise(i, updated)}
-                onRemove={() => removeExercise(i)}
-              />
-            ))}
-          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={exercises.map(e => e.exerciseId)} strategy={verticalListSortingStrategy}>
+              <div className="builder-exercises">
+                {exercises.map((ex, i) => (
+                  <SortableExerciseRow
+                    key={ex.exerciseId}
+                    id={ex.exerciseId}
+                    templateExercise={ex}
+                    onChange={updated => updateExercise(i, updated)}
+                    onRemove={() => removeExercise(i)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
 
         {exercises.length === 0 && name.trim() && (

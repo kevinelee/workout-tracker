@@ -10,7 +10,7 @@ function findExercise(id) {
   return defaultExercises.find(e => e.id === id) ?? getCachedCustomExercises().find(e => e.id === id) ?? null
 }
 
-export default function ExerciseRow({ templateExercise, onChange, onRemove }) {
+export default function ExerciseRow({ templateExercise, onChange, onRemove, dragHandleListeners, dragHandleAttributes }) {
   const [notesOpen, setNotesOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const notesRef = useRef(null)
@@ -43,6 +43,17 @@ export default function ExerciseRow({ templateExercise, onChange, onRemove }) {
   return (
     <div className="ex-row">
       <div className="ex-row-header" onClick={() => setCollapsed(c => !c)} style={{ cursor: 'pointer' }}>
+        {dragHandleListeners && (
+          <button
+            className="ex-drag-handle"
+            {...dragHandleListeners}
+            {...dragHandleAttributes}
+            onClick={e => e.stopPropagation()}
+            aria-label="Drag to reorder"
+          >
+            ⠿
+          </button>
+        )}
         <MuscleIcon muscleGroup={exercise.muscleGroup} className="ex-row-icon" />
         <div className="ex-row-info">
           <p className="ex-row-name">{exercise.name}</p>
