@@ -67,8 +67,31 @@
   font-weight: 600;
   font-family: var(--sans);
   min-height: 40px;
+  min-width: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
+}
+
+.session-spinner {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: session-spin 0.7s linear infinite;
+}
+
+.session-spinner--dark {
+  border-color: rgba(0,0,0,0.2);
+  border-top-color: rgba(0,0,0,0.7);
+}
+
+@keyframes session-spin {
+  to { transform: rotate(360deg); }
 }
 
 .session-finish-btn--ready {
@@ -97,7 +120,7 @@
 
 /* Body */
 .session-body {
-  padding: 14px 16px 100px; /* bottom padding for rest timer */
+  padding: 14px 16px calc(100px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -289,6 +312,96 @@
   &:hover { filter: brightness(1.1); }
 }
 
+/* Remove exercise button in exercise header */
+.session-ex-remove {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 6px;
+  opacity: 0.35;
+  flex-shrink: 0;
+  min-height: 36px;
+  min-width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s, color 0.15s;
+
+  &:hover { opacity: 1; color: #f87171; }
+}
+
+/* Add exercise button */
+.session-add-ex-btn {
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  color: var(--accent);
+  font-size: 14px;
+  font-family: var(--sans);
+  font-weight: 500;
+  padding: 12px;
+  width: 100%;
+  cursor: pointer;
+  min-height: 44px;
+  transition: border-color 0.15s, background 0.15s;
+
+  &:hover { border-color: var(--accent); background: rgba(192, 132, 252, 0.06); }
+}
+
+/* Add exercise fullscreen overlay */
+.session-add-ex-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  animation: session-add-ex-in 0.2s ease;
+}
+
+@keyframes session-add-ex-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.session-add-ex-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.session-add-ex-title {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-h);
+  text-align: center;
+  margin: 0;
+}
+
+.session-add-ex-close {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 15px;
+  font-family: var(--sans);
+  padding: 8px 4px;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 64px;
+}
+
+.session-add-ex-body {
+  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+
 /* Abandon button */
 .session-abandon-btn {
   background: none;
@@ -305,6 +418,69 @@
   transition: background 0.15s, color 0.15s;
 
   &:hover { background: rgba(248, 113, 113, 0.08); color: #f87171; }
+}
+
+/* Timer flash overlay */
+.session-timer-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: var(--accent);
+  pointer-events: none;
+  animation: timer-flash-anim 0.6s ease-out forwards;
+}
+
+@keyframes timer-flash-anim {
+  0%   { opacity: 0.55; }
+  100% { opacity: 0; }
+}
+
+/* Collapse toggle button */
+.session-collapse-btn {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+  padding: 6px 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, color 0.15s;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 32px;
+  justify-content: center;
+}
+
+.session-collapse-btn--open {
+  transform: rotate(90deg);
+}
+
+/* Add set button */
+.session-add-set-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-family: var(--sans);
+  font-weight: 600;
+  padding: 8px 14px;
+  cursor: pointer;
+  text-align: left;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+  width: 100%;
+
+  &:hover { opacity: 1; }
+}
+
+/* Backdrop behind rest timer — absorbs stray pointer events on set rows */
+.rest-timer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 49;
+  pointer-events: auto;
 }
 
 /* Abandon modal */
@@ -381,4 +557,68 @@
   transition: background 0.15s;
 
   &:hover { background: rgba(248, 113, 113, 0.1); }
+}
+
+.session-modal-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--text-h);
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--sans);
+  width: 100%;
+  outline: none;
+  box-sizing: border-box;
+
+  &:focus { border-color: var(--accent); }
+  &::placeholder { color: var(--text); font-weight: 400; }
+}
+
+.session-modal-secondary {
+  flex: 1;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 15px;
+  font-family: var(--sans);
+  padding: 13px;
+  cursor: pointer;
+  min-height: 48px;
+  transition: background 0.15s;
+
+  &:hover { background: rgba(255,255,255,0.04); }
+}
+
+.session-modal-confirm--update {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+
+  &:hover { background: none; border-color: var(--accent); color: var(--accent); }
+}
+
+.session-modal--update {
+  gap: 8px;
+}
+
+.session-modal-diff {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.session-modal-diff--added {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.session-modal-diff--removed {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.08);
 }
