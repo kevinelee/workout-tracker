@@ -181,6 +181,8 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  max-height: 80vh;
+  overflow-y: auto;
   animation: sheet-in 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
@@ -192,11 +194,27 @@
   margin: 0 auto 6px;
 }
 
+.history-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .history-day-title {
   font-size: 16px;
   font-weight: 700;
   color: var(--text-h);
   margin: 0 0 4px;
+}
+
+.history-day-close {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
 }
 
 .history-day-card {
@@ -253,4 +271,106 @@
   transition: border-color 0.2s ease-in-out, color 0.15s;
 
   &:hover { border-color: var(--accent-border); color: var(--text-h); }
+}
+
+/* Swipe to delete */
+.history-swipe-item {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.history-swipe-actions {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: stretch;
+}
+
+.history-swipe-delete {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  width: 80px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--sans);
+  cursor: pointer;
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+}
+
+.history-swipe-item--open .history-swipe-delete {
+  transform: translateX(0);
+}
+
+.history-swipe-item .history-card {
+  transition: transform 0.2s ease;
+}
+
+.history-swipe-item--open .history-card {
+  transform: translateX(-80px);
+}
+
+/* Delete confirmation modal */
+.history-delete-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.history-delete-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.history-delete-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-h);
+  margin: 0 0 6px;
+}
+
+.history-delete-sub {
+  font-size: 13px;
+  color: var(--text);
+  margin: 0 0 20px;
+}
+
+.history-delete-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.history-delete-cancel,
+.history-delete-confirm {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--sans);
+  cursor: pointer;
+  border: none;
+}
+
+.history-delete-cancel {
+  background: var(--surface-2);
+  color: var(--text-h);
+}
+
+.history-delete-confirm {
+  background: #ef4444;
+  color: #fff;
 }

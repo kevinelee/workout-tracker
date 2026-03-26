@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { sessionVolume, sessionPRCount, fmtVolume, fmtDuration } from '../utils/volume'
 import { calcStreak } from '../utils/streaks'
 import { getCachedCustomExercises } from '../storage'
@@ -23,13 +23,16 @@ function exerciseName(id) {
     ?? id
 }
 
-export default function HistoryScreen({ sessions, templates, checkIns, onViewSession }) {
+export default function HistoryScreen({ sessions, templates, checkIns, onViewSession, onDeleteSession }) {
   const streak = calcStreak(sessions, checkIns)
   const finished = sessions.filter(s => s.finishedAt).sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))
 
   const [filterId,     setFilterId]     = useState(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [dayModal,     setDayModal]     = useState(null) // { date, sessions }
+  const [swipedId,     setSwipedId]     = useState(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(null) // session to confirm delete
+  const touchStartRef = useRef(null)
 
   function templateName(id) {
     return templates.find(t => t.id === id)?.name ?? 'Workout'
@@ -41,6 +44,24 @@ export default function HistoryScreen({ sessions, templates, checkIns, onViewSes
   function handleFilter(id) {
     setFilterId(id)
     setVisibleCount(PAGE_SIZE)
+  }
+
+  function handleTouchStart(e, id) {
+    touchStartRef.current = { x: e.touches[0].clientX, id }
+  }
+
+  function handleTouchEnd(e, id) {
+    if (!touchStartRef.current || touchStartRef.current.id !== id) return
+    const delta = touchStartRef.current.x - e.changedTouches[0].clientX
+    if (delta > 60) setSwipedId(id)
+    else if (delta < -20) setSwipedId(null)
+    touchStartRef.current = null
+  }
+
+  async function handleDeleteConfirmed() {
+    if (!deleteConfirm) return
+    await onDeleteSession(deleteConfirm.id)
+    setDeleteConfirm(null)
   }
 
   const filtered = filterId ? finished.filter(s => s.templateId === filterId) : finished
@@ -69,7 +90,10 @@ export default function HistoryScreen({ sessions, templates, checkIns, onViewSes
         <div className="history-day-backdrop" onClick={() => setDayModal(null)}>
           <div className="history-day-modal" onClick={e => e.stopPropagation()}>
             <div className="history-day-handle" />
-            <p className="history-day-title">{fmtDateLong(dayModal.date)}</p>
+            <div className="history-day-header">
+              <p className="history-day-title">{fmtDateLong(dayModal.date)}</p>
+              <button className="history-day-close" onClick={() => setDayModal(null)} aria-label="Close">✕</button>
+            </div>
             {dayModal.sessions.map(s => (
               <button key={s.id} className="history-day-card" onClick={() => { setDayModal(null); onViewSession(s) }}>
                 <div>
@@ -131,9 +155,26 @@ export default function HistoryScreen({ sessions, templates, checkIns, onViewSes
               {visible.map(s => {
                 const vol = sessionVolume(s)
                 const prs = sessionPRCount(s)
+                const isOpen = swipedId === s.id
                 return (
-                  <li key={s.id}>
-                    <button className="history-card" onClick={() => onViewSession(s)}>
+                  <li
+                    key={s.id}
+                    className={`history-swipe-item${isOpen ? ' history-swipe-item--open' : ''}`}
+                    onTouchStart={e => handleTouchStart(e, s.id)}
+                    onTouchEnd={e => handleTouchEnd(e, s.id)}
+                  >
+                    <div className="history-swipe-actions">
+                      <button
+                        className="history-swipe-delete"
+                        onClick={() => { setDeleteConfirm(s); setSwipedId(null) }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                    <button
+                      className="history-card"
+                      onClick={() => { if (isOpen) { setSwipedId(null); return }; onViewSession(s) }}
+                    >
                       <div className="history-card-info">
                         <p className="history-card-name">{templateName(s.templateId)}</p>
                         <p className="history-card-meta">
@@ -155,6 +196,19 @@ export default function HistoryScreen({ sessions, templates, checkIns, onViewSes
           </>
         )}
       </section>
+      {/* Delete confirmation modal */}
+      {deleteConfirm && (
+        <div className="history-delete-backdrop" onClick={() => setDeleteConfirm(null)}>
+          <div className="history-delete-modal" onClick={e => e.stopPropagation()}>
+            <p className="history-delete-title">Delete "{templateName(deleteConfirm.templateId)}"?</p>
+            <p className="history-delete-sub">This can't be undone.</p>
+            <div className="history-delete-actions">
+              <button className="history-delete-cancel" onClick={() => setDeleteConfirm(null)}>Keep</button>
+              <button className="history-delete-confirm" onClick={handleDeleteConfirmed}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

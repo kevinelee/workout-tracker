@@ -3,7 +3,7 @@ import {
   getTemplates, getSessions, getSettings, saveSettings, getCheckIns, saveCheckIn,
   getLastSessionForTemplate, getPRMap,
   getActiveSession, saveActiveSession, clearActiveSession, saveTemplate, deleteTemplate,
-  setStorageUser, clearUserCache, getCustomExercises, hasCheckedInToday,
+  deleteSession, setStorageUser, clearUserCache, getCustomExercises, hasCheckedInToday,
 } from './storage'
 import { supabase, signOut } from './lib/supabase'
 import { createSession } from './data/models'
@@ -420,6 +420,7 @@ export default function App() {
             templates={templates}
             checkIns={checkIns}
             onViewSession={s => goSessionDetail(s)}
+            onDeleteSession={async id => { await deleteSession(id); setSessions(await getSessions()) }}
           />
         )
       case 'sessionDetail':

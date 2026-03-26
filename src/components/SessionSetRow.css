@@ -146,9 +146,11 @@
   transition: background 0.15s;
 }
 
-.ssr-complete-btn--undo:hover .ssr-check,
-.ssr-complete-btn--undo:active .ssr-check {
-  background: #f87171;
+@media (hover: hover) {
+  .ssr-complete-btn--undo:hover .ssr-check,
+  .ssr-complete-btn--undo:active .ssr-check {
+    background: #f87171;
+  }
 }
 
 @keyframes pop {
