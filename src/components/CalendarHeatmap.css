@@ -1,14 +1,13 @@
 .heatmap {
   display: flex;
   gap: 4px;
-  overflow-x: auto;
+  width: 100%;
 }
 
 .heatmap-days {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding-top: 0;
   flex-shrink: 0;
 }
 
@@ -16,7 +15,7 @@
   font-size: 10px;
   color: var(--text);
   width: 12px;
-  height: 12px;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -25,20 +24,22 @@
 .heatmap-grid {
   display: flex;
   gap: 3px;
+  flex: 1;
+  min-width: 0;
 }
 
 .heatmap-week {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  flex: 1;
 }
 
 .heatmap-cell {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-  background: #2e303a;
-  flex-shrink: 0;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--border);
   transition: background 0.15s;
 }
 
@@ -48,4 +49,7 @@
 
 .heatmap-cell--active {
   background: var(--accent);
+  cursor: pointer;
+
+  &:hover { filter: brightness(1.2); }
 }

@@ -1,14 +1,15 @@
-import { useState, useEffect, useRef } from 'react'
-import { createSession, createSet } from '../data/models'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { createSet } from '../data/models'
 import { defaultExercises } from '../data/exerciseLibrary'
-import { getCustomExercises, getLastSessionForTemplate, getPRMap, getSettings, saveSession } from '../storage'
+import { getCachedCustomExercises, getLastSessionForTemplate, saveSession } from '../storage'
+import { initLogsFromSession } from '../App'
 import MuscleIcon from '../components/MuscleIcon'
 import SessionSetRow from '../components/SessionSetRow'
 import RestTimer from '../components/RestTimer'
 import './SessionScreen.css'
 
 function findExercise(id) {
-  return defaultExercises.find(e => e.id === id) ?? getCustomExercises().find(e => e.id === id) ?? null
+  return defaultExercises.find(e => e.id === id) ?? getCachedCustomExercises().find(e => e.id === id) ?? null
 }
 
 function fmtElapsed(seconds) {
@@ -19,126 +20,157 @@ function fmtElapsed(seconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-function initLogsFromTemplate(template) {
-  return template.exercises.map(te => ({
-    exerciseId: te.exerciseId,
-    sets: te.sets.map(s => ({ reps: s.reps, weight: s.weight, completed: false, isPR: false })),
-    notes: te.notes ?? '',
-  }))
+function elapsedFromStart(startedAt) {
+  return Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
 }
 
-function initLogsFromSession(template, lastSession) {
-  return template.exercises.map(te => {
-    const lastLog = lastSession.logs?.find(l => l.exerciseId === te.exerciseId)
-    if (!lastLog) {
-      return { exerciseId: te.exerciseId, sets: te.sets.map(s => ({ ...s, completed: false, isPR: false })), notes: '' }
-    }
-    return {
-      exerciseId: te.exerciseId,
-      sets: lastLog.sets.map(s => ({ reps: s.reps, weight: s.weight, completed: false, isPR: false })),
-      notes: lastLog.notes ?? '',
-    }
-  })
-}
+export default function SessionScreen({ activeSession, settings, onUpdate, onFinish, onMinimize, onAbandon }) {
+  const { template, sessionId, startedAt, logs: initialLogs, prMap: initialPrMap } = activeSession
 
-export default function SessionScreen({ template, onFinish, onBack }) {
-  const lastSession = getLastSessionForTemplate(template.id)
-  const settings = getSettings()
-  const exerciseIds = template.exercises.map(e => e.exerciseId)
-
-  const sessionRef = useRef(createSession({ templateId: template.id, logs: [] }))
-  const [logs, setLogs] = useState(() => initLogsFromTemplate(template))
-  const [elapsed, setElapsed] = useState(0)
-  const [restTimer, setRestTimer] = useState(null) // { seconds, total }
-  const [prMap, setPRMap] = useState(() => getPRMap(exerciseIds))
+  const [logs, setLogs]       = useState(initialLogs)
+  const [prMap, setPRMap]     = useState(initialPrMap)
+  const [elapsed, setElapsed] = useState(() => elapsedFromStart(startedAt))
+  const [restTimer, setRestTimer] = useState(null)
   const [copiedBanner, setCopiedBanner] = useState(false)
+  const [showAbandon, setShowAbandon] = useState(false)
+  const [openNotes, setOpenNotes] = useState(new Set())
+  const noteRefs = useRef({})
 
-  // Elapsed timer
+  const [lastSession, setLastSession] = useState(null)
   useEffect(() => {
-    const id = setInterval(() => setElapsed(e => e + 1), 1000)
-    return () => clearInterval(id)
-  }, [])
+    getLastSessionForTemplate(template.id).then(setLastSession)
+  }, [template.id])
+
+  // Elapsed timer — recalculates from wall clock, survives sleep/background
+  useEffect(() => {
+    const id = setInterval(() => setElapsed(elapsedFromStart(startedAt)), 1000)
+
+    function onVisible() {
+      if (document.visibilityState === 'visible') {
+        setElapsed(elapsedFromStart(startedAt))
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [startedAt])
+
+  // Sync logs/prMap changes up to App (persists to localStorage)
+  function updateLogsAndSync(newLogs, newPrMap) {
+    setLogs(newLogs)
+    if (newPrMap) setPRMap(newPrMap)
+    onUpdate(newLogs, newPrMap ?? prMap)
+  }
 
   function copyLastSession() {
     if (!lastSession) return
-    setLogs(initLogsFromSession(template, lastSession))
+    const newLogs = initLogsFromSession(template, lastSession)
+    updateLogsAndSync(newLogs, prMap)
     setCopiedBanner(true)
     setTimeout(() => setCopiedBanner(false), 2000)
   }
 
   function updateSet(logIndex, setIndex, updatedSet) {
-    setLogs(prev =>
-      prev.map((log, li) =>
-        li !== logIndex ? log : {
-          ...log,
-          sets: log.sets.map((s, si) => si === setIndex ? updatedSet : s),
-        }
-      )
+    const newLogs = logs.map((log, li) =>
+      li !== logIndex ? log : {
+        ...log,
+        sets: log.sets.map((s, si) => si === setIndex ? updatedSet : s),
+      }
     )
+    updateLogsAndSync(newLogs, null)
   }
 
   function completeSet(logIndex, setIndex, set) {
     if (set.completed) return
 
-    // PR check: is this weight higher than historical best?
     const exerciseId = logs[logIndex].exerciseId
     const currentPR = prMap[exerciseId] ?? 0
     const isPR = set.weight > 0 && set.weight > currentPR
 
-    // Update in-session PR map so subsequent sets can beat this too
-    if (isPR) {
-      setPRMap(prev => ({ ...prev, [exerciseId]: set.weight }))
+    const newPrMap = isPR ? { ...prMap, [exerciseId]: set.weight } : prMap
+    const newLogs = logs.map((log, li) =>
+      li !== logIndex ? log : {
+        ...log,
+        sets: log.sets.map((s, si) => si === setIndex ? { ...set, completed: true, isPR } : s),
+      }
+    )
+    updateLogsAndSync(newLogs, newPrMap)
+    if (settings.restTimerDuration > 0) {
+      setRestTimer({ seconds: settings.restTimerDuration, total: settings.restTimerDuration })
     }
+  }
 
-    const completed = { ...set, completed: true, isPR }
-    updateSet(logIndex, setIndex, completed)
+  function updateNotes(logIndex, text) {
+    const newLogs = logs.map((log, li) => li !== logIndex ? log : { ...log, notes: text })
+    updateLogsAndSync(newLogs, null)
+  }
 
-    // Start rest timer
-    setRestTimer({ seconds: settings.restTimerDuration, total: settings.restTimerDuration })
+  function toggleNotes(exerciseId) {
+    setOpenNotes(prev => {
+      const next = new Set(prev)
+      if (next.has(exerciseId)) {
+        next.delete(exerciseId)
+      } else {
+        next.add(exerciseId)
+        // Scroll into view after the expand animation starts
+        setTimeout(() => {
+          noteRefs.current[exerciseId]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }, 50)
+      }
+      return next
+    })
   }
 
   function handleRestTick(seconds) {
     setRestTimer(prev => prev ? { ...prev, seconds } : null)
   }
 
-  function handleFinish() {
+  async function handleFinish() {
     const session = {
-      ...sessionRef.current,
-      logs,
+      id: sessionId,
+      templateId: template.id,
+      startedAt,
       finishedAt: new Date().toISOString(),
       duration: elapsed,
+      logs,
+      prMap,
     }
-    saveSession(session)
-    onFinish(session)
+    await saveSession(session)
+    onFinish(session, template)
   }
 
-  const totalSets = logs.reduce((sum, log) => sum + log.sets.length, 0)
+  const totalSets     = logs.reduce((sum, log) => sum + log.sets.length, 0)
   const completedSets = logs.reduce((sum, log) => sum + log.sets.filter(s => s.completed).length, 0)
-  const allDone = completedSets === totalSets && totalSets > 0
+  const allDone       = completedSets === totalSets && totalSets > 0
 
   return (
     <div className="session">
-      {/* Header */}
-      <div className="session-header">
-        <button className="session-back" onClick={onBack} aria-label="Back">‹</button>
-        <div className="session-title-wrap">
-          <h2 className="session-name">{template.name}</h2>
-          <span className="session-timer">{fmtElapsed(elapsed)}</span>
+      {/* Sticky header + progress bar */}
+      <div className="session-sticky">
+        <div className="session-header">
+          <button className="session-back" onClick={onMinimize} aria-label="Back">‹</button>
+          <div className="session-title-wrap">
+            <h2 className="session-name">{template.name}</h2>
+            <span className="session-timer">{fmtElapsed(elapsed)}</span>
+          </div>
+          <button
+            className={`session-finish-btn ${allDone ? 'session-finish-btn--ready' : ''}`}
+            onClick={handleFinish}
+          >
+            Finish
+          </button>
         </div>
-        <button
-          className={`session-finish-btn ${allDone ? 'session-finish-btn--ready' : ''}`}
-          onClick={handleFinish}
-        >
-          Finish
-        </button>
-      </div>
 
-      {/* Progress bar */}
-      <div className="session-progress-bar">
-        <div
-          className="session-progress-fill"
-          style={{ width: totalSets > 0 ? `${(completedSets / totalSets) * 100}%` : '0%' }}
-        />
+        {/* Progress bar */}
+        <div className="session-progress-bar">
+          <div
+            className="session-progress-fill"
+            style={{ width: totalSets > 0 ? `${(completedSets / totalSets) * 100}%` : '0%' }}
+          />
+        </div>
       </div>
 
       <div className="session-body">
@@ -163,6 +195,8 @@ export default function SessionScreen({ template, onFinish, onBack }) {
           const doneCount = log.sets.filter(s => s.completed).length
           const allSetsDone = doneCount === log.sets.length
 
+          const isCardio = exercise.category === 'Cardio'
+
           return (
             <div key={log.exerciseId} className={`session-exercise ${allSetsDone ? 'session-exercise--done' : ''}`}>
               <div className="session-ex-header">
@@ -171,6 +205,13 @@ export default function SessionScreen({ template, onFinish, onBack }) {
                   <p className="session-ex-name">{exercise.name}</p>
                   <p className="session-ex-meta">{doneCount}/{log.sets.length} sets</p>
                 </div>
+                <button
+                  className={`session-notes-toggle ${openNotes.has(log.exerciseId) ? 'session-notes-toggle--open' : ''} ${log.notes ? 'session-notes-toggle--has-note' : ''}`}
+                  onClick={() => toggleNotes(log.exerciseId)}
+                  aria-label="Toggle notes"
+                >
+                  📝
+                </button>
               </div>
 
               <div className="session-sets">
@@ -181,8 +222,23 @@ export default function SessionScreen({ template, onFinish, onBack }) {
                     index={si}
                     onChange={updated => updateSet(li, si, updated)}
                     onComplete={s => completeSet(li, si, s)}
+                    controllerSide={settings.controllerSide}
+                    isCardio={isCardio}
                   />
                 ))}
+              </div>
+
+              <div
+                className={`session-notes-wrap ${openNotes.has(log.exerciseId) ? 'session-notes-wrap--open' : ''}`}
+                ref={el => { noteRefs.current[log.exerciseId] = el }}
+              >
+                <textarea
+                  className="session-notes-input"
+                  placeholder="Add a note for this exercise…"
+                  value={log.notes ?? ''}
+                  onChange={e => updateNotes(li, e.target.value)}
+                  rows={3}
+                />
               </div>
             </div>
           )
@@ -195,6 +251,11 @@ export default function SessionScreen({ template, onFinish, onBack }) {
             <button className="session-finish-big" onClick={handleFinish}>Finish Workout</button>
           </div>
         )}
+
+        {/* Abandon */}
+        <button className="session-abandon-btn" onClick={() => setShowAbandon(true)}>
+          Abandon workout
+        </button>
       </div>
 
       {/* Rest timer overlay */}
@@ -205,6 +266,20 @@ export default function SessionScreen({ template, onFinish, onBack }) {
           onSkip={() => setRestTimer(null)}
           onTick={handleRestTick}
         />
+      )}
+
+      {/* Abandon confirm */}
+      {showAbandon && (
+        <div className="session-modal-overlay" onClick={() => setShowAbandon(false)}>
+          <div className="session-modal" onClick={e => e.stopPropagation()}>
+            <p className="session-modal-title">Abandon workout?</p>
+            <p className="session-modal-body">Your progress won't be saved.</p>
+            <div className="session-modal-actions">
+              <button className="session-modal-cancel" onClick={() => setShowAbandon(false)}>Keep going</button>
+              <button className="session-modal-confirm" onClick={onAbandon}>Abandon</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

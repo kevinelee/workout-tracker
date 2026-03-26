@@ -1,8 +1,14 @@
 .ex-row {
-  background: #1f2028;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
+  animation: ex-slide-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes ex-slide-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .ex-row-header {
@@ -88,6 +94,33 @@
   }
 }
 
+/* Chevron */
+.ex-chevron {
+  font-size: 20px;
+  color: var(--text);
+  opacity: 0.5;
+  transition: transform 0.25s ease;
+  transform: rotate(90deg);
+  flex-shrink: 0;
+  line-height: 1;
+  padding: 4px;
+}
+
+.ex-chevron--collapsed {
+  transform: rotate(0deg);
+}
+
+/* Collapsible body */
+.ex-body {
+  max-height: 600px;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ex-body--collapsed {
+  max-height: 0;
+}
+
 /* Sets */
 .ex-sets {
   padding: 6px 14px 10px;
@@ -108,7 +141,7 @@
   cursor: pointer;
   margin-top: 6px;
   min-height: 44px;
-  transition: border-color 0.1s, background 0.1s;
+  transition: border-color 0.15s ease-in-out, background 0.1s;
 
   &:hover {
     border-color: var(--accent-border);
@@ -117,10 +150,20 @@
 }
 
 /* Notes */
+.ex-notes-wrap {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ex-notes-wrap--open {
+  max-height: 160px;
+}
+
 .ex-notes {
   display: block;
   width: 100%;
-  background: #16171d;
+  background: var(--bg);
   border: none;
   border-top: 1px solid var(--border);
   color: var(--text-h);

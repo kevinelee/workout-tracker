@@ -17,6 +17,24 @@
   color: var(--text-h);
 }
 
+/* Streak badge — appears in header after check-in */
+.home-streak-badge {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 20px;
+  padding: 5px 10px;
+  white-space: nowrap;
+  animation: streak-swoosh 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes streak-swoosh {
+  from { opacity: 0; transform: translateY(16px) scale(0.75); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .home-new-btn {
   background: var(--accent);
   color: #fff;
@@ -74,12 +92,12 @@
 .home-card {
   display: flex;
   align-items: center;
-  background: #1f2028;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 14px 14px 14px 18px;
   min-height: 64px;
-  transition: border-color 0.15s;
+  transition: border-color 0.2s ease-in-out;
 
   &:hover { border-color: var(--border); }
 }
@@ -152,12 +170,144 @@
   &:hover { filter: brightness(1.1); }
 }
 
+/* Active session resume banner */
+.home-session-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  border-radius: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s;
+
+  &:hover { background: rgba(74, 222, 128, 0.14); }
+}
+
+.home-session-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.home-session-banner-dot {
+  width: 10px;
+  height: 10px;
+  background: #4ade80;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: session-pulse 2s ease-in-out infinite;
+}
+
+@keyframes session-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.4); }
+  50%       { opacity: 0.7; box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); }
+}
+
+.home-session-banner-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #4ade80;
+  margin: 0;
+}
+
+.home-session-banner-meta {
+  font-size: 12px;
+  color: var(--text);
+  margin: 2px 0 0;
+}
+
+/* ── Left-hand mode ── */
+.home--left .home-card {
+  flex-direction: row-reverse;
+}
+
+/* Start is now on the far left — reverse actions order so Start leads */
+.home--left .home-card-actions {
+  flex-direction: row-reverse;
+}
+
+.home--left .home-session-banner {
+  flex-direction: row-reverse;
+}
+
+/* ────────────────────── */
+
+.home-session-banner-cta {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4ade80;
+  white-space: nowrap;
+}
+
+/* Quick start section */
+.home-quickstart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.home-quickstart-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text);
+  margin: 0;
+}
+
+.home-quickstart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.home-quickstart-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease-in-out, background 0.15s;
+
+  &:hover {
+    background: var(--surface-2);
+    border-color: var(--accent);
+  }
+}
+
+.home-quickstart-emoji {
+  font-size: 28px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.home-quickstart-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.home-quickstart-desc {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
 /* Streak row */
 .home-streak-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #1f2028;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 12px 14px;
@@ -204,7 +354,7 @@
 .home-checkin-btn:hover:not(:disabled) { filter: brightness(1.1); }
 
 .home-checkin-btn--done {
-  background: #2e303a;
+  background: var(--border);
   color: #4ade80;
   cursor: default;
 }

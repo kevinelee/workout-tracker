@@ -11,7 +11,7 @@
 }
 
 .chart-pill {
-  background: #1f2028;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
   color: var(--text);
@@ -33,7 +33,7 @@
 }
 
 .chart-tooltip {
-  background: #1f2028;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 12px;

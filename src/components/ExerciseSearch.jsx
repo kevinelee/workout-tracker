@@ -1,13 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { defaultExercises, CATEGORIES } from '../data/exerciseLibrary'
-import { getCustomExercises, saveCustomExercise } from '../storage'
+import { getCachedCustomExercises, saveCustomExercise } from '../storage'
 import { createExercise } from '../data/models'
 import MuscleIcon from './MuscleIcon'
 import './ExerciseSearch.css'
 
 function buildLibrary() {
-  const custom = getCustomExercises()
-  return [...defaultExercises, ...custom]
+  return [...defaultExercises, ...getCachedCustomExercises()]
 }
 
 function filterExercises(library, query) {
@@ -35,11 +34,11 @@ function CreateExerciseForm({ name: initialName, onSave, onCancel }) {
   const [category, setCategory] = useState(CATEGORIES[0])
   const [muscleGroup, setMuscleGroup] = useState('')
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     if (!name.trim() || !muscleGroup.trim()) return
     const exercise = createExercise({ name: name.trim(), category, muscleGroup: muscleGroup.trim() })
-    saveCustomExercise(exercise)
+    await saveCustomExercise(exercise)
     onSave(exercise)
   }
 

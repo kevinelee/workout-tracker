@@ -5,7 +5,7 @@
   transform: translateX(-50%);
   width: 100%;
   max-width: 480px;
-  background: #1f2028;
+  background: var(--surface);
   border-top: 1px solid var(--border);
   border-radius: 20px 20px 0 0;
   padding: 20px 24px 32px;
@@ -83,7 +83,7 @@
   cursor: pointer;
   min-height: 44px;
   margin-top: 4px;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.2s ease-in-out, background 0.15s;
 
   &:hover {
     border-color: var(--accent-border);

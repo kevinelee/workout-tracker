@@ -4,6 +4,14 @@
   min-height: 100%;
 }
 
+/* Sticky wrapper: header + progress bar stay pinned together */
+.session-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+}
+
 /* Header */
 .session-header {
   display: flex;
@@ -11,10 +19,6 @@
   gap: 8px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg);
-  position: sticky;
-  top: 0;
-  z-index: 10;
 }
 
 .session-back {
@@ -54,7 +58,7 @@
 }
 
 .session-finish-btn {
-  background: #2e303a;
+  background: var(--border);
   color: var(--text-h);
   border: none;
   border-radius: 10px;
@@ -69,7 +73,7 @@
 
 .session-finish-btn--ready {
   background: #4ade80;
-  color: #16171d;
+  color: var(--on-accent);
   animation: pulse-green 1.5s ease-in-out infinite;
 }
 
@@ -146,11 +150,11 @@
 
 /* Exercise block */
 .session-exercise {
-  background: #1f2028;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
-  transition: border-color 0.3s;
+  transition: border-color 0.3s ease-in-out;
 }
 
 .session-exercise--done {
@@ -196,6 +200,61 @@
   padding: 4px 14px 10px;
 }
 
+/* Notes toggle button */
+.session-notes-toggle {
+  background: none;
+  border: none;
+  font-size: 18px;
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 8px;
+  opacity: 0.35;
+  transition: opacity 0.15s, background 0.15s;
+  line-height: 1;
+  flex-shrink: 0;
+
+  &:hover { opacity: 0.7; background: rgba(255,255,255,0.06); }
+}
+
+.session-notes-toggle--open {
+  opacity: 1;
+  background: rgba(192, 132, 252, 0.12);
+}
+
+.session-notes-toggle--has-note {
+  opacity: 0.75;
+}
+
+/* Notes expand/collapse */
+.session-notes-wrap {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.session-notes-wrap--open {
+  max-height: 160px;
+}
+
+.session-notes-input {
+  display: block;
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--text-h);
+  font-size: 14px;
+  font-family: var(--sans);
+  line-height: 1.5;
+  padding: 12px 14px;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+
+  &::placeholder { color: var(--text); opacity: 0.5; }
+  &:focus { background: rgba(255,255,255,0.06); }
+}
+
 /* All done state */
 .session-all-done {
   display: flex;
@@ -216,7 +275,7 @@
 
 .session-finish-big {
   background: #4ade80;
-  color: #16171d;
+  color: var(--on-accent);
   border: none;
   border-radius: 14px;
   padding: 16px 48px;
@@ -228,4 +287,98 @@
   transition: filter 0.15s;
 
   &:hover { filter: brightness(1.1); }
+}
+
+/* Abandon button */
+.session-abandon-btn {
+  background: none;
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  border-radius: 10px;
+  color: rgba(248, 113, 113, 0.7);
+  font-size: 14px;
+  font-family: var(--sans);
+  padding: 12px;
+  width: 100%;
+  cursor: pointer;
+  min-height: 44px;
+  margin-top: 8px;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover { background: rgba(248, 113, 113, 0.08); color: #f87171; }
+}
+
+/* Abandon modal */
+.session-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+
+.session-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.session-modal-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-h);
+  margin: 0;
+}
+
+.session-modal-body {
+  font-size: 14px;
+  color: var(--text);
+  margin: 0;
+}
+
+.session-modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.session-modal-cancel {
+  flex: 1;
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--sans);
+  padding: 13px;
+  cursor: pointer;
+  min-height: 48px;
+  transition: filter 0.15s;
+
+  &:hover { filter: brightness(1.1); }
+}
+
+.session-modal-confirm {
+  flex: 1;
+  background: none;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  border-radius: 10px;
+  color: #f87171;
+  font-size: 15px;
+  font-family: var(--sans);
+  padding: 13px;
+  cursor: pointer;
+  min-height: 48px;
+  transition: background 0.15s;
+
+  &:hover { background: rgba(248, 113, 113, 0.1); }
 }

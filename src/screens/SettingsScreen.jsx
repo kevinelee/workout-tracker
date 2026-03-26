@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { saveSettings, getTemplates, getSessions, getCustomExercises, saveCustomExercise, clearAll } from '../storage'
+import { getCachedCustomExercises, deleteCustomExercise, clearAll } from '../storage'
 import { exportJSON, exportCSV } from '../utils/export'
 import './SettingsScreen.css'
 
 const REST_OPTIONS = [
+  { label: 'Off', value: 0 },
   { label: '30s', value: 30 },
   { label: '45s', value: 45 },
   { label: '1m',  value: 60 },
@@ -12,15 +13,27 @@ const REST_OPTIONS = [
   { label: '3m',  value: 180 },
 ]
 
-export default function SettingsScreen({ settings, onSave }) {
+const THEME_OPTIONS = [
+  { label: '🌙 Dark',   value: 'dark' },
+  { label: '☀️ Light',  value: 'light' },
+  { label: '⬛ Amoled', value: 'amoled' },
+]
+
+export default function SettingsScreen({ settings, onSave, sessions, templates }) {
   const [s, setS] = useState(settings)
   const [notifStatus, setNotifStatus] = useState(Notification.permission)
-  const customExercises = getCustomExercises()
+  const [customExercises, setCustomExercises] = useState(() => getCachedCustomExercises())
+  const [confirmDeleteExercise, setConfirmDeleteExercise] = useState(null)
+
+  async function handleDeleteExercise(id) {
+    await deleteCustomExercise(id)
+    setCustomExercises(getCachedCustomExercises())
+    setConfirmDeleteExercise(null)
+  }
 
   function update(key, value) {
     const updated = { ...s, [key]: value }
     setS(updated)
-    saveSettings(updated)
     onSave(updated)
   }
 
@@ -29,12 +42,21 @@ export default function SettingsScreen({ settings, onSave }) {
     setNotifStatus(result)
   }
 
-  function handleExportJSON() { exportJSON(getSessions(), getTemplates()) }
-  function handleExportCSV()  { exportCSV(getSessions()) }
+  function handleExportJSON() { exportJSON(sessions, templates) }
+  function handleExportCSV()  { exportCSV(sessions) }
 
   return (
     <div className="settings">
       <h2 className="settings-page-title">Settings</h2>
+
+      {/* Theme */}
+      <Section title="Appearance">
+        <SegmentedControl
+          options={THEME_OPTIONS}
+          value={s.theme ?? 'dark'}
+          onChange={v => update('theme', v)}
+        />
+      </Section>
 
       {/* Units */}
       <Section title="Units">
@@ -55,7 +77,7 @@ export default function SettingsScreen({ settings, onSave }) {
       </Section>
 
       {/* Controller side */}
-      <Section title="Controller Side" hint="For M3.5 joystick UI">
+      <Section title="Dominant Hand">
         <SegmentedControl
           options={[{ label: 'Left', value: 'left' }, { label: 'Right', value: 'right' }]}
           value={s.controllerSide}
@@ -86,18 +108,21 @@ export default function SettingsScreen({ settings, onSave }) {
       </Section>
 
       {/* Custom exercises */}
-      {customExercises.length > 0 && (
-        <Section title="Custom Exercises">
+      <Section title="Custom Exercises">
+        {customExercises.length > 0 ? (
           <ul className="settings-exercise-list">
             {customExercises.map(e => (
               <li key={e.id} className="settings-exercise-item">
                 <span>{e.name}</span>
                 <span className="settings-exercise-cat">{e.category}</span>
+                <button className="settings-exercise-delete" onClick={() => setConfirmDeleteExercise(e.id)} aria-label="Delete">✕</button>
               </li>
             ))}
           </ul>
-        </Section>
-      )}
+        ) : (
+          <p className="settings-note">No custom exercises yet. Add one from the exercise search in any workout.</p>
+        )}
+      </Section>
 
       {/* Export */}
       <Section title="Export Data">
@@ -107,11 +132,26 @@ export default function SettingsScreen({ settings, onSave }) {
         </div>
       </Section>
 
+      {/* Confirm delete exercise */}
+      {confirmDeleteExercise !== null && (
+        <div className="sheet-backdrop" onClick={() => setConfirmDeleteExercise(null)}>
+          <div className="sheet sheet--confirm" onClick={e => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <p className="sheet-title">Delete Exercise?</p>
+            <p className="sheet-confirm-body">This will remove the exercise from your custom list. It won't affect past sessions.</p>
+            <div className="sheet-confirm-actions">
+              <button className="sheet-confirm-cancel" onClick={() => setConfirmDeleteExercise(null)}>Cancel</button>
+              <button className="sheet-confirm-ok" onClick={() => handleDeleteExercise(confirmDeleteExercise)}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Danger zone */}
       <Section title="Danger Zone">
         <button
           className="settings-danger-btn"
-          onClick={() => { if (window.confirm('Delete ALL data? This cannot be undone.')) { clearAll(); window.location.reload() } }}
+          onClick={() => { if (window.confirm('Delete ALL data? This cannot be undone.')) { clearAll().then(() => window.location.reload()) } }}
         >
           Delete all data
         </button>

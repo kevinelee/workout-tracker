@@ -13,7 +13,7 @@
 }
 
 .settings-section {
-  background: #1f2028;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 14px 16px;
@@ -42,15 +42,15 @@
 
 /* Segmented control */
 .seg-control {
-  display: flex;
-  background: #16171d;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(52px, 1fr));
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
 }
 
 .seg-btn {
-  flex: 1;
   background: none;
   border: none;
   color: var(--text);
@@ -59,6 +59,7 @@
   padding: 10px 6px;
   cursor: pointer;
   min-height: 44px;
+  text-align: center;
   transition: background 0.15s, color 0.15s;
 
   &:hover:not(.seg-btn--active) { background: rgba(255,255,255,0.04); }
@@ -88,7 +89,7 @@
   position: relative;
   width: 48px;
   height: 28px;
-  background: #2e303a;
+  background: var(--border);
   border: none;
   border-radius: 14px;
   cursor: pointer;
@@ -114,7 +115,7 @@
 
 /* Action buttons */
 .settings-action-btn {
-  background: #2e303a;
+  background: var(--border);
   border: none;
   border-radius: 10px;
   color: var(--text-h);
@@ -166,6 +167,23 @@
 .settings-exercise-cat {
   font-size: 12px;
   color: var(--text);
+  margin-left: auto;
+  margin-right: 10px;
+}
+
+.settings-exercise-delete {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  padding: 4px 6px;
+  cursor: pointer;
+  border-radius: 6px;
+  opacity: 0.5;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+
+  &:hover { opacity: 1; color: #f87171; }
 }
 
 /* Danger */

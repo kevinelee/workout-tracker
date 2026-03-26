@@ -8,11 +8,11 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #1f2028;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 0 14px;
-  transition: border-color 0.15s;
+  transition: border-color 0.2s ease-in-out;
 
   &:focus-within {
     border-color: var(--accent);
@@ -62,7 +62,7 @@
   top: calc(100% + 6px);
   left: 0;
   right: 0;
-  background: #1f2028;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
@@ -192,7 +192,7 @@
 }
 
 .es-create-input {
-  background: #16171d;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 12px;
@@ -212,7 +212,7 @@
 }
 
 .es-create-select {
-  background: #16171d;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 12px;
@@ -243,7 +243,7 @@
 }
 
 .es-create-cancel {
-  background: #2e303a;
+  background: var(--border);
   color: var(--text);
 
   &:hover { background: #3a3c48; }

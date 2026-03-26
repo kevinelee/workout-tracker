@@ -41,7 +41,7 @@
 .ssr-stepper-controls {
   display: flex;
   align-items: center;
-  background: #16171d;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
@@ -73,6 +73,34 @@
   color: var(--text-h);
 }
 
+.ssr-value--tap {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+  transition: background 0.1s;
+
+  &:hover { background: rgba(255, 255, 255, 0.08); }
+  &:active { background: rgba(255, 255, 255, 0.14); }
+}
+
+.ssr-input {
+  flex: 1;
+  min-width: 32px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid var(--accent);
+  color: var(--text-h);
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--sans);
+  text-align: center;
+  padding: 2px 4px;
+  outline: none;
+  -moz-appearance: textfield;
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+}
+
 /* Complete button */
 .ssr-complete-btn {
   background: none;
@@ -93,7 +121,7 @@
   height: 28px;
   border: 2px solid var(--border);
   border-radius: 50%;
-  transition: border-color 0.15s;
+  transition: border-color 0.2s ease-in-out;
 
   .ssr-complete-btn:hover & {
     border-color: #4ade80;
@@ -108,7 +136,7 @@
   height: 28px;
   background: #4ade80;
   border-radius: 50%;
-  color: #16171d;
+  color: var(--on-accent);
   font-size: 16px;
   font-weight: 700;
   animation: pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);

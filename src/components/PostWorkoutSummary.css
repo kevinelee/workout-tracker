@@ -9,7 +9,7 @@
 
 .summary-card {
   width: 100%;
-  background: #1f2028;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 28px 24px;
@@ -58,7 +58,7 @@
 }
 
 .summary-stat {
-  background: #16171d;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px 12px;
@@ -107,7 +107,7 @@
 
 .summary-share-btn {
   flex: 1;
-  background: #2e303a;
+  background: var(--border);
   border: none;
   border-radius: 12px;
   color: var(--text-h);

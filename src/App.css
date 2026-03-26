@@ -2,7 +2,7 @@
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100svh;
+  height: 100svh;
   background: var(--bg);
 }
 
@@ -23,6 +23,40 @@
   font-weight: 600;
   margin: 0;
   color: var(--text-h);
+  flex: 1;
+}
+
+.app-signout-btn {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+  line-height: 1;
+  flex-shrink: 0;
+
+  &:hover { opacity: 1; }
+}
+
+.app-streak-badge {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 20px;
+  padding: 4px 10px;
+  white-space: nowrap;
+  animation: streak-swoosh 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes streak-swoosh {
+  from { opacity: 0; transform: translateY(10px) scale(0.75); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .app-main {
@@ -30,6 +64,7 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .app-placeholder {
@@ -58,13 +93,218 @@
   font-size: 48px;
 }
 
+/* ── Screen transitions ── */
+.screen-enter {
+  animation: screen-enter 0.22s ease;
+  height: 100%;
+}
+
+@keyframes screen-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Bottom sheets ── */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  animation: backdrop-in 0.18s ease;
+}
+
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.sheet-backdrop--closing {
+  animation: backdrop-out 0.24s ease forwards;
+}
+
+@keyframes backdrop-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.sheet {
+  width: 100%;
+  background: #1a1c23;
+  border-top: 1px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  padding: 12px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: sheet-in 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes sheet-in {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.sheet--closing {
+  animation: sheet-out 0.24s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@keyframes sheet-out {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.2);
+  background-clip: content-box;
+  margin: 0 auto 4px;
+  flex-shrink: 0;
+  cursor: grab;
+  padding: 10px 24px;
+  box-sizing: content-box;
+  touch-action: none;
+
+  &:active { cursor: grabbing; }
+}
+
+.sheet-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-h);
+  margin: 0;
+  text-align: center;
+}
+
+/* Quick-start grid inside sheet */
+.sheet-quickstart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.sheet-quickstart-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease-in-out, background 0.15s;
+
+  &:hover {
+    background: #2e3040;
+    border-color: var(--accent);
+  }
+}
+
+.sheet-quickstart-emoji {
+  font-size: 26px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.sheet-quickstart-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.sheet-quickstart-desc {
+  font-size: 11px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.sheet-custom-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--sans);
+  padding: 13px;
+  cursor: pointer;
+  transition: border-color 0.2s ease-in-out, color 0.15s;
+
+  &:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+/* Confirm override sheet */
+.sheet--confirm {
+  gap: 12px;
+}
+
+.sheet-confirm-body {
+  font-size: 15px;
+  color: var(--text);
+  margin: 0;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.sheet-confirm-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.sheet-confirm-cancel {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-h);
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--sans);
+  padding: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: #2e3040; }
+}
+
+.sheet-confirm-ok {
+  flex: 1;
+  background: #3f1f1f;
+  border: 1px solid #7f2020;
+  border-radius: 12px;
+  color: #f87171;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--sans);
+  padding: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: #4f2424; }
+}
+
 /* Bottom nav */
 .app-nav {
   display: flex;
   border-top: 1px solid var(--border);
   background: var(--bg);
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .nav-item {
@@ -72,13 +312,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 12px 8px;
+  justify-content: center;
+  gap: 3px;
+  padding: 10px 8px;
   background: none;
   border: none;
   cursor: pointer;
   color: var(--text);
-  min-height: 56px; /* large tap target */
+  min-height: 48px;
   transition: color 0.15s;
 
   &:hover,
@@ -93,8 +334,44 @@
   line-height: 1;
 }
 
-.nav-label {
-  font-size: 11px;
+.nav-badge {
+  font-size: 10px;
   font-family: var(--sans);
+  color: #4ade80;
+}
+
+/* Active session tab — pulses to indicate live workout */
+.nav-item--session {
+  color: #4ade80;
+
+  &.active { color: #4ade80; }
+
+  .nav-icon {
+    animation: session-pulse 2s ease-in-out infinite;
+  }
+}
+
+/* Idle session tab — no workout in progress */
+.nav-item--session-idle {
+  .nav-icon {
+    font-size: 18px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid currentColor;
+    border-radius: 50%;
+    opacity: 0.5;
+  }
+}
+
+@keyframes session-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
+.nav-item.active {
+  color: var(--accent);
 }
 

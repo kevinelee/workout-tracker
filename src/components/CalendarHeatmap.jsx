@@ -4,7 +4,7 @@ import './CalendarHeatmap.css'
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 const WEEKS = 16
 
-export default function CalendarHeatmap({ sessions, checkIns }) {
+export default function CalendarHeatmap({ sessions, checkIns, onDayClick }) {
   const data = buildHeatmapData(sessions, checkIns, WEEKS)
 
   // Pad front so first day aligns to correct weekday column
@@ -16,6 +16,12 @@ export default function CalendarHeatmap({ sessions, checkIns }) {
   const weeks = []
   for (let i = 0; i < cells.length; i += 7) {
     weeks.push(cells.slice(i, i + 7))
+  }
+
+  function handleClick(cell) {
+    if (!cell?.active || !onDayClick) return
+    const daySessions = sessions.filter(s => s.finishedAt?.slice(0, 10) === cell.date)
+    onDayClick(cell.date, daySessions)
   }
 
   return (
@@ -34,6 +40,7 @@ export default function CalendarHeatmap({ sessions, checkIns }) {
                   key={di}
                   className={`heatmap-cell ${cell.active ? 'heatmap-cell--active' : ''}`}
                   title={cell.date}
+                  onClick={() => handleClick(cell)}
                 />
               )
             )}

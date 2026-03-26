@@ -5,13 +5,14 @@ import ExerciseSearch from '../components/ExerciseSearch'
 import ExerciseRow from '../components/ExerciseRow'
 import './WorkoutBuilderScreen.css'
 
-export default function WorkoutBuilderScreen({ template: initial, onSave, onBack }) {
+export default function WorkoutBuilderScreen({ template: initial, onSave, onBack, onDelete }) {
   const isNew = !initial
 
   const [name, setName] = useState(initial?.name ?? '')
   const [exercises, setExercises] = useState(
     initial?.exercises ?? []
   )
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   function handleSelectExercise(exercise) {
     // Don't add duplicates
@@ -30,19 +31,19 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
     setExercises(prev => prev.filter((_, i) => i !== index))
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!name.trim() || exercises.length === 0) return
     const template = isNew
       ? createWorkoutTemplate({ name: name.trim(), exercises })
       : { ...initial, name: name.trim(), exercises }
-    saveTemplate(template)
+    await saveTemplate(template)
     onSave(template)
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!initial) return
-    deleteTemplate(initial.id)
-    onBack()
+    await deleteTemplate(initial.id)
+    onDelete()
   }
 
   const canSave = name.trim().length > 0 && exercises.length > 0
@@ -98,11 +99,25 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
 
         {/* Delete */}
         {!isNew && (
-          <button className="builder-delete-btn" onClick={handleDelete}>
+          <button className="builder-delete-btn" onClick={() => setConfirmDelete(true)}>
             Delete workout
           </button>
         )}
       </div>
+
+      {/* Confirm delete modal */}
+      {confirmDelete && (
+        <div className="builder-modal-overlay" onClick={() => setConfirmDelete(false)}>
+          <div className="builder-modal" onClick={e => e.stopPropagation()}>
+            <p className="builder-modal-title">Delete "{name}"?</p>
+            <p className="builder-modal-body">This will permanently remove the workout. This can't be undone.</p>
+            <div className="builder-modal-actions">
+              <button className="builder-modal-cancel" onClick={() => setConfirmDelete(false)}>Cancel</button>
+              <button className="builder-modal-confirm" onClick={handleDelete}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,8 +1,8 @@
 import { defaultExercises } from '../data/exerciseLibrary'
-import { getCustomExercises } from '../storage'
+import { getCachedCustomExercises } from '../storage'
 
 function exerciseName(id) {
-  const all = [...defaultExercises, ...getCustomExercises()]
+  const all = [...defaultExercises, ...getCachedCustomExercises()]
   return all.find(e => e.id === id)?.name ?? id
 }
 

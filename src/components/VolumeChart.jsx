@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { defaultExercises } from '../data/exerciseLibrary'
-import { getCustomExercises } from '../storage'
+import { getCachedCustomExercises } from '../storage'
 import { buildVolumeChartData, fmtVolume } from '../utils/volume'
 import './VolumeChart.css'
 
@@ -10,7 +10,7 @@ function getExercisesWithHistory(sessions) {
   for (const s of sessions) {
     for (const log of s.logs ?? []) ids.add(log.exerciseId)
   }
-  const all = [...defaultExercises, ...getCustomExercises()]
+  const all = [...defaultExercises, ...getCachedCustomExercises()]
   return all.filter(e => ids.has(e.id))
 }
 

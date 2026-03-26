@@ -1,0 +1,121 @@
+.auth {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.auth-logo {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.auth-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-h);
+  margin: 0;
+  text-align: center;
+}
+
+.auth-sub {
+  font-size: 14px;
+  color: var(--text);
+  margin: 0 0 16px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.auth-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.auth-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: var(--text-h);
+  font-size: 16px;
+  font-family: var(--sans);
+  outline: none;
+  transition: border-color 0.15s ease-in-out;
+
+  &:focus { border-color: var(--accent); }
+  &::placeholder { color: var(--text); opacity: 0.4; }
+}
+
+.auth-error {
+  font-size: 14px;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.auth-submit {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 15px;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--sans);
+  cursor: pointer;
+  min-height: 52px;
+  margin-top: 4px;
+  transition: filter 0.15s, opacity 0.15s;
+
+  &:hover:not(:disabled) { filter: brightness(1.1); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.auth-switch {
+  font-size: 14px;
+  color: var(--text);
+  margin: 8px 0 0;
+  text-align: center;
+}
+
+.auth-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: inherit;
+  font-family: var(--sans);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
