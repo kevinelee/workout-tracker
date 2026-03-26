@@ -3,6 +3,11 @@ import confetti from 'canvas-confetti'
 import { sessionVolume, sessionPRCount, volumeChangePercent, fmtVolume, fmtDuration, motivationalCopy } from '../utils/volume'
 import './PostWorkoutSummary.css'
 
+function fmtTime(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+}
+
 export default function PostWorkoutSummary({ session, template, prevSession, onDone }) {
   const volume = sessionVolume(session)
   const prsHit = sessionPRCount(session)
@@ -42,6 +47,8 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
           <Stat label="Duration" value={fmtDuration(session.duration)} />
           <Stat label="Sets" value={`${completedSets}/${totalSets}`} />
           {prsHit > 0 && <Stat label="PRs" value={prsHit} highlight />}
+          <Stat label="Started" value={fmtTime(session.startedAt)} />
+          <Stat label="Finished" value={fmtTime(session.finishedAt)} />
         </div>
 
         <div className="summary-actions">
