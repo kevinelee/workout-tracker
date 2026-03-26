@@ -19,11 +19,15 @@ const THEME_OPTIONS = [
   { label: '⬛ Amoled', value: 'amoled' },
 ]
 
-export default function SettingsScreen({ settings, onSave, sessions, templates }) {
+const notifSupported = typeof Notification !== 'undefined'
+
+export default function SettingsScreen({ settings, onSave, sessions, templates, onSignOut }) {
   const [s, setS] = useState(settings)
-  const [notifStatus, setNotifStatus] = useState(Notification.permission)
+  const [notifStatus, setNotifStatus] = useState(notifSupported ? Notification.permission : 'unsupported')
   const [customExercises, setCustomExercises] = useState(() => getCachedCustomExercises())
   const [confirmDeleteExercise, setConfirmDeleteExercise] = useState(null)
+  const [confirmSignOut, setConfirmSignOut] = useState(false)
+  const [exerciseEditMode, setExerciseEditMode] = useState(false)
 
   async function handleDeleteExercise(id) {
     await deleteCustomExercise(id)
@@ -38,6 +42,7 @@ export default function SettingsScreen({ settings, onSave, sessions, templates }
   }
 
   async function requestNotifications() {
+    if (!notifSupported) return
     const result = await Notification.requestPermission()
     setNotifStatus(result)
   }
@@ -96,7 +101,9 @@ export default function SettingsScreen({ settings, onSave, sessions, templates }
 
       {/* Notifications */}
       <Section title="Reminders">
-        {notifStatus === 'granted' ? (
+        {!notifSupported ? (
+          <p className="settings-note">Notifications not supported in this browser.</p>
+        ) : notifStatus === 'granted' ? (
           <p className="settings-note">✓ Notifications enabled</p>
         ) : notifStatus === 'denied' ? (
           <p className="settings-note">Notifications blocked — enable in browser settings.</p>
@@ -107,15 +114,31 @@ export default function SettingsScreen({ settings, onSave, sessions, templates }
         )}
       </Section>
 
-      {/* Custom exercises */}
-      <Section title="Custom Exercises">
+      {/* My Exercises */}
+      <Section
+        title="My Exercises"
+        collapsible
+        action={
+          customExercises.length > 0 ? (
+            <button
+              className={`settings-gear-btn${exerciseEditMode ? ' settings-gear-btn--active' : ''}`}
+              onClick={() => setExerciseEditMode(m => !m)}
+              aria-label={exerciseEditMode ? 'Done editing' : 'Edit exercises'}
+            >
+              {exerciseEditMode ? 'Done' : '⚙️'}
+            </button>
+          ) : null
+        }
+      >
         {customExercises.length > 0 ? (
           <ul className="settings-exercise-list">
             {customExercises.map(e => (
               <li key={e.id} className="settings-exercise-item">
                 <span>{e.name}</span>
                 <span className="settings-exercise-cat">{e.category}</span>
-                <button className="settings-exercise-delete" onClick={() => setConfirmDeleteExercise(e.id)} aria-label="Delete">✕</button>
+                {exerciseEditMode && (
+                  <button className="settings-exercise-delete" onClick={() => setConfirmDeleteExercise(e.id)} aria-label="Delete">✕</button>
+                )}
               </li>
             ))}
           </ul>
@@ -149,6 +172,9 @@ export default function SettingsScreen({ settings, onSave, sessions, templates }
 
       {/* Danger zone */}
       <Section title="Danger Zone">
+        <button className="settings-signout-btn" onClick={() => setConfirmSignOut(true)}>
+          Sign out
+        </button>
         <button
           className="settings-danger-btn"
           onClick={() => { if (window.confirm('Delete ALL data? This cannot be undone.')) { clearAll().then(() => window.location.reload()) } }}
@@ -156,18 +182,45 @@ export default function SettingsScreen({ settings, onSave, sessions, templates }
           Delete all data
         </button>
       </Section>
+
+      {/* Sign-out confirm */}
+      {confirmSignOut && (
+        <div className="sheet-backdrop" onClick={() => setConfirmSignOut(false)}>
+          <div className="sheet sheet--confirm" onClick={e => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <p className="sheet-title">Sign out?</p>
+            <p className="sheet-confirm-body">Your data is saved to your account. You'll need to sign in again to access it.</p>
+            <div className="sheet-confirm-actions">
+              <button className="sheet-confirm-cancel" onClick={() => setConfirmSignOut(false)}>Cancel</button>
+              <button className="sheet-confirm-ok" onClick={onSignOut}>Sign out</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function Section({ title, hint, children }) {
+function Section({ title, hint, children, collapsible, action }) {
+  const [collapsed, setCollapsed] = useState(false)
+
   return (
     <div className="settings-section">
-      <div className="settings-section-header">
-        <p className="settings-section-title">{title}</p>
-        {hint && <p className="settings-section-hint">{hint}</p>}
+      <div
+        className={`settings-section-header${collapsible || action ? ' settings-section-header--row' : ''}`}
+        onClick={collapsible ? () => setCollapsed(c => !c) : undefined}
+        style={collapsible ? { cursor: 'pointer' } : undefined}
+      >
+        <div>
+          <p className="settings-section-title">{title}</p>
+          {hint && <p className="settings-section-hint">{hint}</p>}
+        </div>
+        {action && <div onClick={e => e.stopPropagation()}>{action}</div>}
+        {collapsible && (
+          <span className={`settings-section-chevron${collapsed ? ' settings-section-chevron--collapsed' : ''}`}>›</span>
+        )}
       </div>
-      {children}
+      {!collapsed && children}
     </div>
   )
 }
