@@ -295,7 +295,12 @@ export default function App() {
   }
 
   // Show nothing while checking auth state, then gate on auth
-  if (!authReady) return null
+  if (!authReady) return (
+    <div style={{ minHeight: '100svh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+      <span style={{ fontSize: 48, animation: 'spin 1s linear infinite' }}>💪</span>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  )
   if (!authUser) return <AuthScreen onAuth={user => bootstrapUser(user)} />
 
   const fullscreen = ['builder', 'session', 'summary', 'sessionDetail'].includes(screen.name)
