@@ -20,12 +20,17 @@ $$;
 -- Public info about each user; auto-created on signup.
 
 create table if not exists profiles (
-  id           uuid        primary key references auth.users(id) on delete cascade,
-  display_name text,
-  avatar_url   text,
-  role         text        not null default 'user',  -- 'user' | 'admin'
-  created_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now()
+  id             uuid        primary key references auth.users(id) on delete cascade,
+  display_name   text,
+  avatar_url     text,
+  role           text        not null default 'user',  -- 'user' | 'admin'
+  height_cm      numeric,
+  weight_kg      numeric,                              -- most recent body weight (denorm)
+  age            int,
+  gender         text,                                 -- 'male' | 'female' | 'other'
+  activity_level text,                                 -- 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active'
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
 );
 
 alter table profiles enable row level security;
@@ -38,6 +43,27 @@ create policy "profiles: owner full access"
 create trigger profiles_updated_at
   before update on profiles
   for each row execute function set_updated_at();
+
+
+-- ── 1b. Body Weight Logs ──────────────────────────────────────
+-- One entry per weigh-in; used for the body weight progress graph.
+
+create table if not exists body_weight_logs (
+  id         text        primary key,   -- nanoid generated in app
+  user_id    uuid        not null references auth.users(id) on delete cascade,
+  weight_kg  numeric     not null,
+  logged_at  timestamptz not null default now()
+);
+
+alter table body_weight_logs enable row level security;
+
+create policy "body_weight_logs: owner full access"
+  on body_weight_logs for all
+  using  (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create index if not exists body_weight_logs_user_idx
+  on body_weight_logs (user_id, logged_at asc);
 
 
 -- ── 2. Settings ───────────────────────────────────────────────
@@ -355,7 +381,7 @@ create trigger on_auth_user_created
 
 
 -- ── Done ─────────────────────────────────────────────────────
--- Tables:  profiles, settings, custom_exercises,
+-- Tables:  profiles, body_weight_logs, settings, custom_exercises,
 --          workout_templates, template_exercises, template_sets,
 --          sessions, session_logs, session_sets, check_ins
 -- Views:   personal_records, session_volume

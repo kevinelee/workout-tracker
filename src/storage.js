@@ -70,6 +70,31 @@ function dbSessionToApp(s) {
   }
 }
 
+function dbProfileToApp(p) {
+  if (!p) return defaultProfile()
+  return {
+    displayName:   p.display_name ?? '',
+    avatarUrl:     p.avatar_url ?? '',
+    heightCm:      p.height_cm   != null ? Number(p.height_cm)  : null,
+    weightKg:      p.weight_kg   != null ? Number(p.weight_kg)  : null,
+    age:           p.age         != null ? Number(p.age)        : null,
+    gender:        p.gender      ?? null,
+    activityLevel: p.activity_level ?? null,
+  }
+}
+
+function defaultProfile() {
+  return {
+    displayName:   '',
+    avatarUrl:     '',
+    heightCm:      null,
+    weightKg:      null,
+    age:           null,
+    gender:        null,
+    activityLevel: null,
+  }
+}
+
 function dbSettingsToApp(s) {
   if (!s) return defaultSettings()
   return {
@@ -280,6 +305,61 @@ export async function saveSettings(settings) {
     rest_timer_duration: settings.restTimerDuration,
     check_in_enabled:    settings.checkInEnabled,
   })
+}
+
+
+// ── Profile ───────────────────────────────────────────────────
+
+export async function getProfile() {
+  const { data } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', _uid)
+    .single()
+  return dbProfileToApp(data)
+}
+
+export async function saveProfile(profile) {
+  await supabase.from('profiles').upsert({
+    id:             _uid,
+    display_name:   profile.displayName   ?? null,
+    height_cm:      profile.heightCm      ?? null,
+    weight_kg:      profile.weightKg      ?? null,
+    age:            profile.age           ?? null,
+    gender:         profile.gender        ?? null,
+    activity_level: profile.activityLevel ?? null,
+  })
+}
+
+
+// ── Body Weight Logs ──────────────────────────────────────────
+
+export async function getBodyWeightLogs() {
+  const { data } = await supabase
+    .from('body_weight_logs')
+    .select('*')
+    .eq('user_id', _uid)
+    .order('logged_at', { ascending: true })
+  return (data ?? []).map(r => ({
+    id:       r.id,
+    weightKg: Number(r.weight_kg),
+    loggedAt: r.logged_at,
+  }))
+}
+
+export async function saveBodyWeightLog(weightKg) {
+  const { data } = await supabase
+    .from('body_weight_logs')
+    .insert({ id: nanoid(), user_id: _uid, weight_kg: weightKg })
+    .select()
+    .single()
+  // Also keep profiles.weight_kg in sync with the latest entry
+  await supabase.from('profiles').upsert({ id: _uid, weight_kg: weightKg })
+  return { id: data.id, weightKg: Number(data.weight_kg), loggedAt: data.logged_at }
+}
+
+export async function deleteBodyWeightLog(id) {
+  await supabase.from('body_weight_logs').delete().eq('id', id)
 }
 
 

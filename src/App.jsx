@@ -4,6 +4,7 @@ import {
   getLastSessionForTemplate, getPRMap,
   getActiveSession, saveActiveSession, clearActiveSession, saveTemplate, deleteTemplate,
   deleteSession, setStorageUser, clearUserCache, getCustomExercises, hasCheckedInToday,
+  getProfile, saveProfile, getBodyWeightLogs, saveBodyWeightLog, deleteBodyWeightLog,
 } from './storage'
 import { supabase, signOut } from './lib/supabase'
 import { createSession } from './data/models'
@@ -101,13 +102,17 @@ export default function App() {
         getCheckIns(),
         hasCheckedInToday(),
         getCustomExercises(),
+        getProfile(),
+        getBodyWeightLogs(),
       ])
-      const [tmpl, sess, stg, ci, chk] = await Promise.race([load, timeout])
+      const [tmpl, sess, stg, ci, chk, , prof, bwl] = await Promise.race([load, timeout])
       setTemplates(tmpl)
       setSessions(sess)
       setSettings(stg)
       setCheckIns(ci)
       setCheckedIn(chk)
+      setProfile(prof)
+      setBodyWeightLogs(bwl)
       setAuthUser(user)
     } catch (err) {
       console.error('bootstrapUser failed:', err)
@@ -132,11 +137,13 @@ export default function App() {
   }
 
   const { screen, activeTab, setActiveTab, goHome, goBuilder, goSession, goSummary, goSessionDetail, goTab } = useNav()
-  const [templates, setTemplates] = useState([])
-  const [sessions, setSessions]   = useState([])
-  const [settings, setSettings]   = useState({ unit: 'lbs', theme: 'dark', controllerSide: 'right', restTimerDuration: 90, checkInEnabled: true })
-  const [checkIns, setCheckIns]   = useState([])
-  const [checkedIn, setCheckedIn] = useState(false)
+  const [templates, setTemplates]             = useState([])
+  const [sessions, setSessions]               = useState([])
+  const [settings, setSettings]               = useState({ unit: 'lbs', theme: 'dark', controllerSide: 'right', restTimerDuration: 90, checkInEnabled: true })
+  const [checkIns, setCheckIns]               = useState([])
+  const [checkedIn, setCheckedIn]             = useState(false)
+  const [profile, setProfile]                 = useState(null)
+  const [bodyWeightLogs, setBodyWeightLogs]   = useState([])
   const streak = calcStreak(sessions, checkIns)
 
   // Apply theme to document root
