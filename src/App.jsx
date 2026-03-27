@@ -18,6 +18,7 @@ import SessionDetailScreen from './screens/SessionDetailScreen'
 import SettingsScreen from './screens/SettingsScreen'
 import PostWorkoutSummary from './components/PostWorkoutSummary'
 import AuthScreen from './screens/AuthScreen'
+import ProfileScreen from './screens/ProfileScreen'
 import './App.css'
 
 // Initialize logs from a template's default sets
@@ -366,6 +367,7 @@ export default function App() {
       live: !!activeSession,
     },
     { id: 'history',  label: 'History',  icon: '📈' },
+    { id: 'profile',  label: 'Profile',  icon: '👤' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ]
 
@@ -437,6 +439,20 @@ export default function App() {
             templateName={templateName(screen.session.templateId)}
             onBack={() => goTab('history')}
             onDelete={async () => { setSessions(await getSessions()) }}
+          />
+        )
+      case 'profile':
+        return (
+          <ProfileScreen
+            profile={profile}
+            sessions={sessions}
+            checkIns={checkIns}
+            settings={settings}
+            authUser={authUser}
+            onSaveProfile={async data => {
+              await saveProfile(data)
+              setProfile(data)
+            }}
           />
         )
       case 'settings':
