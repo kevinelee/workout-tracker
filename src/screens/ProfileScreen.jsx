@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { uploadAvatar } from '../storage'
 import { sessionVolume, fmtVolume, fmtDuration } from '../utils/volume'
 import { calcStreak } from '../utils/streaks'
 import './ProfileScreen.css'
@@ -40,6 +41,10 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
   const unit       = settings?.unit ?? 'lbs'
   const isImperial = unit === 'lbs'
 
+  const fileInputRef = useRef(null)
+  const [avatarUrl,      setAvatarUrl]      = useState(profile?.avatarUrl ?? null)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+
   const [displayName,    setDisplayName]    = useState(profile?.displayName ?? '')
   const [heightFt,       setHeightFt]       = useState(() => cmToFtIn(profile?.heightCm).ft)
   const [heightIn,       setHeightIn]       = useState(() => cmToFtIn(profile?.heightCm).in)
@@ -57,8 +62,10 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
   // Sync when profile loads for the first time (async bootstrap)
   useEffect(() => {
     if (!profile) return
+    setAvatarUrl(profile.avatarUrl ?? null)
     setDisplayName(profile.displayName ?? '')
     const ftIn = cmToFtIn(profile.heightCm)
+
     setHeightFt(ftIn.ft)
     setHeightIn(ftIn.in)
     setHeightCm(profile.heightCm != null ? String(Math.round(profile.heightCm)) : '')
@@ -72,7 +79,23 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
     setAge(profile.age != null ? String(profile.age) : '')
     setGender(profile.gender ?? null)
     setActivityLevel(profile.activityLevel ?? null)
-  }, [profile?.displayName, profile?.heightCm, profile?.weightKg, profile?.age, profile?.gender, profile?.activityLevel])
+  }, [profile?.avatarUrl, profile?.displayName, profile?.heightCm, profile?.weightKg, profile?.age, profile?.gender, profile?.activityLevel])
+
+  async function handleAvatarChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarUploading(true)
+    try {
+      const url = await uploadAvatar(file)
+      setAvatarUrl(url)
+    } catch (err) {
+      console.error('Avatar upload failed:', err)
+    } finally {
+      setAvatarUploading(false)
+      // Reset so the same file can be re-selected if needed
+      e.target.value = ''
+    }
+  }
 
   function buildPayload(overrides = {}) {
     const heightCmVal = isImperial
@@ -124,7 +147,28 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
 
       {/* Header */}
       <div className="profile-header">
-        <div className="profile-avatar">{initials}</div>
+        <button
+          className={`profile-avatar${avatarUploading ? ' profile-avatar--uploading' : ''}`}
+          onClick={() => fileInputRef.current?.click()}
+          aria-label="Change profile photo"
+        >
+          {avatarUrl && !avatarUploading
+            ? <img src={avatarUrl} alt="Profile" className="profile-avatar-img" />
+            : avatarUploading
+              ? <span className="profile-avatar-spinner" />
+              : initials
+          }
+          {!avatarUploading && (
+            <span className="profile-avatar-edit">📷</span>
+          )}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="profile-avatar-input"
+          onChange={handleAvatarChange}
+        />
         <div className="profile-identity">
           <input
             className="profile-name-input"

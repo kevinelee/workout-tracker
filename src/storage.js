@@ -310,6 +310,25 @@ export async function saveSettings(settings) {
 
 // ── Profile ───────────────────────────────────────────────────
 
+export async function uploadAvatar(file) {
+  const ext  = file.name.split('.').pop() || 'jpg'
+  const path = `${_uid}/avatar.${ext}`
+
+  const { error } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, contentType: file.type })
+
+  if (error) throw error
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+  // Cache-bust so the browser doesn't serve the old image after re-upload
+  const url = `${data.publicUrl}?t=${Date.now()}`
+
+  await supabase.from('profiles').upsert({ id: _uid, avatar_url: url })
+  return url
+}
+
+
 export async function getProfile() {
   const { data } = await supabase
     .from('profiles')
