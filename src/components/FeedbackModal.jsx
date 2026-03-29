@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { saveFeedback } from '../storage'
 import './FeedbackModal.css'
 
@@ -7,6 +7,23 @@ export default function FeedbackModal({ authUser, defaultType = 'bug', onClose }
   const [message, setMessage]     = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone]           = useState(false)
+  const sheetRef = useRef(null)
+
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => {
+      if (!sheetRef.current) return
+      const offset = window.innerHeight - vv.height - vv.offsetTop
+      sheetRef.current.style.transform = offset > 0 ? `translateY(-${offset}px)` : ''
+    }
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
 
   async function handleSubmit() {
     if (!message.trim()) return
@@ -23,7 +40,7 @@ export default function FeedbackModal({ authUser, defaultType = 'bug', onClose }
 
   return (
     <div className="feedback-backdrop" onClick={onClose}>
-      <div className="feedback-sheet" onClick={e => e.stopPropagation()}>
+      <div className="feedback-sheet" ref={sheetRef} onClick={e => e.stopPropagation()}>
         <div className="feedback-handle" />
 
         {done ? (
