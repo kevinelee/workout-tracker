@@ -1,0 +1,60 @@
+.mvc {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mvc-range-strip {
+  display: flex;
+  gap: 6px;
+}
+
+.mvc-empty {
+  color: var(--text);
+  font-size: 14px;
+  text-align: center;
+  padding: 20px 0;
+  margin: 0;
+}
+
+.mvc-tooltip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.mvc-tooltip-group {
+  font-size: 11px;
+  color: var(--text);
+  margin: 0 0 2px;
+}
+
+.mvc-tooltip-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0;
+}
+
+.mvc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  justify-content: center;
+}
+
+.mvc-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.mvc-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

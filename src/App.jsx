@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   getTemplates, getSessions, getSettings, saveSettings, getCheckIns, saveCheckIn,
   getLastSessionForTemplate, getPRMap,
-  getActiveSession, saveActiveSession, clearActiveSession, saveTemplate, deleteTemplate,
+  getActiveSession, saveActiveSession, clearActiveSession,
   deleteSession, setStorageUser, clearUserCache, getCustomExercises, hasCheckedInToday,
   getProfile, saveProfile, getBodyWeightLogs, saveBodyWeightLog, deleteBodyWeightLog,
 } from './storage'
@@ -19,6 +19,7 @@ import SettingsScreen from './screens/SettingsScreen'
 import PostWorkoutSummary from './components/PostWorkoutSummary'
 import AuthScreen from './screens/AuthScreen'
 import ProfileScreen from './screens/ProfileScreen'
+import AdminScreen from './screens/AdminScreen'
 import './App.css'
 
 // Initialize logs from a template's default sets
@@ -92,21 +93,19 @@ export default function App() {
   async function bootstrapUser(user) {
     bootstrappedUidRef.current = user.id
     setStorageUser(user.id)
-    try {
-      const timeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('bootstrap timeout')), 10000)
-      )
-      const load = Promise.all([
-        getTemplates(),
-        getSessions(),
-        getSettings(),
-        getCheckIns(),
-        hasCheckedInToday(),
-        getCustomExercises(),
-        getProfile(),
-        getBodyWeightLogs(),
-      ])
-      const [tmpl, sess, stg, ci, chk, , prof, bwl] = await Promise.race([load, timeout])
+
+    // Load all data and apply to state whenever it resolves.
+    // This promise never rejects — errors are caught internally.
+    const loadData = Promise.all([
+      getTemplates(),
+      getSessions(),
+      getSettings(),
+      getCheckIns(),
+      hasCheckedInToday(),
+      getCustomExercises(),
+      getProfile(),
+      getBodyWeightLogs(),
+    ]).then(([tmpl, sess, stg, ci, chk, , prof, bwl]) => {
       setTemplates(tmpl)
       setSessions(sess)
       setSettings(stg)
@@ -114,15 +113,15 @@ export default function App() {
       setCheckedIn(chk)
       setProfile(prof)
       setBodyWeightLogs(bwl)
-      setAuthUser(user)
-    } catch (err) {
-      console.error('bootstrapUser failed:', err)
-      // Still mark the user as authenticated so the app shows something.
-      // Data will be empty but the user can retry from a working state.
-      setAuthUser(user)
-    } finally {
-      setAuthReady(true)
-    }
+    }).catch(err => console.error('bootstrapUser load failed:', err))
+
+    // Always show the app within 20 s even if queries are still pending
+    // (e.g. Supabase free-tier cold start). Data will populate once they finish.
+    const showAfterTimeout = new Promise(resolve => setTimeout(resolve, 20000))
+
+    await Promise.race([loadData, showAfterTimeout])
+    setAuthUser(user)
+    setAuthReady(true)
   }
 
   async function handleSignOut() {
@@ -237,7 +236,7 @@ export default function App() {
   async function doStartSession(template) {
     setStartingTemplateId(template.id)
     setStartingQuickStart(null)
-    const session = createSession({ templateId: template.id, logs: [] })
+    const session = createSession({ templateId: template.isQuickStart ? null : template.id, logs: [] })
     const exerciseIds = template.exercises.map(e => e.exerciseId)
     const prMap = await getPRMap(exerciseIds)
     const logs = initLogsFromTemplate(template)
@@ -271,18 +270,11 @@ export default function App() {
     attemptStart(template)
   }
 
-  async function handleQuickStartStarter(starter) {
+  function handleQuickStartStarter(starter) {
     if (startingQuickStart) return
     setStartingQuickStart(starter.label)
-    try {
-      const template = { ...starter.build(), isQuickStart: true }
-      await saveTemplate(template)
-      await refreshData()
-      attemptStart(template)
-    } catch (err) {
-      console.error('Failed to start quick start:', err)
-      setStartingQuickStart(null)
-    }
+    const template = { ...starter.build(), isQuickStart: true }
+    attemptStart(template)
   }
 
   function handleConfirmOverride() {
@@ -308,14 +300,10 @@ export default function App() {
   async function handleSessionFinish(session, template) {
     clearActiveSession()
     setActiveSession(null)
-    // If the template was a quick start that the user chose not to save, clean it up
-    if (template.isQuickStart) {
-      await deleteTemplate(template.id)
-    }
     const all = await getSessions()
     setSessions(all)
     await refreshData()
-    const prev = all
+    const prev = template.isQuickStart ? null : all
       .filter(s => s.templateId === template.id && s.finishedAt && s.id !== session.id)
       .sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))[0] ?? null
     goSummary(session, template, prev)
@@ -351,6 +339,8 @@ export default function App() {
   )
   if (!authUser) return <AuthScreen onAuth={user => bootstrapUser(user)} />
 
+  const isAdmin = authUser?.id === import.meta.env.VITE_ADMIN_UID
+
   const fullscreen = ['builder', 'session', 'summary', 'sessionDetail'].includes(screen.name)
 
   // Build nav tabs — inject Session tab when a workout is active
@@ -369,6 +359,7 @@ export default function App() {
     { id: 'history',  label: 'History',  icon: '📈' },
     { id: 'profile',  label: 'Profile',  icon: '👤' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
+    ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: '🛡️' }] : []),
   ]
 
   function renderScreen() {
@@ -420,6 +411,7 @@ export default function App() {
             template={screen.template}
             prevSession={screen.prevSession}
             onDone={goHome}
+            profile={profile}
           />
         )
       case 'history':
@@ -428,6 +420,7 @@ export default function App() {
             sessions={sessions}
             templates={templates}
             checkIns={checkIns}
+            settings={settings}
             onViewSession={s => goSessionDetail(s)}
             onDeleteSession={async id => { await deleteSession(id); setSessions(await getSessions()) }}
           />
@@ -439,6 +432,7 @@ export default function App() {
             templateName={templateName(screen.session.templateId)}
             onBack={() => goTab('history')}
             onDelete={async () => { setSessions(await getSessions()) }}
+            profile={profile}
           />
         )
       case 'profile':
@@ -453,6 +447,15 @@ export default function App() {
               await saveProfile(data)
               setProfile(data)
             }}
+            bodyWeightLogs={bodyWeightLogs}
+            onLogWeight={async kg => {
+              const entry = await saveBodyWeightLog(kg)
+              setBodyWeightLogs(prev => [...prev, entry])
+            }}
+            onDeleteWeightLog={async id => {
+              await deleteBodyWeightLog(id)
+              setBodyWeightLogs(prev => prev.filter(l => l.id !== id))
+            }}
           />
         )
       case 'settings':
@@ -463,8 +466,11 @@ export default function App() {
             sessions={sessions}
             templates={templates}
             onSignOut={handleSignOut}
+            authUser={authUser}
           />
         )
+      case 'admin':
+        return <AdminScreen />
       default:
         return null
     }

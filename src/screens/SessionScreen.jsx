@@ -49,6 +49,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
 
   const [lastSession, setLastSession] = useState(null)
   useEffect(() => {
+    if (template.isQuickStart) return
     getLastSessionForTemplate(template.id).then(setLastSession)
   }, [template.id])
 
@@ -194,7 +195,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     try {
       const session = {
         id: sessionId,
-        templateId: template.id,
+        templateId: template.isQuickStart ? null : template.id,
         startedAt,
         finishedAt: new Date().toISOString(),
         duration: elapsed,

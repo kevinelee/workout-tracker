@@ -450,7 +450,7 @@ export function saveActiveSession(data) {
     supabase.from('sessions').upsert({
       id:          data.sessionId,
       user_id:     _uid,
-      template_id: data.template?.id ?? null,
+      template_id: data.template?.isQuickStart ? null : (data.template?.id ?? null),
       started_at:  data.startedAt,
       status:      'active',
       pr_map:      data.prMap ?? {},
@@ -461,6 +461,32 @@ export function saveActiveSession(data) {
 export function clearActiveSession() {
   localStorage.removeItem(ACTIVE_KEY)
   // The session row in DB will be updated to 'finished' by saveSession()
+}
+
+
+// ── Feedback ──────────────────────────────────────────────────
+
+export async function saveFeedback(type, message, userEmail) {
+  await supabase.from('feedback').insert({
+    id:         nanoid(),
+    user_id:    _uid,
+    user_email: userEmail ?? null,
+    type,
+    message,
+    metadata: { userAgent: navigator.userAgent },
+  })
+}
+
+export async function getFeedback() {
+  const { data } = await supabase
+    .from('feedback')
+    .select('*')
+    .order('created_at', { ascending: false })
+  return data ?? []
+}
+
+export async function markFeedbackReviewed(id) {
+  await supabase.from('feedback').update({ status: 'reviewed' }).eq('id', id)
 }
 
 

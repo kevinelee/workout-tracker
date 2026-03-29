@@ -1,11 +1,15 @@
 function toDateStr(date) {
-  return new Date(date).toISOString().slice(0, 10)
+  const d = new Date(date)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 function buildActivitySet(sessions, checkIns) {
   const dates = new Set()
   for (const s of sessions) {
-    if (s.finishedAt) dates.add(toDateStr(s.finishedAt))
+    if (s.startedAt) dates.add(toDateStr(s.startedAt))
   }
   for (const d of checkIns) dates.add(d)
   return dates

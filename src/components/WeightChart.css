@@ -1,0 +1,195 @@
+.wc {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Log button ──────────────────────────────────────────────── */
+
+.wc-log-btn {
+  align-self: flex-start;
+  background: rgba(192, 132, 252, 0.12);
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--sans);
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+
+  &:active { opacity: 0.75; }
+}
+
+/* ── Inline form ─────────────────────────────────────────────── */
+
+.wc-form {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wc-form-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wc-form-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-h);
+  font-family: var(--sans);
+  min-width: 0;
+
+  -moz-appearance: textfield;
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  &::placeholder { color: var(--text); opacity: 0.25; }
+}
+
+.wc-form-unit {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.wc-form-date {
+  font-size: 12px;
+  color: var(--text);
+  margin-left: auto;
+}
+
+.wc-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.wc-btn {
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--sans);
+  padding: 8px 18px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+
+  &:disabled { opacity: 0.45; cursor: default; }
+}
+
+.wc-btn--ghost {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.wc-btn--primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+}
+
+/* ── Chart ───────────────────────────────────────────────────── */
+
+.wc-empty {
+  color: var(--text);
+  font-size: 14px;
+  text-align: center;
+  padding: 24px 0;
+  margin: 0;
+}
+
+.wc-single {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 24px 0;
+}
+
+.wc-single-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.wc-single-date {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.wc-tooltip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.wc-tooltip-date {
+  font-size: 11px;
+  color: var(--text);
+  margin: 0 0 2px;
+}
+
+.wc-tooltip-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0;
+}
+
+/* ── Entries list ────────────────────────────────────────────── */
+
+.wc-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wc-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.wc-entry-date {
+  font-size: 13px;
+  color: var(--text);
+  flex: 1;
+}
+
+.wc-entry-weight {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.wc-entry-delete {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+  opacity: 0.5;
+
+  &:hover { color: #f87171; background: rgba(248, 113, 113, 0.1); opacity: 1; }
+  &:disabled { opacity: 0.3; cursor: default; }
+}

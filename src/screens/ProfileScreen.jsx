@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { uploadAvatar } from '../storage'
 import { sessionVolume, fmtVolume, fmtDuration } from '../utils/volume'
 import { calcStreak } from '../utils/streaks'
+import WeightChart from '../components/WeightChart'
 import './ProfileScreen.css'
 
 const KG_TO_LBS  = 2.20462
@@ -37,7 +38,7 @@ function ftInToCm(ft, inches) {
   return (f * 12 + i) * INCH_TO_CM
 }
 
-export default function ProfileScreen({ profile, sessions, checkIns, settings, authUser, onSaveProfile }) {
+export default function ProfileScreen({ profile, sessions, checkIns, settings, authUser, onSaveProfile, bodyWeightLogs, onLogWeight, onDeleteWeightLog }) {
   const unit       = settings?.unit ?? 'lbs'
   const isImperial = unit === 'lbs'
 
@@ -299,6 +300,17 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Weight progress */}
+          <div className="profile-field profile-field--full">
+            <label className="profile-label">Weight Progress</label>
+            <WeightChart
+              logs={bodyWeightLogs ?? []}
+              unit={unit}
+              onLog={onLogWeight}
+              onDelete={onDeleteWeightLog}
+            />
           </div>
 
           {/* Activity level */}

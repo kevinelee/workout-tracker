@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import confetti from 'canvas-confetti'
 import { sessionVolume, sessionPRCount, volumeChangePercent, fmtVolume, fmtDuration, motivationalCopy } from '../utils/volume'
+import { estimateCalories } from '../utils/calories'
 import './PostWorkoutSummary.css'
 
 function fmtTime(iso) {
@@ -8,11 +9,12 @@ function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 }
 
-export default function PostWorkoutSummary({ session, template, prevSession, onDone }) {
+export default function PostWorkoutSummary({ session, template, prevSession, onDone, profile }) {
   const volume = sessionVolume(session)
   const prsHit = sessionPRCount(session)
   const prevVolume = prevSession ? sessionVolume(prevSession) : null
   const volumePct = volumeChangePercent(volume, prevVolume)
+  const calories = estimateCalories(session, profile?.weightKg)
   const completedSets = (session.logs ?? []).reduce((sum, log) => sum + log.sets.filter(s => s.completed).length, 0)
   const totalSets = (session.logs ?? []).reduce((sum, log) => sum + log.sets.length, 0)
   const allDone = completedSets === totalSets && totalSets > 0
@@ -49,7 +51,11 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
           {prsHit > 0 && <Stat label="PRs" value={prsHit} highlight />}
           <Stat label="Started" value={fmtTime(session.startedAt)} />
           <Stat label="Finished" value={fmtTime(session.finishedAt)} />
+          {calories != null && <Stat label="Calories" value={`~${calories} kcal`} sub="MET estimate" />}
         </div>
+        {calories == null && profile?.weightKg == null && (
+          <p className="summary-calorie-hint">Add your weight in Profile for calorie estimates</p>
+        )}
 
         <div className="summary-actions">
           <button className="summary-share-btn" onClick={handleShare}>Share 🔗</button>

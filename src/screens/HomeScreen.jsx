@@ -83,7 +83,7 @@ export default function HomeScreen({ templates, sessions, checkIns, checkedIn, s
                   <button
                     className={`home-start-btn ${startingTemplateId === t.id ? 'home-start-btn--loading' : ''}`}
                     onClick={() => onStart(t)}
-                    disabled={!!startingTemplateId}
+                    disabled={!!startingTemplateId || !!startingQuickStart}
                   >
                     {startingTemplateId === t.id
                       ? <span className="home-start-spinner" />

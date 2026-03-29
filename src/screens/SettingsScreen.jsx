@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getCachedCustomExercises, deleteCustomExercise, clearAll } from '../storage'
 import { exportJSON, exportCSV } from '../utils/export'
+import FeedbackModal from '../components/FeedbackModal'
 import './SettingsScreen.css'
 
 const REST_OPTIONS = [
@@ -21,13 +22,14 @@ const THEME_OPTIONS = [
 
 const notifSupported = typeof Notification !== 'undefined'
 
-export default function SettingsScreen({ settings, onSave, sessions, templates, onSignOut }) {
+export default function SettingsScreen({ settings, onSave, sessions, templates, onSignOut, authUser }) {
   const [s, setS] = useState(settings)
   const [notifStatus, setNotifStatus] = useState(notifSupported ? Notification.permission : 'unsupported')
   const [customExercises, setCustomExercises] = useState(() => getCachedCustomExercises())
   const [confirmDeleteExercise, setConfirmDeleteExercise] = useState(null)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const [exerciseEditMode, setExerciseEditMode] = useState(false)
+  const [feedbackModal, setFeedbackModal] = useState(null) // 'bug' | 'feedback' | null
 
   async function handleDeleteExercise(id) {
     await deleteCustomExercise(id)
@@ -170,6 +172,18 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
         </div>
       )}
 
+      {/* Support */}
+      <Section title="Support">
+        <div className="settings-export-row">
+          <button className="settings-action-btn" onClick={() => setFeedbackModal('bug')}>
+            🐛 Report a Bug
+          </button>
+          <button className="settings-action-btn" onClick={() => setFeedbackModal('feedback')}>
+            💬 Share Feedback
+          </button>
+        </div>
+      </Section>
+
       {/* Danger zone */}
       <Section title="Danger Zone">
         <button className="settings-signout-btn" onClick={() => setConfirmSignOut(true)}>
@@ -196,6 +210,15 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
             </div>
           </div>
         </div>
+      )}
+
+      {/* Feedback / bug report modal */}
+      {feedbackModal && (
+        <FeedbackModal
+          authUser={authUser}
+          defaultType={feedbackModal}
+          onClose={() => setFeedbackModal(null)}
+        />
       )}
     </div>
   )

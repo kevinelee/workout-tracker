@@ -20,7 +20,12 @@ export default function CalendarHeatmap({ sessions, checkIns, onDayClick }) {
 
   function handleClick(cell) {
     if (!cell?.active || !onDayClick) return
-    const daySessions = sessions.filter(s => s.finishedAt?.slice(0, 10) === cell.date)
+    const daySessions = sessions.filter(s => {
+      if (!s.startedAt) return false
+      const d = new Date(s.startedAt)
+      const local = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+      return local === cell.date
+    })
     onDayClick(cell.date, daySessions)
   }
 

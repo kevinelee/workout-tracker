@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { defaultExercises } from '../data/exerciseLibrary'
 import { getCachedCustomExercises, deleteSession } from '../storage'
 import { sessionVolume, fmtVolume, fmtDuration } from '../utils/volume'
+import { estimateCalories } from '../utils/calories'
 import MuscleIcon from '../components/MuscleIcon'
 import './SessionDetailScreen.css'
 
@@ -13,8 +14,9 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-export default function SessionDetailScreen({ session, templateName, onBack, onDelete }) {
-  const volume = sessionVolume(session)
+export default function SessionDetailScreen({ session, templateName, onBack, onDelete, profile }) {
+  const volume   = sessionVolume(session)
+  const calories = estimateCalories(session, profile?.weightKg)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   async function handleDelete() {
@@ -49,6 +51,7 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
           <span>{fmtDate(session.finishedAt)}</span>
           <span>{fmtDuration(session.duration)}</span>
           <span>{fmtVolume(volume)} lbs total</span>
+          {calories != null && <span>~{calories} kcal</span>}
         </div>
 
         {(session.logs ?? []).map(log => {

@@ -5,6 +5,8 @@ import { getCachedCustomExercises } from '../storage'
 import { defaultExercises } from '../data/exerciseLibrary'
 import VolumeChart from '../components/VolumeChart'
 import CalendarHeatmap from '../components/CalendarHeatmap'
+import ExerciseProgressChart from '../components/ExerciseProgressChart'
+import MuscleVolumeChart from '../components/MuscleVolumeChart'
 import './HistoryScreen.css'
 
 const PAGE_SIZE = 10
@@ -23,7 +25,7 @@ function exerciseName(id) {
     ?? id
 }
 
-export default function HistoryScreen({ sessions, templates, checkIns, onViewSession, onDeleteSession }) {
+export default function HistoryScreen({ sessions, templates, checkIns, settings, onViewSession, onDeleteSession }) {
   const streak = calcStreak(sessions, checkIns)
   const finished = sessions.filter(s => s.finishedAt).sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))
 
@@ -111,8 +113,20 @@ export default function HistoryScreen({ sessions, templates, checkIns, onViewSes
 
       {/* Volume chart */}
       <section className="history-section">
-        <h3 className="history-section-title">Progress</h3>
+        <h3 className="history-section-title">Volume</h3>
         <VolumeChart sessions={finished} />
+      </section>
+
+      {/* Exercise progress */}
+      <section className="history-section">
+        <h3 className="history-section-title">Exercise Progress</h3>
+        <ExerciseProgressChart sessions={finished} settings={settings} />
+      </section>
+
+      {/* Muscle volume */}
+      <section className="history-section">
+        <h3 className="history-section-title">Volume by Muscle</h3>
+        <MuscleVolumeChart sessions={finished} />
       </section>
 
       {/* Session list */}
