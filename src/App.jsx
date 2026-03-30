@@ -71,11 +71,19 @@ export default function App() {
   // duplicate INITIAL_SESSION events don't re-run all Supabase queries.
   const bootstrappedUidRef = useRef(null)
 
-  // Bootstrap auth — onAuthStateChange fires with INITIAL_SESSION on mount,
-  // which handles both normal loads and magic link / invite token exchanges
-  // in one place, avoiding the race condition where getSession() resolves
-  // before the token is exchanged and flashes the login screen.
+  // Bootstrap auth — fast path via getSession() reads localStorage without
+  // waiting for a network token refresh, so the app starts immediately.
+  // onAuthStateChange handles sign-out, magic links, and token refreshes.
   useEffect(() => {
+    // Fast path: kick off bootstrap from the locally cached session.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        bootstrapUser(session.user)
+      } else {
+        setAuthReady(true)
+      }
+    })
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         // Already bootstrapped for this user (e.g. TOKEN_REFRESHED on resume) — skip.
@@ -94,9 +102,13 @@ export default function App() {
     bootstrappedUidRef.current = user.id
     setStorageUser(user.id)
 
-    // Load all data and apply to state whenever it resolves.
-    // This promise never rejects — errors are caught internally.
-    const loadData = Promise.all([
+    // Show the app shell immediately — don't block on data queries.
+    // Screens render with empty defaults while data loads in the background.
+    setAuthUser(user)
+    setAuthReady(true)
+
+    // Fire all queries in parallel; each setState re-renders as data arrives.
+    Promise.all([
       getTemplates(),
       getSessions(),
       getSettings(),
@@ -114,14 +126,6 @@ export default function App() {
       setProfile(prof)
       setBodyWeightLogs(bwl)
     }).catch(err => console.error('bootstrapUser load failed:', err))
-
-    // Always show the app within 20 s even if queries are still pending
-    // (e.g. Supabase free-tier cold start). Data will populate once they finish.
-    const showAfterTimeout = new Promise(resolve => setTimeout(resolve, 20000))
-
-    await Promise.race([loadData, showAfterTimeout])
-    setAuthUser(user)
-    setAuthReady(true)
   }
 
   async function handleSignOut() {
