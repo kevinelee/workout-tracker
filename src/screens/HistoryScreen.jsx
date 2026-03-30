@@ -34,6 +34,7 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
   const [dayModal,     setDayModal]     = useState(null) // { date, sessions }
   const [swipedId,     setSwipedId]     = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null) // session to confirm delete
+  const [isDeleting,    setIsDeleting]    = useState(false)
   const touchStartRef = useRef(null)
 
   function templateName(id) {
@@ -62,7 +63,9 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
 
   async function handleDeleteConfirmed() {
     if (!deleteConfirm) return
+    setIsDeleting(true)
     await onDeleteSession(deleteConfirm.id)
+    setIsDeleting(false)
     setDeleteConfirm(null)
   }
 
@@ -212,13 +215,15 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
       </section>
       {/* Delete confirmation modal */}
       {deleteConfirm && (
-        <div className="history-delete-backdrop" onClick={() => setDeleteConfirm(null)}>
+        <div className="history-delete-backdrop" onClick={() => { if (!isDeleting) setDeleteConfirm(null) }}>
           <div className="history-delete-modal" onClick={e => e.stopPropagation()}>
             <p className="history-delete-title">Delete "{templateName(deleteConfirm.templateId)}"?</p>
             <p className="history-delete-sub">This can't be undone.</p>
             <div className="history-delete-actions">
-              <button className="history-delete-cancel" onClick={() => setDeleteConfirm(null)}>Keep</button>
-              <button className="history-delete-confirm" onClick={handleDeleteConfirmed}>Delete</button>
+              <button className="history-delete-cancel" onClick={() => setDeleteConfirm(null)} disabled={isDeleting}>Keep</button>
+              <button className="history-delete-confirm" onClick={handleDeleteConfirmed} disabled={isDeleting}>
+                {isDeleting ? <span className="history-delete-spinner" /> : 'Delete'}
+              </button>
             </div>
           </div>
         </div>

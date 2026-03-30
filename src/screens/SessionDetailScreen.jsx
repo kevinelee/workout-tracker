@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { defaultExercises } from '../data/exerciseLibrary'
 import { getCachedCustomExercises, deleteSession } from '../storage'
 import { sessionVolume, fmtVolume, fmtDuration } from '../utils/volume'
@@ -18,8 +18,15 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
   const volume   = sessionVolume(session)
   const calories = estimateCalories(session, profile?.weightKg)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [isDeleting,    setIsDeleting]    = useState(false)
+
+  useEffect(() => {
+    const main = document.querySelector('.app-main')
+    if (main) main.scrollTop = 0
+  }, [])
 
   async function handleDelete() {
+    setIsDeleting(true)
     await deleteSession(session.id)
     onDelete?.()
     onBack()
@@ -34,13 +41,15 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
       </div>
 
       {confirmDelete && (
-        <div className="detail-confirm-overlay" onClick={() => setConfirmDelete(false)}>
+        <div className="detail-confirm-overlay" onClick={() => { if (!isDeleting) setConfirmDelete(false) }}>
           <div className="detail-confirm" onClick={e => e.stopPropagation()}>
             <p className="detail-confirm-title">Delete this session?</p>
             <p className="detail-confirm-body">This can't be undone.</p>
             <div className="detail-confirm-actions">
-              <button className="detail-confirm-cancel" onClick={() => setConfirmDelete(false)}>Keep</button>
-              <button className="detail-confirm-ok" onClick={handleDelete}>Delete</button>
+              <button className="detail-confirm-cancel" onClick={() => setConfirmDelete(false)} disabled={isDeleting}>Keep</button>
+              <button className="detail-confirm-ok" onClick={handleDelete} disabled={isDeleting}>
+                {isDeleting ? <span className="detail-confirm-spinner" /> : 'Delete'}
+              </button>
             </div>
           </div>
         </div>

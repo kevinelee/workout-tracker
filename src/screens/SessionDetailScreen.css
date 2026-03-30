@@ -60,6 +60,12 @@
   justify-content: center;
   z-index: 100;
   padding: 24px;
+  animation: detail-backdrop-in 0.18s ease;
+}
+
+@keyframes detail-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .detail-confirm {
@@ -72,6 +78,12 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  animation: detail-modal-in 0.2s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+@keyframes detail-modal-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 .detail-confirm-title {
@@ -104,6 +116,10 @@
   font-family: var(--sans);
   padding: 13px;
   cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+
+  &:active { transform: scale(0.96); opacity: 0.75; }
+  &:disabled { opacity: 0.4; cursor: default; }
 }
 
 .detail-confirm-ok {
@@ -117,6 +133,28 @@
   font-family: var(--sans);
   padding: 13px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  transition: opacity 0.15s, transform 0.1s;
+
+  &:active { transform: scale(0.96); opacity: 0.75; }
+  &:disabled { opacity: 0.6; cursor: default; }
+}
+
+.detail-confirm-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(248, 113, 113, 0.3);
+  border-top-color: #f87171;
+  border-radius: 50%;
+  animation: detail-spin 0.6s linear infinite;
+  display: inline-block;
+}
+
+@keyframes detail-spin {
+  to { transform: rotate(360deg); }
 }
 
 .detail-body {
