@@ -12,7 +12,8 @@ alter table profiles
   add column if not exists weight_kg      numeric,
   add column if not exists age            int,
   add column if not exists gender         text,        -- 'male' | 'female' | 'other'
-  add column if not exists activity_level text;        -- 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active'
+  add column if not exists activity_level text,        -- 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active'
+  add column if not exists track_weight   boolean;     -- null = not asked, true = opted in, false = opted out
 
 
 -- ── 2. Body weight logs ───────────────────────────────────────
@@ -44,5 +45,5 @@ create index if not exists body_weight_logs_user_idx
 
 
 -- ── Done ─────────────────────────────────────────────────────
--- profiles: +height_cm, +weight_kg, +age, +gender, +activity_level
+-- profiles: +height_cm, +weight_kg, +age, +gender, +activity_level, +track_weight
 -- new table: body_weight_logs

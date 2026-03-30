@@ -59,6 +59,7 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
   const [age,            setAge]            = useState(profile?.age != null ? String(profile.age) : '')
   const [gender,         setGender]         = useState(profile?.gender ?? null)
   const [activityLevel,  setActivityLevel]  = useState(profile?.activityLevel ?? null)
+  const [trackWeight,    setTrackWeight]    = useState(profile?.trackWeight ?? null)
 
   // Sync when profile loads for the first time (async bootstrap)
   useEffect(() => {
@@ -80,7 +81,8 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
     setAge(profile.age != null ? String(profile.age) : '')
     setGender(profile.gender ?? null)
     setActivityLevel(profile.activityLevel ?? null)
-  }, [profile?.avatarUrl, profile?.displayName, profile?.heightCm, profile?.weightKg, profile?.age, profile?.gender, profile?.activityLevel])
+    setTrackWeight(profile.trackWeight ?? null)
+  }, [profile?.avatarUrl, profile?.displayName, profile?.heightCm, profile?.weightKg, profile?.age, profile?.gender, profile?.activityLevel, profile?.trackWeight])
 
   async function handleAvatarChange(e) {
     const file = e.target.files?.[0]
@@ -127,6 +129,15 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
     onSaveProfile(buildPayload({ [field]: value }))
     // suppress unused variable warning
     void next
+  }
+
+  async function handleWeightOptIn(accept) {
+    setTrackWeight(accept)
+    const payload = buildPayload({ trackWeight: accept })
+    onSaveProfile(payload)
+    if (accept && payload.weightKg) {
+      await onLogWeight(payload.weightKg)
+    }
   }
 
   // ── Lifetime stats ────────────────────────────────────────
@@ -302,16 +313,48 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
             </div>
           </div>
 
-          {/* Weight progress */}
-          <div className="profile-field profile-field--full">
-            <label className="profile-label">Weight Progress</label>
-            <WeightChart
-              logs={bodyWeightLogs ?? []}
-              unit={unit}
-              onLog={onLogWeight}
-              onDelete={onDeleteWeightLog}
-            />
-          </div>
+          {/* Weight tracking opt-in / chart */}
+          {trackWeight === null ? (
+            <div className="profile-field profile-field--full profile-weight-optin">
+              <p className="profile-weight-optin-title">Track your weight?</p>
+              <p className="profile-weight-optin-body">
+                See how you progress over time. Private — only visible to you, and always optional.
+              </p>
+              <div className="profile-weight-optin-actions">
+                <button
+                  className="profile-weight-optin-btn profile-weight-optin-btn--yes"
+                  onClick={() => handleWeightOptIn(true)}
+                >
+                  Yes, track it
+                </button>
+                <button
+                  className="profile-weight-optin-btn profile-weight-optin-btn--no"
+                  onClick={() => handleWeightOptIn(false)}
+                >
+                  No thanks
+                </button>
+              </div>
+            </div>
+          ) : trackWeight === true ? (
+            <div className="profile-field profile-field--full">
+              <label className="profile-label">Weight Progress</label>
+              <WeightChart
+                logs={bodyWeightLogs ?? []}
+                unit={unit}
+                onLog={onLogWeight}
+                onDelete={onDeleteWeightLog}
+              />
+            </div>
+          ) : (
+            <div className="profile-field profile-field--full profile-weight-disabled">
+              <button
+                className="profile-weight-enable-btn"
+                onClick={() => handleWeightOptIn(true)}
+              >
+                Enable weight tracking
+              </button>
+            </div>
+          )}
 
           {/* Activity level */}
           <div className="profile-field profile-field--full">

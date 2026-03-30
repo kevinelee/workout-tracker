@@ -129,7 +129,7 @@ export default function WeightChart({ logs, unit, onLog, onDelete }) {
 
       {/* Chart */}
       {chartData.length === 0 ? (
-        <p className="wc-empty">Log your weight to see progress over time.</p>
+        <p className="wc-empty">Log your first entry — your progress will show up here.</p>
       ) : chartData.length === 1 ? (
         <div className="wc-single">
           <span className="wc-single-value">{chartData[0].weight} {unit}</span>

@@ -80,6 +80,7 @@ function dbProfileToApp(p) {
     age:           p.age         != null ? Number(p.age)        : null,
     gender:        p.gender      ?? null,
     activityLevel: p.activity_level ?? null,
+    trackWeight:   p.track_weight ?? null,
   }
 }
 
@@ -92,6 +93,7 @@ function defaultProfile() {
     age:           null,
     gender:        null,
     activityLevel: null,
+    trackWeight:   null,
   }
 }
 
@@ -347,6 +349,7 @@ export async function saveProfile(profile) {
     age:            profile.age           ?? null,
     gender:         profile.gender        ?? null,
     activity_level: profile.activityLevel ?? null,
+    track_weight:   profile.trackWeight   ?? null,
   })
 }
 

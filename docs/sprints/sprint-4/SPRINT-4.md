@@ -26,6 +26,7 @@ Build a Profile tab and a full analytics layer — all rule-based, no API cost. 
 | [S4-003](tickets/S4-003-weight-tracker.md) | Body weight log + progress graph | Todo |
 | [S4-004](tickets/S4-004-caloric-estimate.md) | Caloric burn estimate per workout | Todo |
 | [S4-005](tickets/S4-005-exercise-progress.md) | Per-exercise progress charts (weight over time + est. 1RM) | Todo |
+| [S4-008](tickets/S4-008-weekly-schedule-prefs.md) | Weekly schedule preferences (week start day + target days/week) | Todo |
 
 ### P2 — Volume & Muscle Analytics
 
