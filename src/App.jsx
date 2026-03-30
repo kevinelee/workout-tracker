@@ -239,7 +239,6 @@ export default function App() {
 
   async function doStartSession(template) {
     setStartingTemplateId(template.id)
-    setStartingQuickStart(null)
     const session = createSession({ templateId: template.isQuickStart ? null : template.id, logs: [] })
     const exerciseIds = template.exercises.map(e => e.exerciseId)
     const prMap = await getPRMap(exerciseIds)
@@ -248,6 +247,7 @@ export default function App() {
     saveActiveSession(data)
     setActiveSession(data)
     setStartingTemplateId(null)
+    setStartingQuickStart(null)
     closeStartSheet()
     goSession()
     setActiveTab('session')
