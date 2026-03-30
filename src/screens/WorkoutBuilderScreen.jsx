@@ -32,7 +32,8 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
     initial?.exercises ?? []
   )
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [saving,         setSaving]        = useState(false)
+  const [deleting,       setDeleting]      = useState(false)
 
   function handleSelectExercise(exercise) {
     // Don't add duplicates
@@ -68,6 +69,7 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
 
   async function handleDelete() {
     if (!initial) return
+    setDeleting(true)
     await deleteTemplate(initial.id)
     onDelete()
   }
@@ -106,7 +108,7 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
           onClick={handleSave}
           disabled={!canSave}
         >
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? <span className="builder-btn-spinner" /> : 'Save'}
         </button>
       </div>
 
@@ -161,13 +163,15 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
 
       {/* Confirm delete modal */}
       {confirmDelete && (
-        <div className="builder-modal-overlay" onClick={() => setConfirmDelete(false)}>
+        <div className="builder-modal-overlay" onClick={() => { if (!deleting) setConfirmDelete(false) }}>
           <div className="builder-modal" onClick={e => e.stopPropagation()}>
             <p className="builder-modal-title">Delete "{name}"?</p>
             <p className="builder-modal-body">This will permanently remove the workout. This can't be undone.</p>
             <div className="builder-modal-actions">
-              <button className="builder-modal-cancel" onClick={() => setConfirmDelete(false)}>Cancel</button>
-              <button className="builder-modal-confirm" onClick={handleDelete}>Delete</button>
+              <button className="builder-modal-cancel" onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancel</button>
+              <button className="builder-modal-confirm" onClick={handleDelete} disabled={deleting}>
+                {deleting ? <span className="builder-btn-spinner" /> : 'Delete'}
+              </button>
             </div>
           </div>
         </div>
