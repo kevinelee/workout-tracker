@@ -287,7 +287,7 @@ export default function App() {
   function handleQuickStartStarter(starter) {
     if (startingQuickStart) return
     setStartingQuickStart(starter.label)
-    const template = { ...starter.build(), isQuickStart: true }
+    const template = { ...starter.build(settings.unit), isQuickStart: true }
     attemptStart(template)
   }
 
@@ -406,6 +406,7 @@ export default function App() {
             onSave={handleSaveTemplate}
             onBack={goHome}
             onDelete={handleDeleteTemplate}
+            unit={settings.unit}
           />
         )
       case 'session':
@@ -436,6 +437,7 @@ export default function App() {
             templates={templates}
             checkIns={checkIns}
             settings={settings}
+            profile={profile}
             onViewSession={s => goSessionDetail(s)}
             onDeleteSession={async id => { await deleteSession(id); setSessions(await getSessions()) }}
           />

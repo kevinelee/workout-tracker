@@ -5,10 +5,16 @@
 import { nanoid } from 'nanoid'
 import { createSet } from './models'
 
-function ex(exerciseId, setsCount = 3, reps = 8, weight = 0) {
+// Convert a lbs weight to kg, rounded to nearest 2.5
+function toKg(lbs) {
+  return Math.round(lbs * 0.453592 / 2.5) * 2.5
+}
+
+function ex(exerciseId, setsCount = 3, reps = 8, weight = 0, unit = 'lbs') {
+  const w = weight === 0 ? 0 : (unit === 'kg' ? toKg(weight) : weight)
   return {
     exerciseId,
-    sets: Array.from({ length: setsCount }, () => createSet({ reps, weight })),
+    sets: Array.from({ length: setsCount }, () => createSet({ reps, weight: w })),
     notes: '',
   }
 }
@@ -18,15 +24,15 @@ export const starterTemplates = [
     label: 'Push Day',
     emoji: '💪',
     description: 'Chest, shoulders & triceps',
-    build: () => ({
+    build: (unit = 'lbs') => ({
       id: nanoid(),
       name: 'Push Day',
       createdAt: new Date().toISOString(),
       exercises: [
-        ex('bench-press',     4, 8,  135),
-        ex('overhead-press',  3, 8,  75),
-        ex('incline-press',   3, 10, 95),
-        ex('tricep-pushdown', 3, 12, 50),
+        ex('bench-press',     4, 8,  135, unit),
+        ex('overhead-press',  3, 8,  75,  unit),
+        ex('incline-press',   3, 10, 95,  unit),
+        ex('tricep-pushdown', 3, 12, 50,  unit),
       ],
     }),
   },
@@ -34,15 +40,15 @@ export const starterTemplates = [
     label: 'Pull Day',
     emoji: '🔙',
     description: 'Back & biceps',
-    build: () => ({
+    build: (unit = 'lbs') => ({
       id: nanoid(),
       name: 'Pull Day',
       createdAt: new Date().toISOString(),
       exercises: [
-        ex('barbell-row',  4, 8,  135),
-        ex('lat-pulldown', 3, 10, 100),
-        ex('pull-up',      3, 6,  0),
-        ex('bicep-curl',   3, 12, 30),
+        ex('barbell-row',  4, 8,  135, unit),
+        ex('lat-pulldown', 3, 10, 100, unit),
+        ex('pull-up',      3, 6,  0,   unit),
+        ex('bicep-curl',   3, 12, 30,  unit),
       ],
     }),
   },
@@ -50,15 +56,15 @@ export const starterTemplates = [
     label: 'Leg Day',
     emoji: '🦵',
     description: 'Quads, hamstrings & calves',
-    build: () => ({
+    build: (unit = 'lbs') => ({
       id: nanoid(),
       name: 'Leg Day',
       createdAt: new Date().toISOString(),
       exercises: [
-        ex('squat',             4, 8,  135),
-        ex('romanian-deadlift', 3, 10, 115),
-        ex('leg-press',         3, 12, 180),
-        ex('calf-raise',        3, 15, 0),
+        ex('squat',             4, 8,  135, unit),
+        ex('romanian-deadlift', 3, 10, 115, unit),
+        ex('leg-press',         3, 12, 180, unit),
+        ex('calf-raise',        3, 15, 0,   unit),
       ],
     }),
   },
@@ -66,16 +72,16 @@ export const starterTemplates = [
     label: 'Full Body',
     emoji: '🏋️',
     description: 'Classic 5-exercise compound session',
-    build: () => ({
+    build: (unit = 'lbs') => ({
       id: nanoid(),
       name: 'Full Body',
       createdAt: new Date().toISOString(),
       exercises: [
-        ex('squat',          3, 5, 135),
-        ex('bench-press',    3, 5, 135),
-        ex('barbell-row',    3, 5, 115),
-        ex('overhead-press', 3, 5, 75),
-        ex('deadlift',       1, 5, 185),
+        ex('squat',          3, 5, 135, unit),
+        ex('bench-press',    3, 5, 135, unit),
+        ex('barbell-row',    3, 5, 115, unit),
+        ex('overhead-press', 3, 5, 75,  unit),
+        ex('deadlift',       1, 5, 185, unit),
       ],
     }),
   },
@@ -83,16 +89,16 @@ export const starterTemplates = [
     label: 'Upper Body',
     emoji: '🤸',
     description: 'Chest, back, shoulders & arms',
-    build: () => ({
+    build: (unit = 'lbs') => ({
       id: nanoid(),
       name: 'Upper Body',
       createdAt: new Date().toISOString(),
       exercises: [
-        ex('bench-press',     3, 8,  135),
-        ex('barbell-row',     3, 8,  115),
-        ex('overhead-press',  3, 10, 65),
-        ex('bicep-curl',      3, 12, 25),
-        ex('tricep-pushdown', 3, 12, 40),
+        ex('bench-press',     3, 8,  135, unit),
+        ex('barbell-row',     3, 8,  115, unit),
+        ex('overhead-press',  3, 10, 65,  unit),
+        ex('bicep-curl',      3, 12, 25,  unit),
+        ex('tricep-pushdown', 3, 12, 40,  unit),
       ],
     }),
   },
@@ -100,15 +106,15 @@ export const starterTemplates = [
     label: 'Core & Cardio',
     emoji: '🔥',
     description: 'Abs and conditioning',
-    build: () => ({
+    build: (unit = 'lbs') => ({
       id: nanoid(),
       name: 'Core & Cardio',
       createdAt: new Date().toISOString(),
       exercises: [
-        ex('plank',         3, 60, 0),
-        ex('crunch',        3, 20, 0),
-        ex('russian-twist', 3, 20, 0),
-        ex('treadmill',     1, 20, 0),
+        ex('plank',         3, 60, 0, unit),
+        ex('crunch',        3, 20, 0, unit),
+        ex('russian-twist', 3, 20, 0, unit),
+        ex('treadmill',     1, 20, 0, unit),
       ],
     }),
   },
