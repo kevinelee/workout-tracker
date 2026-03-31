@@ -3,10 +3,11 @@ import { getCachedCustomExercises } from '../storage'
 
 // MET values by exercise category (strength)
 const CATEGORY_MET = {
-  Push: 5.0,
-  Pull: 5.0,
-  Legs: 5.0,
-  Core: 5.0,
+  Push:    5.0,
+  Pull:    5.0,
+  Legs:    5.0,
+  Core:    5.0,
+  Stretch: 2.5,
 }
 
 // MET values for specific cardio exercises

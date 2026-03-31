@@ -28,6 +28,7 @@ function EditableValue({ value, onSet }) {
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
         autoFocus
+        onFocus={e => e.target.select()}
       />
     )
   }
@@ -59,7 +60,10 @@ function Stepper({ label, value, onDec, onInc, onSet, useHold = false, min = 0 }
   )
 }
 
-export default function SetRow({ set, index, onChange, onRemove, isCardio }) {
+export default function SetRow({ set, index, onChange, onRemove, isCardio, cardioUnit, isStretch, unit }) {
+  const isDistance = isCardio && cardioUnit === 'distance'
+  const distLabel  = unit === 'kg' ? 'km' : 'mi'
+
   function update(field, value) {
     onChange({ ...set, [field]: Math.max(0, value) })
   }
@@ -68,13 +72,22 @@ export default function SetRow({ set, index, onChange, onRemove, isCardio }) {
     <div className="set-row">
       <span className="set-index">{index + 1}</span>
 
-      {isCardio ? (
+      {isStretch ? (
         <Stepper
-          label="min"
+          label="sec"
           value={set.reps}
-          onDec={() => update('reps', set.reps - 1)}
-          onInc={() => update('reps', set.reps + 1)}
+          onDec={() => update('reps', set.reps - 5)}
+          onInc={() => update('reps', set.reps + 5)}
           onSet={v => update('reps', v)}
+          min={5}
+        />
+      ) : isCardio ? (
+        <Stepper
+          label={isDistance ? distLabel : 'min'}
+          value={isDistance ? set.weight : set.reps}
+          onDec={() => update(isDistance ? 'weight' : 'reps', (isDistance ? set.weight : set.reps) - 1)}
+          onInc={() => update(isDistance ? 'weight' : 'reps', (isDistance ? set.weight : set.reps) + 1)}
+          onSet={v => update(isDistance ? 'weight' : 'reps', v)}
         />
       ) : (
         <>

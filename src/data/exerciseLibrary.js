@@ -1,7 +1,7 @@
 // Predefined exercise library seeded with common movements per category
 // isCustom: false = built-in, true = user-created
 
-export const CATEGORIES = ['Push', 'Pull', 'Legs', 'Core', 'Cardio']
+export const CATEGORIES = ['Push', 'Pull', 'Legs', 'Core', 'Cardio', 'Stretch']
 
 export const defaultExercises = [
   // Push
@@ -32,10 +32,22 @@ export const defaultExercises = [
   { id: 'cable-crunch',       name: 'Cable Crunch',        category: 'Core', muscleGroup: 'Abs',       isCustom: false },
   { id: 'russian-twist',      name: 'Russian Twist',       category: 'Core', muscleGroup: 'Obliques',  isCustom: false },
 
-  // Cardio
-  { id: 'treadmill',          name: 'Treadmill',           category: 'Cardio', muscleGroup: 'Full Body', isCustom: false },
-  { id: 'rowing-machine',     name: 'Rowing Machine',      category: 'Cardio', muscleGroup: 'Full Body', isCustom: false },
-  { id: 'jump-rope',          name: 'Jump Rope',           category: 'Cardio', muscleGroup: 'Full Body', isCustom: false },
-  { id: 'bike',               name: 'Stationary Bike',     category: 'Cardio', muscleGroup: 'Full Body', isCustom: false },
-  { id: 'stair-climber',      name: 'Stair Climber',       category: 'Cardio', muscleGroup: 'Full Body', isCustom: false },
+  // Cardio — cardioUnit: 'distance' shows mi/km field, 'time' shows min field
+  { id: 'treadmill',          name: 'Treadmill',           category: 'Cardio', muscleGroup: 'Full Body', cardioUnit: 'distance', isCustom: false },
+  { id: 'rowing-machine',     name: 'Rowing Machine',      category: 'Cardio', muscleGroup: 'Full Body', cardioUnit: 'time',     isCustom: false },
+  { id: 'jump-rope',          name: 'Jump Rope',           category: 'Cardio', muscleGroup: 'Full Body', cardioUnit: 'time',     isCustom: false },
+  { id: 'bike',               name: 'Stationary Bike',     category: 'Cardio', muscleGroup: 'Full Body', cardioUnit: 'distance', isCustom: false },
+  { id: 'stair-climber',      name: 'Stair Climber',       category: 'Cardio', muscleGroup: 'Full Body', cardioUnit: 'time',     isCustom: false },
+
+  // Stretch — uses 'sec' field (stored in set.reps)
+  { id: 'hip-flexor-stretch', name: 'Hip Flexor Stretch',  category: 'Stretch', muscleGroup: 'Flexibility', isCustom: false },
+  { id: 'hamstring-stretch',  name: 'Hamstring Stretch',   category: 'Stretch', muscleGroup: 'Flexibility', isCustom: false },
+  { id: 'quad-stretch',       name: 'Quad Stretch',        category: 'Stretch', muscleGroup: 'Flexibility', isCustom: false },
+  { id: 'shoulder-stretch',   name: 'Shoulder Stretch',    category: 'Stretch', muscleGroup: 'Flexibility', isCustom: false },
+  { id: 'chest-opener',       name: 'Chest Opener',        category: 'Stretch', muscleGroup: 'Flexibility', isCustom: false },
+  { id: 'pigeon-pose',        name: 'Pigeon Pose',         category: 'Stretch', muscleGroup: 'Flexibility', isCustom: false },
+  { id: 'cat-cow',            name: 'Cat-Cow',             category: 'Stretch', muscleGroup: 'Flexibility', isCustom: false },
+  { id: 'childs-pose',        name: "Child's Pose",        category: 'Stretch', muscleGroup: 'Flexibility', isCustom: false },
+  { id: 'spinal-twist',       name: 'Spinal Twist',        category: 'Stretch', muscleGroup: 'Flexibility', isCustom: false },
+  { id: 'calf-stretch',       name: 'Calf Stretch',        category: 'Stretch', muscleGroup: 'Flexibility', isCustom: false },
 ]

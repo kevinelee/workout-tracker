@@ -66,6 +66,15 @@ const icons = {
       <path d="M10 15 L14 15" />
     </svg>
   ),
+  Flexibility: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <circle cx="12" cy="3.5" r="1.5" />
+      <path d="M12 5.5 L12 10" />
+      <path d="M12 10 C10 12 7 12 5 11" />
+      <path d="M12 10 L10 15 L8 20" />
+      <path d="M12 10 L15 14 L19 15" />
+    </svg>
+  ),
   'Full Body': (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
       <circle cx="12" cy="4" r="2" />

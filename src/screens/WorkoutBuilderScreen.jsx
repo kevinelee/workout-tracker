@@ -24,7 +24,7 @@ function SortableExerciseRow({ id, ...props }) {
   )
 }
 
-export default function WorkoutBuilderScreen({ template: initial, onSave, onBack, onDelete }) {
+export default function WorkoutBuilderScreen({ template: initial, onSave, onBack, onDelete, unit }) {
   const isNew = !initial
 
   const [name, setName] = useState(initial?.name ?? '')
@@ -142,6 +142,7 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
                     templateExercise={ex}
                     onChange={updated => updateExercise(i, updated)}
                     onRemove={() => removeExercise(i)}
+                    unit={unit}
                   />
                 ))}
               </div>

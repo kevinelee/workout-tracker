@@ -55,7 +55,7 @@ function getStrengthExercisesWithHistory(sessions) {
   }
 
   const all = [...defaultExercises, ...getCachedCustomExercises()]
-  return all.filter(e => usedIds.has(e.id) && e.category !== 'Cardio')
+  return all.filter(e => usedIds.has(e.id) && e.category !== 'Cardio' && e.category !== 'Stretch')
 }
 
 function CustomTooltip({ active, payload, label, unit }) {

@@ -32,6 +32,7 @@ function EditableValue({ value, onSet, disabled }) {
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
         autoFocus
+        onFocus={e => e.target.select()}
       />
     )
   }
@@ -42,9 +43,10 @@ function EditableValue({ value, onSet, disabled }) {
   )
 }
 
-export default function SessionSetRow({ set, index, onChange, onComplete, onRescind, controllerSide, isCardio, unit }) {
+export default function SessionSetRow({ set, index, onChange, onComplete, onRescind, controllerSide, isCardio, cardioUnit, isStretch, unit }) {
   const leftHand = controllerSide === 'left'
   const distUnit = unit === 'kg' ? 'km' : 'mi'
+  const isDistance = isCardio && cardioUnit === 'distance'
 
   function update(field, value) {
     if (set.completed) return
@@ -75,27 +77,24 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
       {leftHand && completeBtn}
       <span className="ssr-index">{set.isBonus ? '+' : index + 1}</span>
 
-      {isCardio ? (
-        <>
-          {/* Duration */}
-          <div className="ssr-stepper">
-            <span className="ssr-stepper-label">min</span>
-            <div className="ssr-stepper-controls">
-              <button className="ssr-step-btn" onClick={() => update('reps', set.reps - 1)} disabled={set.completed}>−</button>
-              <EditableValue value={set.reps} onSet={v => update('reps', v)} disabled={set.completed} />
-              <button className="ssr-step-btn" onClick={() => update('reps', set.reps + 1)} disabled={set.completed}>+</button>
-            </div>
+      {isStretch ? (
+        <div className="ssr-stepper">
+          <span className="ssr-stepper-label">sec</span>
+          <div className="ssr-stepper-controls">
+            <button className="ssr-step-btn" onClick={() => update('reps', Math.max(5, set.reps - 5))} disabled={set.completed}>−</button>
+            <EditableValue value={set.reps} onSet={v => update('reps', v)} disabled={set.completed} />
+            <button className="ssr-step-btn" onClick={() => update('reps', set.reps + 5)} disabled={set.completed}>+</button>
           </div>
-          {/* Distance */}
-          <div className="ssr-stepper">
-            <span className="ssr-stepper-label">{distUnit}</span>
-            <div className="ssr-stepper-controls">
-              <button className="ssr-step-btn" onClick={() => update('weight', set.weight - 1)} disabled={set.completed}>−</button>
-              <EditableValue value={set.weight} onSet={v => update('weight', v)} disabled={set.completed} />
-              <button className="ssr-step-btn" onClick={() => update('weight', set.weight + 1)} disabled={set.completed}>+</button>
-            </div>
+        </div>
+      ) : isCardio ? (
+        <div className="ssr-stepper">
+          <span className="ssr-stepper-label">{isDistance ? distUnit : 'min'}</span>
+          <div className="ssr-stepper-controls">
+            <button className="ssr-step-btn" onClick={() => update(isDistance ? 'weight' : 'reps', (isDistance ? set.weight : set.reps) - 1)} disabled={set.completed}>−</button>
+            <EditableValue value={isDistance ? set.weight : set.reps} onSet={v => update(isDistance ? 'weight' : 'reps', v)} disabled={set.completed} />
+            <button className="ssr-step-btn" onClick={() => update(isDistance ? 'weight' : 'reps', (isDistance ? set.weight : set.reps) + 1)} disabled={set.completed}>+</button>
           </div>
-        </>
+        </div>
       ) : (
         <>
           {/* Reps */}

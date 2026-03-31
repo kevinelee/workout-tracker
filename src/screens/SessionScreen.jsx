@@ -324,6 +324,8 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
           const target     = log.targetCount ?? log.sets.length
           const allSetsDone = doneCount >= target
           const isCardio   = exercise.category === 'Cardio'
+          const cardioUnit = exercise.cardioUnit ?? 'time'
+          const isStretch  = exercise.category === 'Stretch'
           const isCollapsed = collapsedExercises.has(log.exerciseId)
 
           return (
@@ -372,6 +374,8 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                         onRescind={() => rescindSet(li, si)}
                         controllerSide={settings.controllerSide}
                         isCardio={isCardio}
+                        cardioUnit={cardioUnit}
+                        isStretch={isStretch}
                         unit={settings.unit}
                       />
                     ))}

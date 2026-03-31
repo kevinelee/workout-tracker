@@ -10,13 +10,14 @@ function findExercise(id) {
   return defaultExercises.find(e => e.id === id) ?? getCachedCustomExercises().find(e => e.id === id) ?? null
 }
 
-export default function ExerciseRow({ templateExercise, onChange, onRemove, dragHandleListeners, dragHandleAttributes }) {
+export default function ExerciseRow({ templateExercise, onChange, onRemove, dragHandleListeners, dragHandleAttributes, unit }) {
   const [notesOpen, setNotesOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const notesRef = useRef(null)
   const exercise = findExercise(templateExercise.exerciseId)
   const { sets } = templateExercise
-  const isCardio = exercise?.category === 'Cardio'
+  const isCardio  = exercise?.category === 'Cardio'
+  const isStretch = exercise?.category === 'Stretch'
 
   function updateSet(index, updatedSet) {
     const newSets = sets.map((s, i) => (i === index ? updatedSet : s))
@@ -93,6 +94,9 @@ export default function ExerciseRow({ templateExercise, onChange, onRemove, drag
               onChange={updated => updateSet(i, updated)}
               onRemove={() => removeSet(i)}
               isCardio={isCardio}
+              cardioUnit={exercise.cardioUnit ?? 'time'}
+              isStretch={isStretch}
+              unit={unit}
             />
           ))}
           <button className="ex-add-set-btn" onClick={addSet}>
