@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
-import { sessionVolume, sessionPRCount, fmtVolume, fmtDuration } from '../utils/volume'
+import { sessionVolume, sessionPRCount, logVolume, fmtVolume, fmtDuration } from '../utils/volume'
+import { estimateCalories } from '../utils/calories'
 import { calcStreak } from '../utils/streaks'
 import { getCachedCustomExercises } from '../storage'
 import { defaultExercises } from '../data/exerciseLibrary'
@@ -25,16 +26,41 @@ function exerciseName(id) {
     ?? id
 }
 
-export default function HistoryScreen({ sessions, templates, checkIns, settings, onViewSession, onDeleteSession }) {
+function topExerciseNames(session, n = 3) {
+  const logs = session.logs ?? []
+  if (logs.length === 0) return []
+  const withVol = logs.map(l => ({ name: exerciseName(l.exerciseId), vol: logVolume(l) }))
+  const hasVol  = withVol.some(l => l.vol > 0)
+  const sorted  = hasVol ? [...withVol].sort((a, b) => b.vol - a.vol) : withVol
+  return sorted.slice(0, n).map(l => l.name)
+}
+
+function inDateRange(session, range) {
+  if (range === 'all') return true
+  const d   = new Date(session.finishedAt)
+  const now = new Date()
+  if (range === 'week') {
+    const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    return d >= cutoff
+  }
+  if (range === 'month') {
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+  }
+  return true
+}
+
+export default function HistoryScreen({ sessions, templates, checkIns, settings, profile, onViewSession, onDeleteSession }) {
   const streak = calcStreak(sessions, checkIns)
   const finished = sessions.filter(s => s.finishedAt).sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))
 
-  const [filterId,     setFilterId]     = useState(null)
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
-  const [dayModal,     setDayModal]     = useState(null) // { date, sessions }
-  const [swipedId,     setSwipedId]     = useState(null)
-  const [deleteConfirm, setDeleteConfirm] = useState(null) // session to confirm delete
-  const [isDeleting,    setIsDeleting]    = useState(false)
+  const [filterId,       setFilterId]       = useState(null)
+  const [dateRange,      setDateRange]      = useState('all')
+  const [exerciseSearch, setExerciseSearch] = useState('')
+  const [visibleCount,   setVisibleCount]   = useState(PAGE_SIZE)
+  const [dayModal,       setDayModal]       = useState(null) // { date, sessions }
+  const [swipedId,       setSwipedId]       = useState(null)
+  const [deleteConfirm, setDeleteConfirm]   = useState(null) // session to confirm delete
+  const [isDeleting,    setIsDeleting]      = useState(false)
   const touchStartRef = useRef(null)
 
   function templateName(id) {
@@ -46,6 +72,16 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
 
   function handleFilter(id) {
     setFilterId(id)
+    setVisibleCount(PAGE_SIZE)
+  }
+
+  function handleDateRange(range) {
+    setDateRange(range)
+    setVisibleCount(PAGE_SIZE)
+  }
+
+  function handleExerciseSearch(q) {
+    setExerciseSearch(q)
     setVisibleCount(PAGE_SIZE)
   }
 
@@ -69,9 +105,14 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
     setDeleteConfirm(null)
   }
 
-  const filtered = filterId ? finished.filter(s => s.templateId === filterId) : finished
-  const visible  = filtered.slice(0, visibleCount)
-  const hasMore  = visibleCount < filtered.length
+  let filtered = finished
+  if (filterId) filtered = filtered.filter(s => s.templateId === filterId)
+  if (dateRange !== 'all') filtered = filtered.filter(s => inDateRange(s, dateRange))
+  const q = exerciseSearch.trim().toLowerCase()
+  if (q) filtered = filtered.filter(s => s.logs?.some(l => exerciseName(l.exerciseId).toLowerCase().includes(q)))
+
+  const visible = filtered.slice(0, visibleCount)
+  const hasMore = visibleCount < filtered.length
 
   return (
     <div className="history">
@@ -141,38 +182,71 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
           )}
         </div>
 
-        {/* Filter pills */}
-        {usedTemplateIds.length > 1 && (
+        {/* Date range + template filters */}
+        {finished.length > 0 && (
           <div className="history-filter-strip">
-            <button
-              className={`history-filter-pill ${filterId === null ? 'history-filter-pill--active' : ''}`}
-              onClick={() => handleFilter(null)}
-            >
-              All
-            </button>
-            {usedTemplateIds.map(id => (
+            {['all', 'week', 'month'].map(r => (
               <button
-                key={id}
-                className={`history-filter-pill ${filterId === id ? 'history-filter-pill--active' : ''}`}
-                onClick={() => handleFilter(id)}
+                key={r}
+                className={`history-filter-pill ${dateRange === r ? 'history-filter-pill--active' : ''}`}
+                onClick={() => handleDateRange(r)}
               >
-                {templateName(id)}
+                {r === 'all' ? 'All Time' : r === 'week' ? 'This Week' : 'This Month'}
               </button>
             ))}
+            {usedTemplateIds.length > 1 && (
+              <>
+                <span className="history-filter-divider" />
+                <button
+                  className={`history-filter-pill ${filterId === null ? 'history-filter-pill--active' : ''}`}
+                  onClick={() => handleFilter(null)}
+                >
+                  All Workouts
+                </button>
+                {usedTemplateIds.map(id => (
+                  <button
+                    key={id}
+                    className={`history-filter-pill ${filterId === id ? 'history-filter-pill--active' : ''}`}
+                    onClick={() => handleFilter(id)}
+                  >
+                    {templateName(id)}
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Exercise search */}
+        {finished.length > 0 && (
+          <div className="history-search-wrap">
+            <input
+              className="history-search-input"
+              type="text"
+              placeholder="Search by exercise…"
+              value={exerciseSearch}
+              onChange={e => handleExerciseSearch(e.target.value)}
+            />
+            {exerciseSearch && (
+              <button className="history-search-clear" onClick={() => handleExerciseSearch('')} aria-label="Clear">✕</button>
+            )}
           </div>
         )}
 
         {finished.length === 0 ? (
           <p className="history-empty">No sessions yet. Finish a workout to see it here.</p>
         ) : filtered.length === 0 ? (
-          <p className="history-empty">No sessions for this workout.</p>
+          <p className="history-empty">No sessions match your filters.</p>
         ) : (
           <>
-            <ul className="history-list" key={filterId ?? 'all'}>
+            <ul className="history-list" key={`${filterId}-${dateRange}-${exerciseSearch}`}>
               {visible.map(s => {
-                const vol = sessionVolume(s)
-                const prs = sessionPRCount(s)
-                const isOpen = swipedId === s.id
+                const vol      = sessionVolume(s)
+                const prs      = sessionPRCount(s)
+                const cals     = estimateCalories(s, profile?.weightKg)
+                const topEx    = topExerciseNames(s)
+                const isOpen   = swipedId === s.id
+                const volUnit  = settings?.unit ?? 'lbs'
                 return (
                   <li
                     key={s.id}
@@ -195,9 +269,14 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
                       <div className="history-card-info">
                         <p className="history-card-name">{templateName(s.templateId)}</p>
                         <p className="history-card-meta">
-                          {fmtDate(s.finishedAt)} · {fmtDuration(s.duration)} · {fmtVolume(vol)} lbs
+                          {fmtDate(s.finishedAt)} · {fmtDuration(s.duration)}
+                          {vol > 0 && ` · ${fmtVolume(vol)} ${volUnit}`}
                           {prs > 0 && <span className="history-pr-tag"> · 🏆 {prs} PR</span>}
+                          {cals != null && <span className="history-cal-tag"> · 🔥 {cals} kcal</span>}
                         </p>
+                        {topEx.length > 0 && (
+                          <p className="history-card-exercises">{topEx.join(' · ')}</p>
+                        )}
                       </div>
                       <span className="history-card-arrow">›</span>
                     </button>
