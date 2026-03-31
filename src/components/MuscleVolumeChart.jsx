@@ -108,7 +108,7 @@ export default function MuscleVolumeChart({ sessions }) {
             >
               <XAxis
                 type="number"
-                tick={{ fill: '#9ca3af', fontSize: 11 }}
+                tick={{ fill: 'var(--text)', fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={v => fmtVolume(v)}
@@ -117,7 +117,7 @@ export default function MuscleVolumeChart({ sessions }) {
                 type="category"
                 dataKey="group"
                 width={82}
-                tick={{ fill: '#9ca3af', fontSize: 12 }}
+                tick={{ fill: 'var(--text)', fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
               />

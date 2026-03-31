@@ -1,0 +1,62 @@
+// Patch notes — update this file each session.
+// Types: 'new' | 'fix' | 'improvement'
+
+export const CHANGELOG = [
+  {
+    version: 'Sprint 4 — Session 2',
+    date:    '2026-03-30',
+    items: [
+      { type: 'new',         title: 'Body part heatmap',            desc: 'Front/back SVG silhouette on Profile tab. Tap a muscle region to see volume for the selected time range.' },
+      { type: 'new',         title: 'Pink & Blue themes',           desc: 'Two new color schemes in Appearance — each with a separate Dark/Light mode toggle.' },
+      { type: 'improvement', title: 'Navbar active indicator',      desc: 'Active tab now shows a pill highlight using the accent color instead of just a color change.' },
+      { type: 'improvement', title: 'Profile avatar clip fix',      desc: 'Avatar photo now clips to circle correctly on Safari/WebKit. Camera badge no longer gets clipped.' },
+      { type: 'improvement', title: 'Avatar size bump',             desc: 'Profile header avatar increased from 64px to 80px.' },
+      { type: 'improvement', title: 'Theme-aware charts',           desc: 'All charts (Volume, Exercise Progress, Muscle Volume, Weight) now use CSS variables so they respond to theme changes.' },
+      { type: 'improvement', title: 'Appearance split into two controls', desc: 'Color scheme picker (Default / AMOLED / Pink / Blue) is now separate from the Dark/Light mode toggle.' },
+    ],
+  },
+  {
+    version: 'Sprint 4 — Session 1',
+    date:    '2026-03-25',
+    items: [
+      { type: 'new',         title: 'Profile tab',                  desc: 'Fifth tab with avatar upload, display name, body metrics (height, weight, age, gender, activity level), and lifetime stats.' },
+      { type: 'new',         title: 'Avatar upload + crop',         desc: 'Pick a photo from camera roll, crop it to a circle before uploading.' },
+      { type: 'new',         title: 'Caloric burn estimate',        desc: 'MET-based calorie estimate shown on the post-workout summary and session detail screen. Requires weight to be set in Profile.' },
+      { type: 'new',         title: 'Body weight tracking',         desc: 'Opt-in weight log with a 90-day line chart on the Profile tab.' },
+      { type: 'new',         title: 'Per-exercise progress charts', desc: 'History tab shows max weight and estimated 1RM (Epley formula) over your last 12 sessions per exercise.' },
+      { type: 'new',         title: 'Volume by muscle group',       desc: 'Horizontal bar chart on History tab showing volume split by muscle group. Toggle This Week / 4 Weeks / All Time.' },
+      { type: 'new',         title: 'Weekly schedule preferences',  desc: 'Weight tracking opt-in flow added to profile. track_weight stored per user.' },
+      { type: 'improvement', title: 'Supabase schema migration',    desc: 'Added height_cm, weight_kg, age, gender, activity_level, track_weight to profiles table. New body_weight_logs table with RLS.' },
+    ],
+  },
+  {
+    version: 'Sprint 3',
+    date:    '2026-03-20',
+    items: [
+      { type: 'fix',         title: 'Finish button unresponsive',   desc: 'Fixed race condition causing the Finish button to do nothing on first tap.' },
+      { type: 'fix',         title: 'Settings not saving',          desc: 'Settings screen changes were not persisting to Supabase.' },
+      { type: 'fix',         title: 'Long-press selects text',      desc: 'Disabled text selection on tappable elements during workout.' },
+      { type: 'fix',         title: 'Double save on blur',          desc: 'Debounced save calls to prevent duplicate DB writes when inputs lose focus.' },
+      { type: 'new',         title: 'Rest timer runs in background', desc: 'Rest timer continues counting when the app is backgrounded or the screen locks.' },
+      { type: 'fix',         title: 'Safe area padding',            desc: 'Bottom nav now respects iOS home indicator safe area.' },
+      { type: 'improvement', title: 'Keyboard UX — new workout',    desc: 'Keyboard no longer fights with the new workout sheet. Input focus is better managed.' },
+      { type: 'new',         title: 'Add/remove exercises mid-session', desc: 'Can now add or remove exercises from an active session without losing completed sets.' },
+      { type: 'new',         title: 'Uncomplete a set',             desc: 'Tap a completed set to mark it incomplete again.' },
+      { type: 'fix',         title: 'Weight input overflow on small screens', desc: 'Weight slider/input no longer overflows on 375px-width devices.' },
+      { type: 'improvement', title: 'Cardio units',                 desc: 'Cardio exercises show appropriate units (distance/time) instead of weight/reps.' },
+      { type: 'new',         title: 'Collapse exercises in session', desc: 'Tap an exercise header to collapse/expand its set list during a workout.' },
+      { type: 'improvement', title: 'Scroll to completed set',      desc: 'After completing a set the view scrolls to keep context visible.' },
+      { type: 'fix',         title: 'Timer flash on finish',        desc: 'Rest timer no longer flashes briefly when transitioning screens.' },
+      { type: 'improvement', title: 'Button tap feedback',          desc: 'All interactive buttons now have consistent active-state opacity feedback.' },
+      { type: 'new',         title: 'Sessions saved to DB',         desc: 'Finished sessions are now written to Supabase, not just local storage.' },
+      { type: 'new',         title: 'Soft session completion',      desc: 'Finish a session even with incomplete sets — skipped sets are preserved.' },
+      { type: 'improvement', title: 'Finish modal timestamps',      desc: 'Post-workout summary shows started/finished time.' },
+      { type: 'improvement', title: 'My exercises collapse',        desc: 'Custom exercise list collapses by category for easier browsing.' },
+      { type: 'new',         title: 'Drag-to-reorder exercises',    desc: 'Exercises in the workout builder can be reordered by drag and drop.' },
+      { type: 'new',         title: 'Edit gear on exercises',       desc: 'Gear icon on each exercise in the builder for quick edit/delete access.' },
+      { type: 'improvement', title: 'Joystick-style touch input',   desc: 'Weight and reps controls use a touch-friendly drag interaction.' },
+      { type: 'new',         title: 'Workout start loading state',  desc: 'Spinner shown while workout template data loads on session start.' },
+      { type: 'fix',         title: 'Finish button spinner',        desc: 'Spinner persists correctly through the async save flow when finishing a workout.' },
+    ],
+  },
+]

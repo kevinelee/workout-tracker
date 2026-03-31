@@ -391,9 +391,54 @@
   }
 }
 
+.nav-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  border-radius: 14px;
+  padding: 4px 14px;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.nav-item.active .nav-icon-wrap {
+  background: var(--accent-bg);
+  box-shadow: 0 0 0 1px var(--accent-border);
+}
+
 .nav-icon {
   font-size: 22px;
   line-height: 1;
+}
+
+.nav-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid transparent;
+
+  .nav-item.active & {
+    border-color: var(--accent);
+  }
+}
+
+.nav-dot-badge {
+  position: absolute;
+  top: -4px;
+  right: -7px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 9px;
+  font-family: var(--sans);
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .nav-badge {

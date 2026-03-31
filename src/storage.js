@@ -97,11 +97,27 @@ function defaultProfile() {
   }
 }
 
+function decodeTheme(theme) {
+  if (!theme || theme === 'dark') return { colorScheme: 'default', themeMode: 'dark' }
+  if (theme === 'light')          return { colorScheme: 'default', themeMode: 'light' }
+  if (theme === 'amoled')         return { colorScheme: 'amoled',  themeMode: 'dark' }
+  if (theme.endsWith('-light'))   return { colorScheme: theme.replace('-light', ''), themeMode: 'light' }
+  return { colorScheme: theme, themeMode: 'dark' } // 'pink', 'blue', etc.
+}
+
+export function encodeTheme(colorScheme, themeMode) {
+  if (colorScheme === 'default') return themeMode === 'light' ? 'light' : 'dark'
+  if (colorScheme === 'amoled')  return 'amoled'
+  return themeMode === 'light' ? `${colorScheme}-light` : colorScheme
+}
+
 function dbSettingsToApp(s) {
   if (!s) return defaultSettings()
+  const { colorScheme, themeMode } = decodeTheme(s.theme)
   return {
     unit:               s.unit,
-    theme:              s.theme,
+    colorScheme,
+    themeMode,
     controllerSide:     s.controller_side,
     restTimerDuration:  s.rest_timer_duration,
     checkInEnabled:     s.check_in_enabled,
@@ -111,7 +127,8 @@ function dbSettingsToApp(s) {
 function defaultSettings() {
   return {
     unit:               'lbs',
-    theme:              'dark',
+    colorScheme:        'default',
+    themeMode:          'dark',
     controllerSide:     'right',
     restTimerDuration:  90,
     checkInEnabled:     true,
@@ -302,7 +319,7 @@ export async function saveSettings(settings) {
   await supabase.from('settings').upsert({
     user_id:             _uid,
     unit:                settings.unit,
-    theme:               settings.theme,
+    theme:               encodeTheme(settings.colorScheme, settings.themeMode),
     controller_side:     settings.controllerSide,
     rest_timer_duration: settings.restTimerDuration,
     check_in_enabled:    settings.checkInEnabled,
@@ -313,31 +330,40 @@ export async function saveSettings(settings) {
 // ── Profile ───────────────────────────────────────────────────
 
 export async function uploadAvatar(file) {
-  const ext  = file.name.split('.').pop() || 'jpg'
-  const path = `${_uid}/avatar.${ext}`
+  // Always upload as avatar.jpg so getProfile can find it by a known path
+  const path = `${_uid}/avatar.jpg`
 
   const { error } = await supabase.storage
     .from('Avatars')
-    .upload(path, file, { upsert: true, contentType: file.type })
+    .upload(path, file, { upsert: true, contentType: 'image/jpeg' })
 
   if (error) throw error
 
   const { data } = supabase.storage.from('Avatars').getPublicUrl(path)
   // Cache-bust so the browser doesn't serve the old image after re-upload
-  const url = `${data.publicUrl}?t=${Date.now()}`
-
-  await supabase.from('profiles').upsert({ id: _uid, avatar_url: url })
-  return url
+  return `${data.publicUrl}?t=${Date.now()}`
+  // Note: avatar URL is NOT stored in the profiles table — getProfile derives
+  // it from storage directly to avoid the updated_at trigger issue.
 }
 
 
 export async function getProfile() {
-  const { data } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', _uid)
-    .single()
-  return dbProfileToApp(data)
+  const [{ data: profileData }, { data: avatarFiles }] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', _uid).single(),
+    supabase.storage.from('Avatars').list(_uid, { search: 'avatar' }),
+  ])
+  const profile = dbProfileToApp(profileData)
+  // Derive avatar URL from storage so we never write avatar_url to profiles
+  // (avoids the updated_at trigger issue on the profiles table)
+  const avatarFile = avatarFiles?.find(f => f.name.startsWith('avatar'))
+  if (avatarFile) {
+    const { data: urlData } = supabase.storage
+      .from('Avatars')
+      .getPublicUrl(`${_uid}/${avatarFile.name}`)
+    // Use file's updated_at as cache-bust so re-uploads show immediately
+    profile.avatarUrl = `${urlData.publicUrl}?t=${new Date(avatarFile.updated_at).getTime()}`
+  }
+  return profile
 }
 
 export async function saveProfile(profile) {
@@ -490,6 +516,14 @@ export async function getFeedback() {
 
 export async function markFeedbackReviewed(id) {
   await supabase.from('feedback').update({ status: 'reviewed' }).eq('id', id)
+}
+
+export async function getNewFeedbackCount() {
+  const { count } = await supabase
+    .from('feedback')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'new')
+  return count ?? 0
 }
 
 

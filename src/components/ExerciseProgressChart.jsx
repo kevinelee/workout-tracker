@@ -103,16 +103,16 @@ export default function ExerciseProgressChart({ sessions, settings }) {
         <>
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-              <CartesianGrid stroke="#2e303a" strokeDasharray="3 3" vertical={false} />
+              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
               <XAxis
                 dataKey="date"
-                tick={{ fill: '#9ca3af', fontSize: 11 }}
+                tick={{ fill: 'var(--text)', fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 interval="preserveStartEnd"
               />
               <YAxis
-                tick={{ fill: '#9ca3af', fontSize: 11 }}
+                tick={{ fill: 'var(--text)', fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 domain={['auto', 'auto']}
@@ -122,20 +122,20 @@ export default function ExerciseProgressChart({ sessions, settings }) {
                 type="monotone"
                 dataKey="maxWeight"
                 name="Max weight"
-                stroke="#c084fc"
+                stroke="var(--accent)"
                 strokeWidth={2}
-                dot={{ fill: '#c084fc', r: 4, strokeWidth: 0 }}
-                activeDot={{ fill: '#c084fc', r: 6 }}
+                dot={{ fill: 'var(--accent)', r: 4, strokeWidth: 0 }}
+                activeDot={{ fill: 'var(--accent)', r: 6 }}
               />
               <Line
                 type="monotone"
                 dataKey="est1RM"
                 name="Est. 1RM"
-                stroke="#a78bfa"
+                stroke="var(--accent-border)"
                 strokeWidth={2}
                 strokeDasharray="5 4"
-                dot={{ fill: '#a78bfa', r: 3, strokeWidth: 0 }}
-                activeDot={{ fill: '#a78bfa', r: 5 }}
+                dot={{ fill: 'var(--accent-border)', r: 3, strokeWidth: 0 }}
+                activeDot={{ fill: 'var(--accent-border)', r: 5 }}
               />
             </LineChart>
           </ResponsiveContainer>

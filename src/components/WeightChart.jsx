@@ -138,16 +138,16 @@ export default function WeightChart({ logs, unit, onLog, onDelete }) {
       ) : (
         <ResponsiveContainer width="100%" height={180}>
           <LineChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-            <CartesianGrid stroke="#2e303a" strokeDasharray="3 3" vertical={false} />
+            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="date"
-              tick={{ fill: '#9ca3af', fontSize: 11 }}
+              tick={{ fill: 'var(--text)', fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               interval="preserveStartEnd"
             />
             <YAxis
-              tick={{ fill: '#9ca3af', fontSize: 11 }}
+              tick={{ fill: 'var(--text)', fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               domain={['auto', 'auto']}
@@ -157,10 +157,10 @@ export default function WeightChart({ logs, unit, onLog, onDelete }) {
             <Line
               type="monotone"
               dataKey="weight"
-              stroke="#c084fc"
+              stroke="var(--accent)"
               strokeWidth={2}
-              dot={{ fill: '#c084fc', r: 4, strokeWidth: 0 }}
-              activeDot={{ fill: '#c084fc', r: 6 }}
+              dot={{ fill: 'var(--accent)', r: 4, strokeWidth: 0 }}
+              activeDot={{ fill: 'var(--accent)', r: 6 }}
             />
           </LineChart>
         </ResponsiveContainer>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getFeedback, markFeedbackReviewed } from '../storage'
+import { CHANGELOG } from '../data/changelog'
 import './AdminScreen.css'
 
 function fmtDate(iso) {
@@ -9,7 +10,14 @@ function fmtDate(iso) {
   })
 }
 
-export default function AdminScreen() {
+const TYPE_META = {
+  new:         { label: '✦ New',        color: 'new'         },
+  fix:         { label: '🐛 Fix',        color: 'fix'         },
+  improvement: { label: '↑ Improvement', color: 'improvement' },
+}
+
+export default function AdminScreen({ onReviewed }) {
+  const [tab, setTab]       = useState('inbox') // 'inbox' | 'changelog'
   const [items, setItems]   = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -21,6 +29,7 @@ export default function AdminScreen() {
   async function handleMarkReviewed(id) {
     await markFeedbackReviewed(id)
     setItems(prev => prev.map(item => item.id === id ? { ...item, status: 'reviewed' } : item))
+    onReviewed?.()
   }
 
   const newCount = items.filter(i => i.status === 'new').length
@@ -36,11 +45,43 @@ export default function AdminScreen() {
     <div className="admin">
       <div className="admin-header">
         <h2 className="admin-title">
-          Inbox
-          {newCount > 0 && <span className="admin-new-badge">{newCount} new</span>}
+          {tab === 'inbox' ? 'Inbox' : 'Patch Notes'}
+          {tab === 'inbox' && newCount > 0 && <span className="admin-new-badge">{newCount} new</span>}
         </h2>
       </div>
 
+      {/* Top-level tab switcher */}
+      <div className="admin-tabs">
+        <button className={`admin-tab-btn${tab === 'inbox'     ? ' admin-tab-btn--active' : ''}`} onClick={() => setTab('inbox')}>Inbox</button>
+        <button className={`admin-tab-btn${tab === 'changelog' ? ' admin-tab-btn--active' : ''}`} onClick={() => setTab('changelog')}>Patch Notes</button>
+      </div>
+
+      {tab === 'changelog' ? (
+        <div className="admin-changelog">
+          {CHANGELOG.map(release => (
+            <div key={release.version} className="admin-release">
+              <div className="admin-release-header">
+                <span className="admin-release-version">{release.version}</span>
+                <span className="admin-release-date">{release.date}</span>
+              </div>
+              <ul className="admin-release-list">
+                {release.items.map((item, i) => (
+                  <li key={i} className="admin-cl-item">
+                    <span className={`admin-cl-type admin-cl-type--${item.type}`}>
+                      {TYPE_META[item.type]?.label ?? item.type}
+                    </span>
+                    <div className="admin-cl-body">
+                      <p className="admin-cl-title">{item.title}</p>
+                      <p className="admin-cl-desc">{item.desc}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <>
       <div className="admin-filters">
         {[
           { id: 'all',      label: 'All' },
@@ -85,6 +126,8 @@ export default function AdminScreen() {
             </li>
           ))}
         </ul>
+      )}
+        </>
       )}
     </div>
   )

@@ -5,6 +5,7 @@ import {
   getActiveSession, saveActiveSession, clearActiveSession,
   deleteSession, setStorageUser, clearUserCache, getCustomExercises, hasCheckedInToday,
   getProfile, saveProfile, getBodyWeightLogs, saveBodyWeightLog, deleteBodyWeightLog,
+  getNewFeedbackCount, encodeTheme,
 } from './storage'
 import { supabase, signOut } from './lib/supabase'
 import { createSession } from './data/models'
@@ -107,6 +108,8 @@ export default function App() {
     setAuthUser(user)
     setAuthReady(true)
 
+    const isAdminUser = user.id === import.meta.env.VITE_ADMIN_UID
+
     // Fire all queries in parallel; each setState re-renders as data arrives.
     Promise.all([
       getTemplates(),
@@ -117,7 +120,8 @@ export default function App() {
       getCustomExercises(),
       getProfile(),
       getBodyWeightLogs(),
-    ]).then(([tmpl, sess, stg, ci, chk, , prof, bwl]) => {
+      isAdminUser ? getNewFeedbackCount() : Promise.resolve(0),
+    ]).then(([tmpl, sess, stg, ci, chk, , prof, bwl, fbCount]) => {
       setTemplates(tmpl)
       setSessions(sess)
       setSettings(stg)
@@ -125,6 +129,8 @@ export default function App() {
       setCheckedIn(chk)
       setProfile(prof)
       setBodyWeightLogs(bwl)
+      setFeedbackCount(fbCount)
+      setDataLoaded(true)
     }).catch(err => console.error('bootstrapUser load failed:', err))
   }
 
@@ -134,26 +140,30 @@ export default function App() {
     clearUserCache()
     setTemplates([])
     setSessions([])
-    setSettings({ unit: 'lbs', theme: 'dark', controllerSide: 'right', restTimerDuration: 90, checkInEnabled: true })
+    setSettings({ unit: 'lbs', colorScheme: 'default', themeMode: 'dark', controllerSide: 'right', restTimerDuration: 90, checkInEnabled: true })
     setCheckIns([])
     setCheckedIn(false)
+    setDataLoaded(false)
+    setFeedbackCount(0)
     setAuthUser(null)
   }
 
   const { screen, activeTab, setActiveTab, goHome, goBuilder, goSession, goSummary, goSessionDetail, goTab } = useNav()
   const [templates, setTemplates]             = useState([])
   const [sessions, setSessions]               = useState([])
-  const [settings, setSettings]               = useState({ unit: 'lbs', theme: 'dark', controllerSide: 'right', restTimerDuration: 90, checkInEnabled: true })
+  const [settings, setSettings]               = useState({ unit: 'lbs', colorScheme: 'default', themeMode: 'dark', controllerSide: 'right', restTimerDuration: 90, checkInEnabled: true })
   const [checkIns, setCheckIns]               = useState([])
   const [checkedIn, setCheckedIn]             = useState(false)
+  const [dataLoaded, setDataLoaded]           = useState(false)
+  const [feedbackCount, setFeedbackCount]     = useState(0)
   const [profile, setProfile]                 = useState(null)
   const [bodyWeightLogs, setBodyWeightLogs]   = useState([])
   const streak = calcStreak(sessions, checkIns)
 
   // Apply theme to document root
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', settings.theme ?? 'dark')
-  }, [settings.theme])
+    document.documentElement.setAttribute('data-theme', encodeTheme(settings.colorScheme ?? 'default', settings.themeMode ?? 'dark'))
+  }, [settings.colorScheme, settings.themeMode])
 
   // Active session — persisted to localStorage so it survives navigation & sleep
   const [activeSession, setActiveSession] = useState(() => getActiveSession())
@@ -361,9 +371,9 @@ export default function App() {
       live: !!activeSession,
     },
     { id: 'history',  label: 'History',  icon: '📈' },
-    { id: 'profile',  label: 'Profile',  icon: '👤' },
+    { id: 'profile',  label: 'Profile',  icon: '👤', avatarUrl: profile?.avatarUrl || null },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
-    ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: '🛡️' }] : []),
+    ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: '🛡️', badge: feedbackCount > 0 ? feedbackCount : null }] : []),
   ]
 
   function renderScreen() {
@@ -375,6 +385,7 @@ export default function App() {
             sessions={sessions}
             checkIns={checkIns}
             checkedIn={checkedIn}
+            dataLoaded={dataLoaded}
             streak={streak}
             settings={settings}
             activeSession={activeSession}
@@ -460,6 +471,7 @@ export default function App() {
               await deleteBodyWeightLog(id)
               setBodyWeightLogs(prev => prev.filter(l => l.id !== id))
             }}
+            onAvatarUpdate={url => setProfile(p => ({ ...p, avatarUrl: url }))}
           />
         )
       case 'settings':
@@ -474,7 +486,7 @@ export default function App() {
           />
         )
       case 'admin':
-        return <AdminScreen />
+        return <AdminScreen onReviewed={() => setFeedbackCount(c => Math.max(0, c - 1))} />
       default:
         return null
     }
@@ -484,7 +496,7 @@ export default function App() {
     <div className="app">
       {!fullscreen && (
         <header className="app-header">
-          {settings.checkInEnabled && checkedIn
+          {settings.checkInEnabled && checkedIn && dataLoaded && streak > 0
             ? <span className="app-streak-badge" key={streak}>🔥 {streak}</span>
             : <span className="app-header-spacer" />
           }
@@ -564,7 +576,7 @@ export default function App() {
 
       {!fullscreen && (
         <nav className="app-nav">
-          {navTabs.map(({ id, label, icon, badge, live }) => (
+          {navTabs.map(({ id, label, icon, badge, live, avatarUrl: tabAvatarUrl }) => (
             <button
               key={id}
               className={`nav-item ${activeTab === id ? 'active' : ''} ${id === 'session' && live ? 'nav-item--session' : ''} ${id === 'session' && !live ? 'nav-item--session-idle' : ''}`}
@@ -577,7 +589,17 @@ export default function App() {
                 }
               }}
             >
-              <span className="nav-icon">{icon}</span>
+              <span className="nav-icon-wrap">
+                {id === 'profile' && tabAvatarUrl
+                  ? <img src={tabAvatarUrl} className="nav-avatar" alt="Profile"
+                      onError={() => setProfile(p => p ? { ...p, avatarUrl: '' } : p)}
+                    />
+                  : <span className="nav-icon">{icon}</span>
+                }
+                {id === 'admin' && badge && (
+                  <span className="nav-dot-badge">{badge}</span>
+                )}
+              </span>
               {id === 'session' && badge && (
                 <span className="nav-badge">{badge}</span>
               )}

@@ -3,7 +3,10 @@ import { uploadAvatar } from '../storage'
 import { sessionVolume, fmtVolume, fmtDuration } from '../utils/volume'
 import { calcStreak } from '../utils/streaks'
 import WeightChart from '../components/WeightChart'
+import BodyHeatmap from '../components/BodyHeatmap'
+import CropModal from '../components/CropModal'
 import './ProfileScreen.css'
+
 
 const KG_TO_LBS  = 2.20462
 const LBS_TO_KG  = 1 / KG_TO_LBS
@@ -38,13 +41,15 @@ function ftInToCm(ft, inches) {
   return (f * 12 + i) * INCH_TO_CM
 }
 
-export default function ProfileScreen({ profile, sessions, checkIns, settings, authUser, onSaveProfile, bodyWeightLogs, onLogWeight, onDeleteWeightLog }) {
+export default function ProfileScreen({ profile, sessions, checkIns, settings, authUser, onSaveProfile, bodyWeightLogs, onLogWeight, onDeleteWeightLog, onAvatarUpdate }) {
   const unit       = settings?.unit ?? 'lbs'
   const isImperial = unit === 'lbs'
 
   const fileInputRef = useRef(null)
-  const [avatarUrl,      setAvatarUrl]      = useState(profile?.avatarUrl ?? null)
+  const [avatarUrl,       setAvatarUrl]       = useState(profile?.avatarUrl ?? null)
   const [avatarUploading, setAvatarUploading] = useState(false)
+  const [avatarError,     setAvatarError]     = useState(null)
+  const [cropFile,        setCropFile]        = useState(null)
 
   const [displayName,    setDisplayName]    = useState(profile?.displayName ?? '')
   const [heightFt,       setHeightFt]       = useState(() => cmToFtIn(profile?.heightCm).ft)
@@ -84,19 +89,26 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
     setTrackWeight(profile.trackWeight ?? null)
   }, [profile?.avatarUrl, profile?.displayName, profile?.heightCm, profile?.weightKg, profile?.age, profile?.gender, profile?.activityLevel, profile?.trackWeight])
 
-  async function handleAvatarChange(e) {
+  function handleAvatarChange(e) {
     const file = e.target.files?.[0]
     if (!file) return
+    setCropFile(file)
+    e.target.value = ''
+  }
+
+  async function handleCropConfirm(croppedFile) {
+    setCropFile(null)
     setAvatarUploading(true)
+    setAvatarError(null)
     try {
-      const url = await uploadAvatar(file)
+      const url = await uploadAvatar(croppedFile)
       setAvatarUrl(url)
+      onAvatarUpdate?.(url)
     } catch (err) {
       console.error('Avatar upload failed:', err)
+      setAvatarError('Upload failed. Please try a different image.')
     } finally {
       setAvatarUploading(false)
-      // Reset so the same file can be re-selected if needed
-      e.target.value = ''
     }
   }
 
@@ -156,24 +168,33 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
 
   return (
     <div className="profile">
+      {cropFile && (
+        <CropModal
+          file={cropFile}
+          onConfirm={handleCropConfirm}
+          onCancel={() => setCropFile(null)}
+        />
+      )}
 
       {/* Header */}
       <div className="profile-header">
-        <button
-          className={`profile-avatar${avatarUploading ? ' profile-avatar--uploading' : ''}`}
-          onClick={() => fileInputRef.current?.click()}
-          aria-label="Change profile photo"
-        >
-          {avatarUrl && !avatarUploading
-            ? <img src={avatarUrl} alt="Profile" className="profile-avatar-img" />
-            : avatarUploading
-              ? <span className="profile-avatar-spinner" />
-              : initials
-          }
+        <div className="profile-avatar-wrap">
+          <button
+            className={`profile-avatar${avatarUploading ? ' profile-avatar--uploading' : ''}`}
+            onClick={() => fileInputRef.current?.click()}
+            aria-label="Change profile photo"
+          >
+            {avatarUrl && !avatarUploading
+              ? <img src={avatarUrl} alt="Profile" className="profile-avatar-img" onError={() => setAvatarUrl(null)} />
+              : avatarUploading
+                ? <span className="profile-avatar-spinner" />
+                : initials
+            }
+          </button>
           {!avatarUploading && (
-            <span className="profile-avatar-edit">📷</span>
+            <span className="profile-avatar-edit" aria-hidden="true">✎</span>
           )}
-        </button>
+        </div>
         <input
           ref={fileInputRef}
           type="file"
@@ -181,6 +202,9 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
           className="profile-avatar-input"
           onChange={handleAvatarChange}
         />
+        {avatarError && (
+          <p className="profile-avatar-error">{avatarError}</p>
+        )}
         <div className="profile-identity">
           <input
             className="profile-name-input"
@@ -215,6 +239,12 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
             <span className="profile-stat-label">Total time</span>
           </div>
         </div>
+      </section>
+
+      {/* Muscle activity heatmap */}
+      <section className="profile-section">
+        <h3 className="profile-section-title">Muscle Activity</h3>
+        <BodyHeatmap sessions={sessions ?? []} />
       </section>
 
       {/* Body metrics */}

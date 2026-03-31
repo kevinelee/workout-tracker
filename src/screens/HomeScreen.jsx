@@ -11,7 +11,7 @@ function fmtElapsed(seconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-export default function HomeScreen({ templates, sessions, checkIns, checkedIn, streak, settings, activeSession, startingTemplateId, startingQuickStart, onNew, onEdit, onStart, onQuickStart, onCheckIn, onResumeSession }) {
+export default function HomeScreen({ templates, sessions, checkIns, checkedIn, dataLoaded, streak, settings, activeSession, startingTemplateId, startingQuickStart, onNew, onEdit, onStart, onQuickStart, onCheckIn, onResumeSession }) {
   const milestone = streakMilestone(streak)
   const [sessionElapsed, setSessionElapsed] = useState(0)
 
@@ -47,8 +47,8 @@ export default function HomeScreen({ templates, sessions, checkIns, checkedIn, s
         </button>
       )}
 
-      {/* Streak + check-in — hidden once checked in for the day */}
-      {settings.checkInEnabled && !checkedIn && (
+      {/* Streak + check-in — hidden once checked in for the day, and until data is loaded */}
+      {settings.checkInEnabled && !checkedIn && dataLoaded && (
         <div className="home-streak-row">
           <div className="home-streak-info">
             <span className="home-streak-fire">🔥</span>

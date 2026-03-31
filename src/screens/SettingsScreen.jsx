@@ -14,10 +14,16 @@ const REST_OPTIONS = [
   { label: '3m',  value: 180 },
 ]
 
-const THEME_OPTIONS = [
-  { label: '🌙 Dark',   value: 'dark' },
-  { label: '☀️ Light',  value: 'light' },
+const SCHEME_OPTIONS = [
+  { label: 'Default', value: 'default' },
   { label: '⬛ Amoled', value: 'amoled' },
+  { label: '🩷 Pink',   value: 'pink' },
+  { label: '🔵 Blue',   value: 'blue' },
+]
+
+const MODE_OPTIONS = [
+  { label: '🌙 Dark',  value: 'dark' },
+  { label: '☀️ Light', value: 'light' },
 ]
 
 const notifSupported = typeof Notification !== 'undefined'
@@ -59,9 +65,14 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
       {/* Theme */}
       <Section title="Appearance">
         <SegmentedControl
-          options={THEME_OPTIONS}
-          value={s.theme ?? 'dark'}
-          onChange={v => update('theme', v)}
+          options={SCHEME_OPTIONS}
+          value={s.colorScheme ?? 'default'}
+          onChange={v => update('colorScheme', v)}
+        />
+        <SegmentedControl
+          options={MODE_OPTIONS}
+          value={s.themeMode ?? 'dark'}
+          onChange={v => update('themeMode', v)}
         />
       </Section>
 
