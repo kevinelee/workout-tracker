@@ -43,14 +43,13 @@ function EditableValue({ value, onSet, disabled }) {
   )
 }
 
-export default function SessionSetRow({ set, index, onChange, onComplete, onRescind, controllerSide, isCardio, cardioUnit, isStretch, unit }) {
-  const leftHand = controllerSide === 'left'
-  const distUnit = unit === 'kg' ? 'km' : 'mi'
+export default function SessionSetRow({ set, index, onChange, onComplete, onRescind, controllerSide, isCardio, cardioUnit, isStretch, unit, editMode }) {
+  const [burst, setBurst] = useState(false)
+  const leftHand  = controllerSide === 'left'
+  const distUnit  = unit === 'kg' ? 'km' : 'mi'
   const isDistance = isCardio && cardioUnit === 'distance'
-  const isBoth     = isCardio && cardioUnit === 'both'
+  const isBoth    = isCardio && cardioUnit === 'both'
 
-  // Values are stored in canonical imperial units (lbs / miles).
-  // Convert to/from display units at the component boundary.
   const dispWeight = unit === 'kg' ? Math.round(set.weight / 2.2046) : set.weight
   const dispDist   = unit === 'kg' ? Math.round(set.weight * 1.60934) : set.weight
   function storeWeight(v) { update('weight', unit === 'kg' ? Math.round(v * 2.2046) : v) }
@@ -66,9 +65,13 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
       onRescind?.()
       return
     }
-    navigator.vibrate?.(8)
+    navigator.vibrate?.([10, 30, 20])
+    setBurst(true)
+    setTimeout(() => setBurst(false), 600)
     onComplete(set)
   }
+
+  const locked = !editMode
 
   const completeBtn = (
     <button
@@ -81,7 +84,7 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
   )
 
   return (
-    <div className={`ssr ${set.completed ? 'ssr--done' : ''} ${set.isPR ? 'ssr--pr' : ''} ${set.isBonus ? 'ssr--bonus' : ''}`}>
+    <div className={`ssr ${set.completed ? 'ssr--done' : ''} ${set.isPR ? 'ssr--pr' : ''} ${set.isBonus ? 'ssr--bonus' : ''} ${burst ? 'ssr--burst' : ''} ${locked ? 'ssr--locked' : ''}`}>
       {leftHand && completeBtn}
       <span className="ssr-index">{set.isBonus ? '+' : index + 1}</span>
 
@@ -124,7 +127,6 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
         </div>
       ) : (
         <>
-          {/* Reps */}
           <div className="ssr-stepper">
             <span className="ssr-stepper-label">reps</span>
             <div className="ssr-stepper-controls">
@@ -133,7 +135,6 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
               <button className="ssr-step-btn" onClick={() => update('reps', set.reps + 1)} disabled={set.completed}>+</button>
             </div>
           </div>
-          {/* Weight */}
           <div className="ssr-stepper">
             <span className="ssr-stepper-label">{unit === 'kg' ? 'kg' : 'lbs'}</span>
             <div className="ssr-stepper-controls">

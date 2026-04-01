@@ -142,8 +142,15 @@
   color: var(--on-accent);
   font-size: 16px;
   font-weight: 700;
-  animation: pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: set-complete-pop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   transition: background 0.15s;
+}
+
+@keyframes set-complete-pop {
+  0%   { transform: scale(0.2); opacity: 0; }
+  55%  { transform: scale(1.35); }
+  75%  { transform: scale(0.9); }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 @media (hover: hover) {
@@ -153,9 +160,31 @@
   }
 }
 
-@keyframes pop {
-  0%   { transform: scale(0.5); opacity: 0; }
-  100% { transform: scale(1);   opacity: 1; }
+/* Row burst on set complete */
+.ssr--burst {
+  animation: row-burst 0.55s ease-out;
+}
+
+@keyframes row-burst {
+  0%   { background: rgba(74, 222, 128, 0.22); }
+  100% { background: transparent; }
+}
+
+/* Locked mode: hide +/- controls, show clean values only */
+.ssr--locked .ssr-step-btn {
+  display: none;
+}
+
+.ssr--locked .ssr-stepper-controls {
+  background: none;
+  border-color: transparent;
+  border-radius: 0;
+  justify-content: center;
+}
+
+.ssr--locked .ssr-value {
+  font-size: 15px;
+  padding: 4px 2px;
 }
 
 /* Bonus set (added beyond target) */

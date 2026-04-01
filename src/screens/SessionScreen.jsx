@@ -39,12 +39,15 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   const [finishing, setFinishing] = useState(false)
   const [openNotes, setOpenNotes] = useState(new Set())
   const [collapsedExercises, setCollapsedExercises] = useState(new Set())
+  const [editMode, setEditMode] = useState(false)
+  const [warnPending, setWarnPending] = useState(false)
+  const warnTimerRef = useRef(null)
   const noteRefs = useRef({})
 
   const [showAddExercise, setShowAddExercise] = useState(false)
   const [confirmRemoveIndex, setConfirmRemoveIndex] = useState(null)
-  const [pendingFinish, setPendingFinish] = useState(null) // { session } — waiting on template update decision
-  const [pendingQuickStart, setPendingQuickStart] = useState(null) // { session } — quick start save prompt
+  const [pendingFinish, setPendingFinish] = useState(null)
+  const [pendingQuickStart, setPendingQuickStart] = useState(null)
   const [newWorkoutName, setNewWorkoutName] = useState('')
 
   const [lastSession, setLastSession] = useState(null)
@@ -64,24 +67,19 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [confirmRemoveIndex, showAbandon, showAddExercise])
 
-  // Elapsed timer — recalculates from wall clock, survives sleep/background
+  // Elapsed timer
   useEffect(() => {
     const id = setInterval(() => setElapsed(elapsedFromStart(startedAt)), 1000)
-
     function onVisible() {
-      if (document.visibilityState === 'visible') {
-        setElapsed(elapsedFromStart(startedAt))
-      }
+      if (document.visibilityState === 'visible') setElapsed(elapsedFromStart(startedAt))
     }
     document.addEventListener('visibilitychange', onVisible)
-
-    return () => {
-      clearInterval(id)
-      document.removeEventListener('visibilitychange', onVisible)
-    }
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible) }
   }, [startedAt])
 
-  // Sync logs/prMap changes up to App (persists to localStorage)
+  // Clear warn state when navigating away
+  useEffect(() => () => clearTimeout(warnTimerRef.current), [])
+
   function updateLogsAndSync(newLogs, newPrMap) {
     setLogs(newLogs)
     if (newPrMap) setPRMap(newPrMap)
@@ -108,11 +106,9 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
 
   function completeSet(logIndex, setIndex, set) {
     if (set.completed) return
-
     const exerciseId = logs[logIndex].exerciseId
     const currentPR = prMap[exerciseId] ?? 0
     const isPR = set.weight > 0 && set.weight > currentPR
-
     const newPrMap = isPR ? { ...prMap, [exerciseId]: set.weight } : prMap
     const newLogs = logs.map((log, li) =>
       li !== logIndex ? log : {
@@ -121,9 +117,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
       }
     )
     updateLogsAndSync(newLogs, newPrMap)
-    if (settings.restTimerDuration > 0) {
-      setRestDuration(settings.restTimerDuration)
-    }
+    if (settings.restTimerDuration > 0) setRestDuration(settings.restTimerDuration)
   }
 
   function updateNotes(logIndex, text) {
@@ -172,11 +166,8 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
 
   function handleRemoveExercise(logIndex) {
     const hasCompleted = logs[logIndex].sets.some(s => s.completed)
-    if (hasCompleted) {
-      setConfirmRemoveIndex(logIndex)
-    } else {
-      doRemoveExercise(logIndex)
-    }
+    if (hasCompleted) setConfirmRemoveIndex(logIndex)
+    else doRemoveExercise(logIndex)
   }
 
   function doRemoveExercise(logIndex) {
@@ -191,7 +182,6 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
         next.delete(exerciseId)
       } else {
         next.add(exerciseId)
-        // Scroll into view after the expand animation starts
         setTimeout(() => {
           noteRefs.current[exerciseId]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
         }, 50)
@@ -215,7 +205,6 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
       }
       await saveSession(session)
 
-      // Quick start — ask if they want to save it as a named workout
       if (template.isQuickStart) {
         setNewWorkoutName(template.name)
         setPendingQuickStart({ session })
@@ -223,7 +212,6 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
         return
       }
 
-      // Detect if exercise list diverged from the template
       const templateIds = template.exercises.map(e => e.exerciseId).sort().join()
       const logIds = logs.map(l => l.exerciseId).sort().join()
       if (templateIds !== logIds) {
@@ -238,6 +226,19 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     }
   }
 
+  function handleFinishClick() {
+    const underHalf = totalSets > 0 && completedSets < totalSets / 2
+    if (underHalf && !warnPending) {
+      setWarnPending(true)
+      clearTimeout(warnTimerRef.current)
+      warnTimerRef.current = setTimeout(() => setWarnPending(false), 3000)
+      return
+    }
+    clearTimeout(warnTimerRef.current)
+    setWarnPending(false)
+    handleFinish()
+  }
+
   async function handleSaveAsNewWorkout(session, name) {
     const savedExercises = logs.map(log => {
       const existing = template.exercises.find(e => e.exerciseId === log.exerciseId)
@@ -249,11 +250,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
       })
     })
     const savedTemplate = { ...template, name: name.trim(), isQuickStart: false, exercises: savedExercises }
-    try {
-      await saveTemplate(savedTemplate)
-    } catch (err) {
-      console.error('Failed to save template:', err)
-    }
+    try { await saveTemplate(savedTemplate) } catch (err) { console.error(err) }
     onFinish(session, savedTemplate)
   }
 
@@ -268,42 +265,36 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
       })
     })
     const updatedTemplate = { ...template, exercises: updatedExercises }
-    try {
-      await saveTemplate(updatedTemplate)
-    } catch (err) {
-      console.error('Failed to update template:', err)
-    }
+    try { await saveTemplate(updatedTemplate) } catch (err) { console.error(err) }
     onFinish(session, updatedTemplate)
   }
 
-  // Progress counts only target sets (bonus sets are extra credit)
   const totalSets     = logs.reduce((sum, log) => sum + (log.targetCount ?? log.sets.length), 0)
   const completedSets = logs.reduce((sum, log) => {
     const target = log.targetCount ?? log.sets.length
     return sum + Math.min(log.sets.filter(s => s.completed).length, target)
   }, 0)
-  const allDone = completedSets === totalSets && totalSets > 0
+  const allDone   = completedSets === totalSets && totalSets > 0
+  const underHalf = totalSets > 0 && completedSets < totalSets / 2
 
   return (
     <div className="session">
       {/* Sticky header + progress bar */}
       <div className="session-sticky">
         <div className="session-header">
-          <button className="session-back" onClick={onMinimize} aria-label="Back">‹</button>
+          <button className="session-back" onClick={onMinimize} aria-label="Minimize">‹</button>
           <div className="session-title-wrap">
             <h2 className="session-name">{template.name}</h2>
             <span className="session-timer">{fmtElapsed(elapsed)}</span>
           </div>
           <button
-            className={`session-finish-btn ${allDone ? 'session-finish-btn--ready' : ''}`}
-            onClick={handleFinish}
-            disabled={finishing}
+            className={`session-edit-btn ${editMode ? 'session-edit-btn--active' : ''}`}
+            onClick={() => setEditMode(m => !m)}
           >
-            {finishing ? <span className="session-spinner" /> : 'Finish'}
+            {editMode ? 'Done' : 'Edit'}
           </button>
         </div>
 
-        {/* Progress bar */}
         <div className="session-progress-bar">
           <div
             className="session-progress-fill"
@@ -331,12 +322,12 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
         {logs.map((log, li) => {
           const exercise = findExercise(log.exerciseId)
           if (!exercise) return null
-          const doneCount  = log.sets.filter(s => s.completed).length
-          const target     = log.targetCount ?? log.sets.length
+          const doneCount   = log.sets.filter(s => s.completed).length
+          const target      = log.targetCount ?? log.sets.length
           const allSetsDone = doneCount >= target
-          const isCardio   = exercise.category === 'Cardio'
-          const cardioUnit = exercise.cardioUnit ?? 'time'
-          const isStretch  = exercise.category === 'Stretch'
+          const isCardio    = exercise.category === 'Cardio'
+          const cardioUnit  = exercise.cardioUnit ?? 'time'
+          const isStretch   = exercise.category === 'Stretch'
           const isCollapsed = collapsedExercises.has(log.exerciseId)
 
           return (
@@ -347,7 +338,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                   <p className="session-ex-name">{exercise.name}</p>
                   <p className="session-ex-meta">{doneCount}/{target} sets{doneCount > target ? ` +${doneCount - target}` : ''}</p>
                 </div>
-                {!isCollapsed && (
+                {editMode && !isCollapsed && (
                   <button
                     className={`session-notes-toggle ${openNotes.has(log.exerciseId) ? 'session-notes-toggle--open' : ''} ${log.notes ? 'session-notes-toggle--has-note' : ''}`}
                     onClick={e => { e.stopPropagation(); toggleNotes(log.exerciseId) }}
@@ -356,13 +347,15 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                     📝
                   </button>
                 )}
-                <button
-                  className="session-ex-remove"
-                  onClick={e => { e.stopPropagation(); handleRemoveExercise(li) }}
-                  aria-label="Remove exercise"
-                >
-                  ✕
-                </button>
+                {editMode && (
+                  <button
+                    className="session-ex-remove"
+                    onClick={e => { e.stopPropagation(); handleRemoveExercise(li) }}
+                    aria-label="Remove exercise"
+                  >
+                    ✕
+                  </button>
+                )}
                 <button
                   className={`session-collapse-btn ${isCollapsed ? '' : 'session-collapse-btn--open'}`}
                   onClick={() => toggleCollapse(log.exerciseId)}
@@ -388,45 +381,42 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                         cardioUnit={cardioUnit}
                         isStretch={isStretch}
                         unit={settings.unit}
+                        editMode={editMode}
                       />
                     ))}
                   </div>
 
-                  <button className="session-add-set-btn" onClick={() => addSet(li)}>
-                    + Add set
-                  </button>
+                  {editMode && (
+                    <button className="session-add-set-btn" onClick={() => addSet(li)}>
+                      + Add set
+                    </button>
+                  )}
 
-                  <div
-                    className={`session-notes-wrap ${openNotes.has(log.exerciseId) ? 'session-notes-wrap--open' : ''}`}
-                    ref={el => { noteRefs.current[log.exerciseId] = el }}
-                  >
-                    <textarea
-                      className="session-notes-input"
-                      placeholder="Add a note for this exercise…"
-                      value={log.notes ?? ''}
-                      onChange={e => updateNotes(li, e.target.value)}
-                      rows={3}
-                    />
-                  </div>
+                  {editMode && (
+                    <div
+                      className={`session-notes-wrap ${openNotes.has(log.exerciseId) ? 'session-notes-wrap--open' : ''}`}
+                      ref={el => { noteRefs.current[log.exerciseId] = el }}
+                    >
+                      <textarea
+                        className="session-notes-input"
+                        placeholder="Add a note for this exercise…"
+                        value={log.notes ?? ''}
+                        onChange={e => updateNotes(li, e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                  )}
                 </>
               )}
             </div>
           )
         })}
 
-        {/* Add exercise */}
-        <button className="session-add-ex-btn" onClick={() => setShowAddExercise(true)}>
-          + Add exercise
-        </button>
-
-        {/* Finish nudge */}
-        {allDone && (
-          <div className="session-all-done">
-            <p>💪 All sets done!</p>
-            <button className="session-finish-big" onClick={handleFinish} disabled={finishing}>
-              {finishing ? <span className="session-spinner session-spinner--dark" /> : 'Finish Workout'}
-            </button>
-          </div>
+        {/* Add exercise — only in edit mode */}
+        {editMode && (
+          <button className="session-add-ex-btn" onClick={() => setShowAddExercise(true)}>
+            + Add exercise
+          </button>
         )}
 
         {/* Abandon */}
@@ -435,7 +425,30 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
         </button>
       </div>
 
-      {/* Rest timer overlay — backdrop blocks stray touch events on set rows */}
+      {/* Fixed bottom finish bar */}
+      <div className="session-finish-bar">
+        {allDone && (
+          <p className="session-finish-all-done">💪 All sets complete!</p>
+        )}
+        {!allDone && warnPending && (
+          <p className="session-finish-warning">
+            Only {completedSets}/{totalSets} sets done — tap again to finish anyway
+          </p>
+        )}
+        <button
+          className={`session-finish-main ${allDone ? 'session-finish-main--done' : ''} ${warnPending ? 'session-finish-main--warn' : ''}`}
+          onClick={handleFinishClick}
+          disabled={finishing}
+        >
+          {finishing
+            ? <span className="session-spinner" />
+            : warnPending
+              ? 'Tap again to confirm'
+              : 'Finish Workout'}
+        </button>
+      </div>
+
+      {/* Rest timer overlay */}
       {restDuration !== null && (
         <>
           <div className="rest-timer-backdrop" />
@@ -453,7 +466,6 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
         </>
       )}
 
-      {/* Screen flash when rest timer ends */}
       {timerFlash && <div className="session-timer-flash" />}
 
       {/* Quick start save prompt */}
@@ -487,7 +499,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
         </div>
       )}
 
-      {/* Update template prompt — shown after finish if exercise list diverged */}
+      {/* Update template prompt */}
       {pendingFinish && (() => {
         const templateExIds = new Set(template.exercises.map(e => e.exerciseId))
         const logExIds = new Set(logs.map(l => l.exerciseId))
@@ -497,27 +509,13 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
           <div className="session-modal-overlay">
             <div className="session-modal session-modal--update">
               <p className="session-modal-title">Update your workout?</p>
-              <p className="session-modal-body">
-                We noticed you made changes to <strong>{template.name}</strong>:
-              </p>
-              {added.length > 0 && (
-                <p className="session-modal-diff session-modal-diff--added">
-                  + {added.join(', ')}
-                </p>
-              )}
-              {removed.length > 0 && (
-                <p className="session-modal-diff session-modal-diff--removed">
-                  − {removed.join(', ')}
-                </p>
-              )}
+              <p className="session-modal-body">We noticed you made changes to <strong>{template.name}</strong>:</p>
+              {added.length > 0 && <p className="session-modal-diff session-modal-diff--added">+ {added.join(', ')}</p>}
+              {removed.length > 0 && <p className="session-modal-diff session-modal-diff--removed">− {removed.join(', ')}</p>}
               <p className="session-modal-body">Save these changes to your workout template?</p>
               <div className="session-modal-actions">
-                <button className="session-modal-cancel" onClick={() => onFinish(pendingFinish.session, template)}>
-                  Keep original
-                </button>
-                <button className="session-modal-confirm session-modal-confirm--update" onClick={() => handleUpdateTemplate(pendingFinish.session)}>
-                  Update workout
-                </button>
+                <button className="session-modal-cancel" onClick={() => onFinish(pendingFinish.session, template)}>Keep original</button>
+                <button className="session-modal-confirm session-modal-confirm--update" onClick={() => handleUpdateTemplate(pendingFinish.session)}>Update workout</button>
               </div>
             </div>
           </div>
