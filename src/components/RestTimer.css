@@ -1,35 +1,34 @@
 .rest-timer {
   position: fixed;
-  bottom: 0;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 480px;
+  transform: translate(-50%, -50%);
+  width: 260px;
   background: var(--surface);
-  border-top: 1px solid var(--border);
-  border-radius: 20px 20px 0 0;
-  padding: 20px 24px calc(32px + env(safe-area-inset-bottom));
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 32px 24px 28px;
   z-index: 50;
-  animation: slide-up 0.25s cubic-bezier(0.22, 1, 0.36, 1);
-  box-shadow: 0 -8px 32px rgba(0,0,0,0.4);
+  animation: rest-modal-in 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
 }
 
-@keyframes slide-up {
-  from { transform: translateX(-50%) translateY(100%); }
-  to   { transform: translateX(-50%) translateY(0); }
+@keyframes rest-modal-in {
+  from { transform: translate(-50%, -50%) scale(0.88); opacity: 0; }
+  to   { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
 }
 
 .rest-timer-inner {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .rest-ring-wrap {
   position: relative;
-  width: 88px;
-  height: 88px;
+  width: 120px;
+  height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -44,19 +43,19 @@
 .rest-ring-track {
   fill: none;
   stroke: var(--border);
-  stroke-width: 5;
+  stroke-width: 6;
 }
 
 .rest-ring-fill {
   fill: none;
   stroke: var(--accent);
-  stroke-width: 5;
+  stroke-width: 6;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.9s linear;
 }
 
 .rest-countdown {
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--text-h);
   font-variant-numeric: tabular-nums;
@@ -65,10 +64,10 @@
 }
 
 .rest-label {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--text);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   margin: 0;
 }
 
@@ -79,10 +78,11 @@
   color: var(--text-h);
   font-size: 15px;
   font-family: var(--sans);
-  padding: 10px 24px;
+  padding: 10px 32px;
   cursor: pointer;
   min-height: 44px;
-  margin-top: 4px;
+  margin-top: 6px;
+  width: 100%;
   transition: border-color 0.2s ease-in-out, background 0.15s;
 
   &:hover {

@@ -34,26 +34,26 @@ export default function RestTimer({ duration, onDone, onSkip }) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const progress = duration > 0 ? remaining / duration : 0
-  const circumference = 2 * Math.PI * 38
+  const circumference = 2 * Math.PI * 52
   const dashOffset = circumference * progress
 
   return (
     <div className="rest-timer">
       <div className="rest-timer-inner">
+        <p className="rest-label">Rest</p>
         <div className="rest-ring-wrap">
-          <svg className="rest-ring" viewBox="0 0 88 88">
-            <circle className="rest-ring-track" cx="44" cy="44" r="38" />
+          <svg className="rest-ring" viewBox="0 0 120 120">
+            <circle className="rest-ring-track" cx="60" cy="60" r="52" />
             <circle
               className="rest-ring-fill"
-              cx="44" cy="44" r="38"
+              cx="60" cy="60" r="52"
               strokeDasharray={circumference}
               strokeDashoffset={dashOffset}
             />
           </svg>
           <span className="rest-countdown">{fmt(remaining)}</span>
         </div>
-        <p className="rest-label">Rest</p>
-        <button className="rest-skip-btn" onClick={onSkip}>Skip →</button>
+        <button className="rest-skip-btn" onClick={onSkip}>Skip</button>
       </div>
     </div>
   )

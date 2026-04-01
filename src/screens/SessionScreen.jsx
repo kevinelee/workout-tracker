@@ -451,7 +451,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
       {/* Rest timer overlay */}
       {restDuration !== null && (
         <>
-          <div className="rest-timer-backdrop" />
+          <div className="rest-timer-backdrop" onClick={() => setRestDuration(null)} />
           <RestTimer
             key={restDuration}
             duration={restDuration}

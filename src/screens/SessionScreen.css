@@ -509,12 +509,13 @@
   &:hover { opacity: 1; }
 }
 
-/* Backdrop behind rest timer — absorbs stray pointer events on set rows */
+/* Backdrop behind rest timer modal */
 .rest-timer-backdrop {
   position: fixed;
   inset: 0;
   z-index: 49;
-  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
 }
 
 /* Abandon modal */
