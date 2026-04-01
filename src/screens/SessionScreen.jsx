@@ -345,7 +345,8 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
           const cardioUnit  = exercise.cardioUnit ?? 'time'
           const isStretch   = exercise.category === 'Stretch'
           const isCollapsed = collapsedExercises.has(log.exerciseId)
-          const nextActiveIndex = !editMode ? log.sets.findIndex(s => !s.completed) : -1
+          const isNextActiveExercise = !editMode && logs.findIndex(l => l.sets.some(s => !s.completed)) === li
+          const nextActiveIndex = isNextActiveExercise ? log.sets.findIndex(s => !s.completed) : -1
           const isCelebrating = celebratingExercise === log.exerciseId
 
           return (

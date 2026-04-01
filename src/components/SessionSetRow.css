@@ -131,14 +131,17 @@
   }
 }
 
-.ssr-pr-star {
-  width: 26px;
-  height: 26px;
-  color: #fbbf24;
-  display: block;
+.ssr-circle--pr-pending {
+  border-color: #fbbf24;
 }
 
-.ssr-complete-btn--pr-pending {
+.ssr-check--pr {
+  background: #fbbf24;
+  color: #1a1200;
+}
+
+.ssr-stepper--pr .ssr-stepper-label,
+.ssr-stepper--pr .ssr-value {
   color: #fbbf24;
 }
 
@@ -227,17 +230,12 @@
 
 .ssr--active .ssr-circle {
   border-color: #4ade80;
-  animation: circle-pulse 1.8s ease-in-out infinite;
 }
 
 .ssr--active .ssr-stepper-controls {
   border-color: rgba(74, 222, 128, 0.25);
 }
 
-@keyframes circle-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55); }
-  55%       { box-shadow: 0 0 0 8px rgba(74, 222, 128, 0); }
-}
 
 /* Particle burst */
 .ssr-particle {

@@ -43,14 +43,6 @@ function EditableValue({ value, onSet, disabled }) {
   )
 }
 
-function PRStarIcon() {
-  return (
-    <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" className="ssr-pr-star">
-      <path d="M256 36 L315 113 L412 100 L399 197 L476 256 L399 315 L412 412 L315 399 L256 476 L197 399 L100 412 L113 315 L36 256 L113 197 L100 100 L197 113 Z" stroke="currentColor" strokeWidth="22" strokeLinejoin="round" fill="none"/>
-    </svg>
-  )
-}
-
 export default function SessionSetRow({ set, index, onChange, onComplete, onRescind, controllerSide, isCardio, cardioUnit, isStretch, unit, editMode, isActive, currentPR }) {
   const [burst, setBurst] = useState(false)
   const rowRef = useRef(null)
@@ -102,10 +94,8 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
   const isPRPending = !set.completed && set.weight > 0 && set.weight > currentPR
 
   const circleContent = set.completed
-    ? <span className="ssr-check">✓</span>
-    : isPRPending
-      ? <PRStarIcon />
-      : <span className="ssr-circle" />
+    ? <span className={`ssr-check${set.isPR ? ' ssr-check--pr' : ''}`}>✓</span>
+    : <span className={`ssr-circle${isPRPending ? ' ssr-circle--pr-pending' : ''}`} />
 
   // In locked mode: whole row is the tap target; indicator is non-interactive
   // In edit mode: dedicated circle button with its own click handler
@@ -179,7 +169,7 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
               <button className="ssr-step-btn" onClick={() => update('reps', set.reps + 1)} disabled={set.completed}>+</button>
             </div>
           </div>
-          <div className="ssr-stepper">
+          <div className={`ssr-stepper${isPRPending ? ' ssr-stepper--pr' : ''}`}>
             <span className="ssr-stepper-label">{unit === 'kg' ? 'kg' : 'lbs'}</span>
             <div className="ssr-stepper-controls">
               <HoldButton className="ssr-step-btn" onTap={() => storeWeight(dispWeight - 1)} disabled={set.completed}>−</HoldButton>
