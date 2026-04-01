@@ -53,6 +53,17 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     getLastSessionForTemplate(template.id).then(setLastSession)
   }, [template.id])
 
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key !== 'Escape') return
+      if (confirmRemoveIndex !== null) { setConfirmRemoveIndex(null); return }
+      if (showAbandon)                 { setShowAbandon(false); return }
+      if (showAddExercise)             { setShowAddExercise(false); return }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [confirmRemoveIndex, showAbandon, showAddExercise])
+
   // Elapsed timer — recalculates from wall clock, survives sleep/background
   useEffect(() => {
     const id = setInterval(() => setElapsed(elapsedFromStart(startedAt)), 1000)

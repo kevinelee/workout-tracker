@@ -17,9 +17,15 @@
 }
 
 .auth-logo {
-  font-size: 48px;
-  line-height: 1;
-  margin-bottom: 8px;
+  height: 52px;
+  width: auto;
+  margin-bottom: 12px;
+  filter: invert(1);
+  opacity: 0.9;
+}
+
+[data-theme="light"] .auth-logo {
+  filter: none;
 }
 
 .auth-title {

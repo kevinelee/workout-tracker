@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { getFeedback, markFeedbackReviewed } from '../storage'
+import { useState, useEffect, useRef } from 'react'
+import { getFeedback, markFeedbackReviewed, archiveFeedback, getAdminActivity } from '../storage'
 import { CHANGELOG } from '../data/changelog'
 import './AdminScreen.css'
 
@@ -16,11 +16,183 @@ const TYPE_META = {
   improvement: { label: '↑ Improvement', color: 'improvement' },
 }
 
-export default function AdminScreen({ onReviewed }) {
-  const [tab, setTab]       = useState('inbox') // 'inbox' | 'changelog'
-  const [items, setItems]   = useState([])
+function FeedbackModal({ item, onClose, onMarkReviewed, onArchive }) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="admin-modal-backdrop" onClick={onClose}>
+      <div className="admin-modal" onClick={e => e.stopPropagation()}>
+        <div className="admin-modal-header">
+          <div className="admin-modal-meta">
+            <span className={`admin-item-type admin-item-type--${item.type}`}>
+              {item.type === 'bug' ? '🐛 Bug' : '💬 Feedback'}
+            </span>
+            {item.status === 'new' && <span className="admin-item-new-dot">NEW</span>}
+          </div>
+          <button className="admin-modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="admin-modal-info">
+          <span className="admin-item-email">{item.user_email ?? 'unknown'}</span>
+          <span className="admin-item-date">{fmtDate(item.created_at)}</span>
+        </div>
+
+        <p className="admin-modal-message">{item.message}</p>
+
+        <div className="admin-modal-footer">
+          {item.status !== 'archived' && (
+            <button className="admin-modal-btn admin-modal-btn--archive" onClick={() => { onArchive(item.id); onClose() }}>
+              Archive
+            </button>
+          )}
+          {item.status === 'new' && (
+            <button className="admin-modal-btn admin-modal-btn--resolve" onClick={() => { onMarkReviewed(item.id); onClose() }}>
+              Mark as Reviewed
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const SWIPE_THRESHOLD = 80
+
+function SwipeToArchive({ onArchive, children }) {
+  const [offsetX, setOffsetX] = useState(0)
+  const [swiped, setSwiped]   = useState(false)
+  const startX = useRef(null)
+  const tracking = useRef(false)
+
+  function onTouchStart(e) {
+    startX.current = e.touches[0].clientX
+    tracking.current = true
+  }
+
+  function onTouchMove(e) {
+    if (!tracking.current) return
+    const dx = e.touches[0].clientX - startX.current
+    if (dx < 0) setOffsetX(Math.max(dx, -SWIPE_THRESHOLD * 1.5))
+  }
+
+  function onTouchEnd() {
+    tracking.current = false
+    if (offsetX <= -SWIPE_THRESHOLD) {
+      setSwiped(true)
+      setOffsetX(-SWIPE_THRESHOLD * 1.5)
+      setTimeout(() => onArchive(), 280)
+    } else {
+      setOffsetX(0)
+    }
+  }
+
+  return (
+    <div className="swipe-wrap">
+      <div className="swipe-reveal"><span>Archive</span></div>
+      <div
+        className={`swipe-content${swiped ? ' swipe-content--out' : ''}`}
+        style={{ transform: `translateX(${offsetX}px)` }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function fmtRelative(iso) {
+  if (!iso) return '—'
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1)   return 'just now'
+  if (mins < 60)  return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24)   return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
+}
+
+function ActivityTab() {
+  const [users, setUsers]     = useState([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all')
+  const [error, setError]     = useState(null)
+
+  useEffect(() => {
+    getAdminActivity()
+      .then(data => { setUsers(data); setLoading(false) })
+      .catch(err => { setError('Could not load activity. Check admin RLS policies.'); setLoading(false) })
+  }, [])
+
+  if (loading) return <div className="admin-loading"><div className="admin-spinner" /></div>
+  if (error)   return <p className="admin-empty">{error}</p>
+  if (!users.length) return <p className="admin-empty">No activity in the last 7 days.</p>
+
+  const today = users.filter(u => u.workedOutToday)
+  const rest  = users.filter(u => !u.workedOutToday)
+
+  return (
+    <div className="activity-feed">
+      {today.length > 0 && (
+        <>
+          <p className="activity-section-label">Worked out today — {today.length}</p>
+          <ul className="activity-list">
+            {today.map(u => <ActivityRow key={u.userId} user={u} />)}
+          </ul>
+        </>
+      )}
+      {rest.length > 0 && (
+        <>
+          <p className="activity-section-label">Recent — last 7 days</p>
+          <ul className="activity-list">
+            {rest.map(u => <ActivityRow key={u.userId} user={u} />)}
+          </ul>
+        </>
+      )}
+    </div>
+  )
+}
+
+function ActivityRow({ user }) {
+  const [imgFailed, setImgFailed] = useState(false)
+  const initial = user.displayName ? user.displayName[0].toUpperCase() : '?'
+
+  return (
+    <li className="activity-row">
+      <div className="activity-avatar">
+        {user.avatarUrl && !imgFailed
+          ? <img src={user.avatarUrl} alt={initial} className="activity-avatar-img" onError={() => setImgFailed(true)} />
+          : initial
+        }
+      </div>
+      <div className="activity-info">
+        <div className="activity-name-row">
+          <span className="activity-name">{user.displayName || 'Unknown'}</span>
+          {user.hasActiveNow && <span className="activity-badge activity-badge--active">● Live</span>}
+          {user.workedOutToday && !user.hasActiveNow && (
+            <span className="activity-badge activity-badge--done">✓ Done today</span>
+          )}
+        </div>
+        <span className="activity-meta">
+          Last active {fmtRelative(user.lastActive)}
+          {user.workedOutToday && user.todaySessions > 1 && ` · ${user.todaySessions} sessions today`}
+        </span>
+      </div>
+    </li>
+  )
+}
+
+export default function AdminScreen({ onReviewed }) {
+  const [tab, setTab]         = useState('inbox') // 'inbox' | 'activity' | 'changelog'
+  const [items, setItems]     = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter]   = useState('all')
+  const [selected, setSelected] = useState(null)
 
   useEffect(() => {
     getFeedback().then(data => { setItems(data); setLoading(false) })
@@ -32,20 +204,30 @@ export default function AdminScreen({ onReviewed }) {
     onReviewed?.()
   }
 
+  async function handleArchive(id) {
+    await archiveFeedback(id)
+    setItems(prev => prev.map(item => item.id === id ? { ...item, status: 'archived' } : item))
+  }
+
   const newCount = items.filter(i => i.status === 'new').length
 
   const filtered = items.filter(i => {
-    if (filter === 'new')      return i.status === 'new'
-    if (filter === 'bug')      return i.type === 'bug'
-    if (filter === 'feedback') return i.type === 'feedback'
+    if (filter === 'archived')   return i.status === 'archived'
+    if (i.status === 'archived') return false
+    if (filter === 'new')        return i.status === 'new'
+    if (filter === 'bug')        return i.type === 'bug'
+    if (filter === 'feedback')   return i.type === 'feedback'
     return true
   })
+
+  // Keep selected in sync if its status changed
+  const selectedItem = selected ? items.find(i => i.id === selected) ?? null : null
 
   return (
     <div className="admin">
       <div className="admin-header">
         <h2 className="admin-title">
-          {tab === 'inbox' ? 'Inbox' : 'Patch Notes'}
+          {tab === 'inbox' ? 'Inbox' : tab === 'activity' ? 'Activity' : 'Patch Notes'}
           {tab === 'inbox' && newCount > 0 && <span className="admin-new-badge">{newCount} new</span>}
         </h2>
       </div>
@@ -53,10 +235,13 @@ export default function AdminScreen({ onReviewed }) {
       {/* Top-level tab switcher */}
       <div className="admin-tabs">
         <button className={`admin-tab-btn${tab === 'inbox'     ? ' admin-tab-btn--active' : ''}`} onClick={() => setTab('inbox')}>Inbox</button>
+        <button className={`admin-tab-btn${tab === 'activity'  ? ' admin-tab-btn--active' : ''}`} onClick={() => setTab('activity')}>Activity</button>
         <button className={`admin-tab-btn${tab === 'changelog' ? ' admin-tab-btn--active' : ''}`} onClick={() => setTab('changelog')}>Patch Notes</button>
       </div>
 
-      {tab === 'changelog' ? (
+      {tab === 'activity' ? (
+        <ActivityTab />
+      ) : tab === 'changelog' ? (
         <div className="admin-changelog">
           {CHANGELOG.map(release => (
             <div key={release.version} className="admin-release">
@@ -82,52 +267,76 @@ export default function AdminScreen({ onReviewed }) {
         </div>
       ) : (
         <>
-      <div className="admin-filters">
-        {[
-          { id: 'all',      label: 'All' },
-          { id: 'new',      label: 'New' },
-          { id: 'bug',      label: '🐛 Bugs' },
-          { id: 'feedback', label: '💬 Feedback' },
-        ].map(f => (
-          <button
-            key={f.id}
-            className={`admin-filter-btn${filter === f.id ? ' admin-filter-btn--active' : ''}`}
-            onClick={() => setFilter(f.id)}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+          <div className="admin-filters">
+            {[
+              { id: 'all',      label: 'All' },
+              { id: 'new',      label: 'New' },
+              { id: 'bug',      label: '🐛 Bugs' },
+              { id: 'feedback', label: '💬 Feedback' },
+              { id: 'archived', label: 'Archived' },
+            ].map(f => (
+              <button
+                key={f.id}
+                className={`admin-filter-btn${filter === f.id ? ' admin-filter-btn--active' : ''}`}
+                onClick={() => setFilter(f.id)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
 
-      {loading ? (
-        <div className="admin-loading"><div className="admin-spinner" /></div>
-      ) : filtered.length === 0 ? (
-        <p className="admin-empty">Nothing here yet.</p>
-      ) : (
-        <ul className="admin-list">
-          {filtered.map(item => (
-            <li key={item.id} className={`admin-item${item.status === 'new' ? ' admin-item--new' : ''}`}>
-              <div className="admin-item-header">
-                <span className={`admin-item-type admin-item-type--${item.type}`}>
-                  {item.type === 'bug' ? '🐛 Bug' : '💬 Feedback'}
-                </span>
-                {item.status === 'new' && <span className="admin-item-new-dot">NEW</span>}
-                <span className="admin-item-date">{fmtDate(item.created_at)}</span>
-              </div>
-              <p className="admin-item-message">{item.message}</p>
-              <div className="admin-item-footer">
-                <span className="admin-item-email">{item.user_email ?? 'unknown'}</span>
-                {item.status === 'new' && (
-                  <button className="admin-resolve-btn" onClick={() => handleMarkReviewed(item.id)}>
-                    Mark reviewed
-                  </button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+          {loading ? (
+            <div className="admin-loading"><div className="admin-spinner" /></div>
+          ) : filtered.length === 0 ? (
+            <p className="admin-empty">Nothing here yet.</p>
+          ) : (
+            <ul className="admin-list">
+              {filtered.map(item => (
+                <li key={item.id}>
+                <SwipeToArchive onArchive={() => handleArchive(item.id)}>
+                <div
+                  className={`admin-item${item.status === 'new' ? ' admin-item--new' : ''}`}
+                  onClick={() => setSelected(item.id)}
+                >
+                  <div className="admin-item-header">
+                    <span className={`admin-item-type admin-item-type--${item.type}`}>
+                      {item.type === 'bug' ? '🐛 Bug' : '💬 Feedback'}
+                    </span>
+                    {item.status === 'new' && <span className="admin-item-new-dot">NEW</span>}
+                    <span className="admin-item-date">{fmtDate(item.created_at)}</span>
+                  </div>
+                  <p className="admin-item-message">{item.message}</p>
+                  <div className="admin-item-footer">
+                    <span className="admin-item-email">{item.user_email ?? 'unknown'}</span>
+                    <div className="admin-item-actions" onClick={e => e.stopPropagation()}>
+                      {item.status === 'new' && (
+                        <button className="admin-resolve-btn" onClick={() => handleMarkReviewed(item.id)}>
+                          Mark reviewed
+                        </button>
+                      )}
+                      {item.status !== 'archived' && (
+                        <button className="admin-archive-btn" onClick={() => handleArchive(item.id)}>
+                          Archive
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                </SwipeToArchive>
+                </li>
+              ))}
+            </ul>
+          )}
         </>
+      )}
+
+      {selectedItem && (
+        <FeedbackModal
+          item={selectedItem}
+          onClose={() => setSelected(null)}
+          onMarkReviewed={handleMarkReviewed}
+          onArchive={handleArchive}
+        />
       )}
     </div>
   )

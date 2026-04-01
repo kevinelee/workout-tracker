@@ -22,7 +22,7 @@ function ex(exerciseId, setsCount = 3, reps = 8, weight = 0, unit = 'lbs') {
 export const starterTemplates = [
   {
     label: 'Push Day',
-    emoji: '💪',
+    iconKey: 'push',
     description: 'Chest, shoulders & triceps',
     build: (unit = 'lbs') => ({
       id: nanoid(),
@@ -38,7 +38,7 @@ export const starterTemplates = [
   },
   {
     label: 'Pull Day',
-    emoji: '🔙',
+    iconKey: 'pull',
     description: 'Back & biceps',
     build: (unit = 'lbs') => ({
       id: nanoid(),
@@ -54,7 +54,7 @@ export const starterTemplates = [
   },
   {
     label: 'Leg Day',
-    emoji: '🦵',
+    iconKey: 'legs',
     description: 'Quads, hamstrings & calves',
     build: (unit = 'lbs') => ({
       id: nanoid(),
@@ -70,7 +70,7 @@ export const starterTemplates = [
   },
   {
     label: 'Full Body',
-    emoji: '🏋️',
+    iconKey: 'barbell',
     description: 'Classic 5-exercise compound session',
     build: (unit = 'lbs') => ({
       id: nanoid(),
@@ -87,7 +87,7 @@ export const starterTemplates = [
   },
   {
     label: 'Upper Body',
-    emoji: '🤸',
+    iconKey: 'upper',
     description: 'Chest, back, shoulders & arms',
     build: (unit = 'lbs') => ({
       id: nanoid(),
@@ -104,7 +104,7 @@ export const starterTemplates = [
   },
   {
     label: 'Core & Cardio',
-    emoji: '🔥',
+    iconKey: 'bolt',
     description: 'Abs and conditioning',
     build: (unit = 'lbs') => ({
       id: nanoid(),

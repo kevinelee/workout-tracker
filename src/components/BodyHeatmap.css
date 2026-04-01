@@ -11,58 +11,45 @@
   width: 100%;
 }
 
-.bhm-face-btn {
-  flex: 1;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  color: var(--text);
+.bhm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.bhm-muscle-row {
+  display: grid;
+  grid-template-columns: 96px 1fr 52px;
+  align-items: center;
+  gap: 8px;
+}
+
+.bhm-muscle-label {
   font-size: 13px;
   font-weight: 600;
-  font-family: var(--sans);
-  padding: 7px 0;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-
-  &:active { opacity: 0.75; }
-}
-
-.bhm-face-btn--on {
-  background: var(--accent-bg);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.bhm-info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  min-height: 22px;
-}
-
-.bhm-info-name {
-  font-size: 14px;
-  font-weight: 600;
   color: var(--text-h);
+  white-space: nowrap;
 }
 
-.bhm-info-vol {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--accent);
+.bhm-bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  overflow: hidden;
 }
 
-.bhm-info-hint {
-  width: 100%;
-  text-align: center;
+.bhm-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.bhm-muscle-vol {
   font-size: 12px;
+  font-weight: 600;
   color: var(--text);
-  opacity: 0.45;
-}
-
-.bhm-svg {
-  width: 100%;
-  max-width: 180px;
-  height: auto;
+  text-align: right;
+  opacity: 0.75;
 }

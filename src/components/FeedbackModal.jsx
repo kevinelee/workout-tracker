@@ -10,6 +10,12 @@ export default function FeedbackModal({ authUser, defaultType = 'bug', onClose }
   const sheetRef = useRef(null)
 
   useEffect(() => {
+    function onKeyDown(e) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
     const update = () => {

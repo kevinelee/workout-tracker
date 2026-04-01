@@ -62,7 +62,15 @@ function Stepper({ label, value, onDec, onInc, onSet, useHold = false, min = 0 }
 
 export default function SetRow({ set, index, onChange, onRemove, isCardio, cardioUnit, isStretch, unit }) {
   const isDistance = isCardio && cardioUnit === 'distance'
+  const isBoth     = isCardio && cardioUnit === 'both'
   const distLabel  = unit === 'kg' ? 'km' : 'mi'
+
+  // Values are stored in canonical imperial units (lbs / miles).
+  // Convert to/from display units at the component boundary.
+  const dispWeight = unit === 'kg' ? Math.round(set.weight / 2.2046) : set.weight
+  const dispDist   = unit === 'kg' ? Math.round(set.weight * 1.60934) : set.weight
+  function storeWeight(v) { update('weight', unit === 'kg' ? Math.round(v * 2.2046) : v) }
+  function storeDist(v)   { update('weight', unit === 'kg' ? Math.round(v / 1.60934) : v) }
 
   function update(field, value) {
     onChange({ ...set, [field]: Math.max(0, value) })
@@ -81,13 +89,30 @@ export default function SetRow({ set, index, onChange, onRemove, isCardio, cardi
           onSet={v => update('reps', v)}
           min={5}
         />
+      ) : isBoth ? (
+        <>
+          <Stepper
+            label={distLabel}
+            value={dispDist}
+            onDec={() => storeDist(dispDist - 1)}
+            onInc={() => storeDist(dispDist + 1)}
+            onSet={v => storeDist(v)}
+          />
+          <Stepper
+            label="min"
+            value={set.reps}
+            onDec={() => update('reps', set.reps - 1)}
+            onInc={() => update('reps', set.reps + 1)}
+            onSet={v => update('reps', v)}
+          />
+        </>
       ) : isCardio ? (
         <Stepper
           label={isDistance ? distLabel : 'min'}
-          value={isDistance ? set.weight : set.reps}
-          onDec={() => update(isDistance ? 'weight' : 'reps', (isDistance ? set.weight : set.reps) - 1)}
-          onInc={() => update(isDistance ? 'weight' : 'reps', (isDistance ? set.weight : set.reps) + 1)}
-          onSet={v => update(isDistance ? 'weight' : 'reps', v)}
+          value={isDistance ? dispDist : set.reps}
+          onDec={() => isDistance ? storeDist(dispDist - 1) : update('reps', set.reps - 1)}
+          onInc={() => isDistance ? storeDist(dispDist + 1) : update('reps', set.reps + 1)}
+          onSet={v => isDistance ? storeDist(v) : update('reps', v)}
         />
       ) : (
         <>
@@ -99,12 +124,12 @@ export default function SetRow({ set, index, onChange, onRemove, isCardio, cardi
             onSet={v => update('reps', v)}
           />
           <Stepper
-            label="lbs"
-            value={set.weight}
+            label={unit === 'kg' ? 'kg' : 'lbs'}
+            value={dispWeight}
             useHold
-            onDec={() => update('weight', set.weight - 1)}
-            onInc={() => update('weight', set.weight + 1)}
-            onSet={v => update('weight', v)}
+            onDec={() => storeWeight(dispWeight - 1)}
+            onInc={() => storeWeight(dispWeight + 1)}
+            onSet={v => storeWeight(v)}
           />
         </>
       )}

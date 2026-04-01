@@ -4,34 +4,84 @@
   gap: 14px;
 }
 
-/* ── Log button ──────────────────────────────────────────────── */
+/* ── Morphing log control ────────────────────────────────────── */
 
-.wc-log-btn {
-  align-self: flex-start;
-  background: rgba(192, 132, 252, 0.12);
+.wc-morph {
   border: 1px solid var(--accent);
   border-radius: 20px;
+  background: rgba(192, 132, 252, 0.12);
+  transition:
+    border-radius 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    background    0.3s  ease,
+    border-color  0.3s  ease;
+}
+
+.wc-morph--open {
+  border-radius: 14px;
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+/* Button row — collapses to 0 when open */
+.wc-morph-btn-row {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.wc-morph--open .wc-morph-btn-row {
+  grid-template-rows: 0fr;
+}
+
+.wc-morph-btn-inner {
+  overflow: hidden;
+}
+
+.wc-morph-btn {
+  padding: 8px 16px;
+  cursor: pointer;
   color: var(--accent);
   font-size: 13px;
   font-weight: 600;
   font-family: var(--sans);
-  padding: 8px 16px;
-  cursor: pointer;
-  transition: background 0.15s, opacity 0.15s;
+  user-select: none;
+  opacity: 1;
+  transition: opacity 0.15s ease;
 
-  &:active { opacity: 0.75; }
+  &:active { opacity: 0.7; }
 }
 
-/* ── Inline form ─────────────────────────────────────────────── */
+.wc-morph--open .wc-morph-btn {
+  opacity: 0;
+  pointer-events: none;
+}
 
-.wc-form {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
+/* Form row — expands from 0 when open */
+.wc-morph-form-row {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.wc-morph--open .wc-morph-form-row {
+  grid-template-rows: 1fr;
+}
+
+.wc-morph-form-inner {
+  overflow: hidden;
+}
+
+.wc-morph-form {
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease 0.15s;
+}
+
+.wc-morph--open .wc-morph-form {
+  opacity: 1;
 }
 
 .wc-form-row {
@@ -98,6 +148,39 @@
   background: var(--accent);
   border: 1px solid var(--accent);
   color: #fff;
+}
+
+/* ── Loading skeleton ────────────────────────────────────────── */
+
+@keyframes wc-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.wc-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wc-skeleton-chart,
+.wc-skeleton-row {
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: wc-shimmer 1.4s ease-in-out infinite;
+}
+
+.wc-skeleton-chart {
+  height: 140px;
+}
+
+.wc-skeleton-row {
+  height: 42px;
+}
+
+.wc-skeleton-row--short {
+  width: 70%;
 }
 
 /* ── Chart ───────────────────────────────────────────────────── */

@@ -32,8 +32,8 @@ export const defaultExercises = [
   { id: 'cable-crunch',       name: 'Cable Crunch',        category: 'Core', muscleGroup: 'Abs',       isCustom: false },
   { id: 'russian-twist',      name: 'Russian Twist',       category: 'Core', muscleGroup: 'Obliques',  isCustom: false },
 
-  // Cardio — cardioUnit: 'distance' shows mi/km field, 'time' shows min field
-  { id: 'treadmill',          name: 'Treadmill',           category: 'Cardio', muscleGroup: 'Full Body', cardioUnit: 'distance', isCustom: false },
+  // Cardio — cardioUnit: 'distance' shows mi/km field, 'time' shows min field, 'both' shows both
+  { id: 'treadmill',          name: 'Treadmill',           category: 'Cardio', muscleGroup: 'Full Body', cardioUnit: 'both',     isCustom: false },
   { id: 'rowing-machine',     name: 'Rowing Machine',      category: 'Cardio', muscleGroup: 'Full Body', cardioUnit: 'time',     isCustom: false },
   { id: 'jump-rope',          name: 'Jump Rope',           category: 'Cardio', muscleGroup: 'Full Body', cardioUnit: 'time',     isCustom: false },
   { id: 'bike',               name: 'Stationary Bike',     category: 'Cardio', muscleGroup: 'Full Body', cardioUnit: 'distance', isCustom: false },

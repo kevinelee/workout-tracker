@@ -3,6 +3,19 @@ import { streakMilestone } from '../utils/streaks'
 import { starterTemplates } from '../data/starterTemplates'
 import './HomeScreen.css'
 
+function fmtLastDone(isoDate) {
+  if (!isoDate) return null
+  const now = new Date()
+  const then = new Date(isoDate)
+  const diffDays = Math.floor((now - then) / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return 'Last done: today'
+  if (diffDays === 1) return 'Last done: yesterday'
+  if (diffDays < 7) return `Last done: ${diffDays} days ago`
+  if (diffDays < 14) return 'Last done: 1 week ago'
+  if (diffDays < 30) return `Last done: ${Math.floor(diffDays / 7)} weeks ago`
+  return `Last done: ${then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+}
+
 function fmtElapsed(seconds) {
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
@@ -13,6 +26,13 @@ function fmtElapsed(seconds) {
 
 export default function HomeScreen({ templates, sessions, checkIns, checkedIn, dataLoaded, streak, settings, activeSession, startingTemplateId, startingQuickStart, onNew, onEdit, onStart, onQuickStart, onCheckIn, onResumeSession }) {
   const milestone = streakMilestone(streak)
+
+  const lastSessionByTemplate = sessions.reduce((map, s) => {
+    if (!s.templateId || !s.finishedAt) return map
+    const prev = map[s.templateId]
+    if (!prev || new Date(s.finishedAt) > new Date(prev)) map[s.templateId] = s.finishedAt
+    return map
+  }, {})
   const [sessionElapsed, setSessionElapsed] = useState(0)
 
   useEffect(() => {
@@ -47,28 +67,29 @@ export default function HomeScreen({ templates, sessions, checkIns, checkedIn, d
         </button>
       )}
 
-      {/* Streak + check-in — hidden once checked in for the day, and until data is loaded */}
-      {settings.checkInEnabled && !checkedIn && dataLoaded && (
-        <div className="home-streak-row">
-          <div className="home-streak-info">
-            <span className="home-streak-fire">🔥</span>
-            <span className="home-streak-count">{streak} day streak</span>
-            {milestone && <span className="home-streak-milestone">🏅 {milestone} days!</span>}
-          </div>
-          <button className="home-checkin-btn" onClick={onCheckIn}>
-            Check in
-          </button>
-        </div>
-      )}
 
-      {templates.length === 0 ? (
+      {templates === null ? (
+        <ul className="home-list">
+          {[0, 1, 2].map(i => (
+            <li key={i}>
+              <div className="home-card home-card--skeleton">
+                <div className="home-skeleton-info">
+                  <div className="home-skeleton-line home-skeleton-line--title" />
+                  <div className="home-skeleton-line home-skeleton-line--meta" />
+                </div>
+                <div className="home-skeleton-btn" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : templates.length === 0 ? (
         <div className="home-empty">
           <p className="home-empty-icon">🏋️</p>
           <p className="home-empty-text">No workouts yet.</p>
           <p className="home-empty-sub">Pick a Quick Start below or tap <strong>+ New</strong> to build your own.</p>
         </div>
       ) : (
-        <ul className="home-list">
+        <ul className="home-list home-list--loaded">
           {templates.map(t => (
             <li key={t.id}>
               <div className="home-card">
@@ -76,6 +97,9 @@ export default function HomeScreen({ templates, sessions, checkIns, checkedIn, d
                   <p className="home-card-name">{t.name}</p>
                   <p className="home-card-meta">
                     {t.exercises.length} exercise{t.exercises.length !== 1 ? 's' : ''}
+                    {fmtLastDone(lastSessionByTemplate[t.id]) && (
+                      <span className="home-card-last-done"> · {fmtLastDone(lastSessionByTemplate[t.id])}</span>
+                    )}
                   </p>
                 </div>
                 <div className="home-card-actions">

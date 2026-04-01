@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -34,6 +34,14 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [saving,         setSaving]        = useState(false)
   const [deleting,       setDeleting]      = useState(false)
+
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key === 'Escape' && confirmDelete) setConfirmDelete(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [confirmDelete])
 
   function handleSelectExercise(exercise) {
     // Don't add duplicates

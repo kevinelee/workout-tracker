@@ -47,6 +47,14 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
   const leftHand = controllerSide === 'left'
   const distUnit = unit === 'kg' ? 'km' : 'mi'
   const isDistance = isCardio && cardioUnit === 'distance'
+  const isBoth     = isCardio && cardioUnit === 'both'
+
+  // Values are stored in canonical imperial units (lbs / miles).
+  // Convert to/from display units at the component boundary.
+  const dispWeight = unit === 'kg' ? Math.round(set.weight / 2.2046) : set.weight
+  const dispDist   = unit === 'kg' ? Math.round(set.weight * 1.60934) : set.weight
+  function storeWeight(v) { update('weight', unit === 'kg' ? Math.round(v * 2.2046) : v) }
+  function storeDist(v)   { update('weight', unit === 'kg' ? Math.round(v / 1.60934) : v) }
 
   function update(field, value) {
     if (set.completed) return
@@ -86,13 +94,32 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
             <button className="ssr-step-btn" onClick={() => update('reps', set.reps + 5)} disabled={set.completed}>+</button>
           </div>
         </div>
+      ) : isBoth ? (
+        <>
+          <div className="ssr-stepper">
+            <span className="ssr-stepper-label">{distUnit}</span>
+            <div className="ssr-stepper-controls">
+              <button className="ssr-step-btn" onClick={() => storeDist(dispDist - 1)} disabled={set.completed}>−</button>
+              <EditableValue value={dispDist} onSet={v => storeDist(v)} disabled={set.completed} />
+              <button className="ssr-step-btn" onClick={() => storeDist(dispDist + 1)} disabled={set.completed}>+</button>
+            </div>
+          </div>
+          <div className="ssr-stepper">
+            <span className="ssr-stepper-label">min</span>
+            <div className="ssr-stepper-controls">
+              <button className="ssr-step-btn" onClick={() => update('reps', set.reps - 1)} disabled={set.completed}>−</button>
+              <EditableValue value={set.reps} onSet={v => update('reps', v)} disabled={set.completed} />
+              <button className="ssr-step-btn" onClick={() => update('reps', set.reps + 1)} disabled={set.completed}>+</button>
+            </div>
+          </div>
+        </>
       ) : isCardio ? (
         <div className="ssr-stepper">
           <span className="ssr-stepper-label">{isDistance ? distUnit : 'min'}</span>
           <div className="ssr-stepper-controls">
-            <button className="ssr-step-btn" onClick={() => update(isDistance ? 'weight' : 'reps', (isDistance ? set.weight : set.reps) - 1)} disabled={set.completed}>−</button>
-            <EditableValue value={isDistance ? set.weight : set.reps} onSet={v => update(isDistance ? 'weight' : 'reps', v)} disabled={set.completed} />
-            <button className="ssr-step-btn" onClick={() => update(isDistance ? 'weight' : 'reps', (isDistance ? set.weight : set.reps) + 1)} disabled={set.completed}>+</button>
+            <button className="ssr-step-btn" onClick={() => isDistance ? storeDist(dispDist - 1) : update('reps', set.reps - 1)} disabled={set.completed}>−</button>
+            <EditableValue value={isDistance ? dispDist : set.reps} onSet={v => isDistance ? storeDist(v) : update('reps', v)} disabled={set.completed} />
+            <button className="ssr-step-btn" onClick={() => isDistance ? storeDist(dispDist + 1) : update('reps', set.reps + 1)} disabled={set.completed}>+</button>
           </div>
         </div>
       ) : (
@@ -108,11 +135,11 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
           </div>
           {/* Weight */}
           <div className="ssr-stepper">
-            <span className="ssr-stepper-label">{unit ?? 'lbs'}</span>
+            <span className="ssr-stepper-label">{unit === 'kg' ? 'kg' : 'lbs'}</span>
             <div className="ssr-stepper-controls">
-              <HoldButton className="ssr-step-btn" onTap={() => update('weight', set.weight - 1)} disabled={set.completed}>−</HoldButton>
-              <EditableValue value={set.weight} onSet={v => update('weight', v)} disabled={set.completed} />
-              <HoldButton className="ssr-step-btn" onTap={() => update('weight', set.weight + 1)} disabled={set.completed}>+</HoldButton>
+              <HoldButton className="ssr-step-btn" onTap={() => storeWeight(dispWeight - 1)} disabled={set.completed}>−</HoldButton>
+              <EditableValue value={dispWeight} onSet={v => storeWeight(v)} disabled={set.completed} />
+              <HoldButton className="ssr-step-btn" onTap={() => storeWeight(dispWeight + 1)} disabled={set.completed}>+</HoldButton>
             </div>
           </div>
         </>

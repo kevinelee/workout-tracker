@@ -29,6 +29,7 @@ function CustomTooltip({ active, payload, label, unit }) {
 
 export default function WeightChart({ logs, unit, onLog, onDelete }) {
   const isImperial = unit === 'lbs'
+  const isLoading  = logs === null
   const [showInput, setShowInput]   = useState(false)
   const [inputVal,  setInputVal]    = useState('')
   const [saving,    setSaving]      = useState(false)
@@ -39,7 +40,7 @@ export default function WeightChart({ logs, unit, onLog, onDelete }) {
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - 90)
 
-  const sorted = [...logs].sort((a, b) => new Date(a.loggedAt) - new Date(b.loggedAt))
+  const sorted = isLoading ? [] : [...logs].sort((a, b) => new Date(a.loggedAt) - new Date(b.loggedAt))
   const chartData = sorted
     .filter(l => new Date(l.loggedAt) >= cutoff)
     .map(l => ({
@@ -58,7 +59,7 @@ export default function WeightChart({ logs, unit, onLog, onDelete }) {
   function handleLogOpen() {
     setShowInput(true)
     setInputVal('')
-    setTimeout(() => inputRef.current?.focus(), 50)
+    setTimeout(() => inputRef.current?.focus(), 220)
   }
 
   async function handleSave() {
@@ -91,44 +92,57 @@ export default function WeightChart({ logs, unit, onLog, onDelete }) {
 
   return (
     <div className="wc">
-      {/* Log weight button / inline form */}
-      {showInput ? (
-        <div className="wc-form">
-          <div className="wc-form-row">
-            <input
-              ref={inputRef}
-              className="wc-form-input"
-              type="number"
-              inputMode="decimal"
-              placeholder={isImperial ? '165' : '75'}
-              value={inputVal}
-              onChange={e => setInputVal(e.target.value)}
-              onKeyDown={handleKeyDown}
-            />
-            <span className="wc-form-unit">{unit}</span>
-            <span className="wc-form-date">{todayISO()}</span>
-          </div>
-          <div className="wc-form-actions">
-            <button className="wc-btn wc-btn--ghost" onClick={() => { setShowInput(false); setInputVal('') }}>
-              Cancel
-            </button>
-            <button
-              className="wc-btn wc-btn--primary"
-              onClick={handleSave}
-              disabled={saving || !inputVal}
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </button>
+      {/* Morphing log button → inline form */}
+      {!isLoading && <div className={`wc-morph${showInput ? ' wc-morph--open' : ''}`}>
+        <div className="wc-morph-btn-row">
+          <div className="wc-morph-btn-inner">
+            <div className="wc-morph-btn" onClick={!showInput ? handleLogOpen : undefined}>
+              + Log Weight
+            </div>
           </div>
         </div>
-      ) : (
-        <button className="wc-log-btn" onClick={handleLogOpen}>
-          + Log Weight
-        </button>
-      )}
+        <div className="wc-morph-form-row">
+          <div className="wc-morph-form-inner">
+            <div className="wc-morph-form">
+              <div className="wc-form-row">
+                <input
+                  ref={inputRef}
+                  className="wc-form-input"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder={isImperial ? '165' : '75'}
+                  value={inputVal}
+                  onChange={e => setInputVal(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                />
+                <span className="wc-form-unit">{unit}</span>
+                <span className="wc-form-date">{todayISO()}</span>
+              </div>
+              <div className="wc-form-actions">
+                <button className="wc-btn wc-btn--ghost" onClick={() => { setShowInput(false); setInputVal('') }}>
+                  Cancel
+                </button>
+                <button
+                  className="wc-btn wc-btn--primary"
+                  onClick={handleSave}
+                  disabled={saving || !inputVal}
+                >
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>}
 
       {/* Chart */}
-      {chartData.length === 0 ? (
+      {isLoading ? (
+        <div className="wc-skeleton">
+          <div className="wc-skeleton-chart" />
+          <div className="wc-skeleton-row" />
+          <div className="wc-skeleton-row wc-skeleton-row--short" />
+        </div>
+      ) : chartData.length === 0 ? (
         <p className="wc-empty">Log your first entry — your progress will show up here.</p>
       ) : chartData.length === 1 ? (
         <div className="wc-single">

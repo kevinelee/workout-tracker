@@ -39,7 +39,7 @@ export default function AuthScreen({ onAuth }) {
     return (
       <div className="auth">
         <div className="auth-card">
-          <span className="auth-logo">💪</span>
+          <img src="/avg-logo.png" alt="avg" className="auth-logo" />
           <h1 className="auth-title">Check your email</h1>
           <p className="auth-sub">We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account, then come back to sign in.</p>
           <button className="auth-link" onClick={() => setMode('signin')}>Back to sign in</button>
@@ -51,7 +51,7 @@ export default function AuthScreen({ onAuth }) {
   return (
     <div className="auth">
       <div className="auth-card">
-        <span className="auth-logo">💪</span>
+        <img src="/avg-logo.png" alt="avg" className="auth-logo" />
         <h1 className="auth-title">Workout Tracker</h1>
         <p className="auth-sub">{mode === 'signin' ? 'Sign in to your account' : 'Create a free account'}</p>
 

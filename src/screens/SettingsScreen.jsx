@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { getCachedCustomExercises, deleteCustomExercise, clearAll } from '../storage'
 import { exportJSON, exportCSV } from '../utils/export'
 import FeedbackModal from '../components/FeedbackModal'
@@ -22,8 +22,8 @@ const SCHEME_OPTIONS = [
 ]
 
 const MODE_OPTIONS = [
-  { label: '🌙 Dark',  value: 'dark' },
   { label: '☀️ Light', value: 'light' },
+  { label: '🌙 Dark',  value: 'dark' },
 ]
 
 const notifSupported = typeof Notification !== 'undefined'
@@ -36,6 +36,17 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const [exerciseEditMode, setExerciseEditMode] = useState(false)
   const [feedbackModal, setFeedbackModal] = useState(null) // 'bug' | 'feedback' | null
+
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key !== 'Escape') return
+      if (feedbackModal)              { setFeedbackModal(null); return }
+      if (confirmDeleteExercise !== null) { setConfirmDeleteExercise(null); return }
+      if (confirmSignOut)             { setConfirmSignOut(false); return }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [feedbackModal, confirmDeleteExercise, confirmSignOut])
 
   async function handleDeleteExercise(id) {
     await deleteCustomExercise(id)

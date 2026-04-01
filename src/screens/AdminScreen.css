@@ -147,6 +147,15 @@
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.admin-item {
+  cursor: pointer;
+  &:hover { border-color: var(--accent-border); }
 }
 
 .admin-item-footer {
@@ -161,6 +170,12 @@
   color: var(--text);
 }
 
+.admin-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .admin-resolve-btn {
   font-size: 0.75rem;
   font-weight: 600;
@@ -171,8 +186,274 @@
   padding: 0;
 }
 
+.admin-archive-btn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+
+  &:hover { opacity: 1; }
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ── Activity tab ───────────────────────────────────────────── */
+
+.activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.activity-section-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text);
+  margin: 0;
+}
+
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.activity-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.activity-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.activity-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.activity-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.activity-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.activity-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 99px;
+  letter-spacing: 0.04em;
+}
+
+.activity-badge--active {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+}
+
+.activity-badge--done {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.activity-meta {
+  font-size: 0.75rem;
+  color: var(--text);
+}
+
+/* ── Feedback modal ─────────────────────────────────────────── */
+
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+  animation: backdrop-in 0.2s ease;
+}
+
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.admin-modal {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  animation: modal-up 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+@keyframes modal-up {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.admin-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-modal-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-modal-close {
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+  margin-left: auto;
+
+  &:hover { opacity: 1; }
+}
+
+.admin-modal-message {
+  font-size: 0.95rem;
+  color: var(--text-h);
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.admin-modal-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.admin-modal-btn {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: var(--sans);
+  padding: 9px 18px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.15s, opacity 0.15s;
+
+  &:hover { filter: brightness(1.1); }
+}
+
+.admin-modal-btn--archive {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+}
+
+.admin-modal-btn--resolve {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── Swipe to archive ───────────────────────────────────────── */
+
+.swipe-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.swipe-reveal {
+  position: absolute;
+  inset: 0;
+  background: #ef4444;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.04em;
+}
+
+.swipe-content {
+  transition: transform 0.15s ease;
+  will-change: transform;
+}
+
+.swipe-content--out {
+  transition: transform 0.28s ease, opacity 0.28s ease;
+  opacity: 0;
+  transform: translateX(-100%) !important;
 }
 
 /* ── Tab switcher ───────────────────────────────────────────── */

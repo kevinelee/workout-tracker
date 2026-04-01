@@ -13,6 +13,12 @@ export default function CropModal({ file, onConfirm, onCancel }) {
   const pinch   = useRef(null)  // { d, s }
 
   useEffect(() => {
+    function onKeyDown(e) { if (e.key === 'Escape') onCancel() }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [onCancel])
+
+  useEffect(() => {
     const url = URL.createObjectURL(file)
     setImgSrc(url)
     return () => URL.revokeObjectURL(url)
