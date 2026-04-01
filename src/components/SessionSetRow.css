@@ -237,25 +237,6 @@
 }
 
 
-/* Particle burst */
-.ssr-particle {
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color, #4ade80);
-  left: 50%;
-  top: 50%;
-  pointer-events: none;
-  z-index: 20;
-  animation: particle-fly 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-}
-
-@keyframes particle-fly {
-  0%   { transform: translate(0, 0) scale(1); opacity: 1; }
-  100% { transform: translate(var(--x), var(--y)) scale(0); opacity: 0; }
-}
-
 /* PR badge */
 .ssr-pr-badge {
   position: absolute;

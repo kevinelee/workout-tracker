@@ -123,21 +123,29 @@ function ActivityTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
 
-  useEffect(() => {
+  function load() {
+    setLoading(true)
+    setError(null)
     getAdminActivity()
-      .then(data => { setUsers(data); setLoading(false) })
-      .catch(err => { setError('Could not load activity. Check admin RLS policies.'); setLoading(false) })
-  }, [])
+      .then(data => {
+        setUsers(data)
+        setLoading(false)
+        if (data.length === 0) setError('No activity in the last 7 days. If you expect data, verify admin RLS policies on sessions and profiles.')
+      })
+      .catch(err => { setError(`Could not load activity: ${err?.message ?? err}. Check admin RLS policies.`); setLoading(false) })
+  }
+
+  useEffect(() => { load() }, [])
 
   if (loading) return <div className="admin-loading"><div className="admin-spinner" /></div>
-  if (error)   return <p className="admin-empty">{error}</p>
-  if (!users.length) return <p className="admin-empty">No activity in the last 7 days.</p>
 
   const today = users.filter(u => u.workedOutToday)
   const rest  = users.filter(u => !u.workedOutToday)
 
   return (
     <div className="activity-feed">
+      <button className="activity-refresh-btn" onClick={load}>↻ Refresh</button>
+      {error && <p className="admin-empty">{error}</p>}
       {today.length > 0 && (
         <>
           <p className="activity-section-label">Worked out today — {today.length}</p>

@@ -31,6 +31,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
 
   const [logs, setLogs]       = useState(initialLogs)
   const [prMap, setPRMap]     = useState(initialPrMap)
+  const basePrMapRef          = useRef(initialPrMap)
   const [elapsed, setElapsed] = useState(() => elapsedFromStart(startedAt))
   const [restDuration, setRestDuration] = useState(null)
   const [timerFlash, setTimerFlash] = useState(false)
@@ -159,13 +160,24 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   }
 
   function rescindSet(logIndex, setIndex) {
+    const rescindedSet = logs[logIndex].sets[setIndex]
     const newLogs = logs.map((log, li) =>
       li !== logIndex ? log : {
         ...log,
         sets: log.sets.map((s, si) => si === setIndex ? { ...s, completed: false, isPR: false } : s),
       }
     )
-    updateLogsAndSync(newLogs, null)
+    let newPrMap = prMap
+    if (rescindedSet.isPR) {
+      const exerciseId = logs[logIndex].exerciseId
+      const baseline = basePrMapRef.current[exerciseId] ?? 0
+      const sessionMax = newLogs
+        .filter(l => l.exerciseId === exerciseId)
+        .flatMap(l => l.sets.filter(s => s.completed && s.weight > 0))
+        .reduce((max, s) => Math.max(max, s.weight), 0)
+      newPrMap = { ...prMap, [exerciseId]: Math.max(baseline, sessionMax) }
+    }
+    updateLogsAndSync(newLogs, newPrMap)
   }
 
   function addExerciseToSession(exercise) {
@@ -386,6 +398,21 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
 
               <div className={`session-ex-body ${isCollapsed ? 'session-ex-body--collapsed' : ''}`}>
               <div className="session-ex-body-inner">
+                {editMode && (
+                  <div
+                    className={`session-notes-wrap ${openNotes.has(log.exerciseId) ? 'session-notes-wrap--open' : ''}`}
+                    ref={el => { noteRefs.current[log.exerciseId] = el }}
+                  >
+                    <textarea
+                      className="session-notes-input"
+                      placeholder="Add a note for this exercise…"
+                      value={log.notes ?? ''}
+                      onChange={e => updateNotes(li, e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                )}
+
                 <div className="session-sets">
                   {log.sets.map((set, si) => (
                     <SessionSetRow
@@ -411,21 +438,6 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                   <button className="session-add-set-btn" onClick={() => addSet(li)}>
                     + Add set
                   </button>
-                )}
-
-                {editMode && (
-                  <div
-                    className={`session-notes-wrap ${openNotes.has(log.exerciseId) ? 'session-notes-wrap--open' : ''}`}
-                    ref={el => { noteRefs.current[log.exerciseId] = el }}
-                  >
-                    <textarea
-                      className="session-notes-input"
-                      placeholder="Add a note for this exercise…"
-                      value={log.notes ?? ''}
-                      onChange={e => updateNotes(li, e.target.value)}
-                      rows={3}
-                    />
-                  </div>
                 )}
               </div>
               </div>

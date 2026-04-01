@@ -513,6 +513,11 @@ export function clearActiveSession() {
   // The session row in DB will be updated to 'finished' by saveSession()
 }
 
+export async function abandonSession(sessionId) {
+  if (!sessionId || !_uid) return
+  await supabase.from('sessions').delete().eq('id', sessionId).eq('user_id', _uid)
+}
+
 
 // ── Feedback ──────────────────────────────────────────────────
 

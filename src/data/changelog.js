@@ -3,6 +3,21 @@
 
 export const CHANGELOG = [
   {
+    version: 'Sprint 4 — Session 3',
+    date:    '2026-04-01',
+    items: [
+      { type: 'improvement', title: 'Tap full row to complete a set',         desc: 'Full-width tap target on set rows — no longer need to precisely hit the small circle indicator.' },
+      { type: 'improvement', title: 'Rest timer as centered modal',           desc: 'Rest timer moved from a bottom sheet to a centered modal overlay for less visual disruption mid-workout.' },
+      { type: 'improvement', title: 'Completed exercise tint & collapse',     desc: 'Exercises receive a subtle tint when all sets are done. Collapse/expand transitions are now animated smoothly.' },
+      { type: 'improvement', title: 'Inline Finish button',                   desc: 'Finish workout button moved inline into the session header for quicker one-handed access.' },
+      { type: 'new',         title: 'PR star icon on sets',                   desc: 'Sets that beat your personal record now show a star icon. Visual indicator also appears while a PR weight is loaded.' },
+      { type: 'improvement', title: 'Set completion celebration',             desc: 'Particle burst animation plays when the last target set of an exercise is completed.' },
+      { type: 'improvement', title: 'Refined active set & PR indicators',     desc: 'Visual polish on the current-set highlight ring and personal record badge styling.' },
+      { type: 'fix',         title: 'PR badge persists after un-completing',  desc: 'Un-checking a set that earned a PR now correctly removes the badge and recalculates the session PR map.' },
+      { type: 'fix',         title: 'Abandoned session lingers in database',  desc: 'Abandoning a workout now deletes the active session row from Supabase instead of leaving it stuck as status="active".' },
+    ],
+  },
+  {
     version: 'Sprint 4 — Session 2',
     date:    '2026-03-30',
     items: [

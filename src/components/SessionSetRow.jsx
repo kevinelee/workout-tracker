@@ -61,23 +61,6 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
     onChange({ ...set, [field]: Math.max(0, value) })
   }
 
-  function spawnParticles() {
-    const row = rowRef.current
-    if (!row) return
-    const colors = ['#4ade80', '#86efac', '#fbbf24', '#c084fc', '#60a5fa', '#f9a8d4']
-    for (let i = 0; i < 9; i++) {
-      const p = document.createElement('span')
-      p.className = 'ssr-particle'
-      const angle = (i / 9) * Math.PI * 2 - Math.PI / 2
-      const dist = 32 + Math.random() * 28
-      p.style.setProperty('--x', `${Math.cos(angle) * dist}px`)
-      p.style.setProperty('--y', `${Math.sin(angle) * dist}px`)
-      p.style.setProperty('--color', colors[i % colors.length])
-      row.appendChild(p)
-      p.addEventListener('animationend', () => p.remove(), { once: true })
-    }
-  }
-
   function handleComplete() {
     if (set.completed) {
       onRescind?.()
@@ -86,7 +69,6 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
     navigator.vibrate?.([10, 30, 20])
     setBurst(true)
     setTimeout(() => setBurst(false), 600)
-    spawnParticles()
     onComplete(set)
   }
 

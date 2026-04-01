@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   getTemplates, getCachedTemplates, getSessions, getSettings, saveSettings, getCheckIns, saveCheckIn,
   getLastSessionForTemplate, getPRMap,
-  getActiveSession, saveActiveSession, clearActiveSession,
+  getActiveSession, saveActiveSession, clearActiveSession, abandonSession,
   deleteSession, setStorageUser, clearUserCache, getCustomExercises, hasCheckedInToday,
   getProfile, saveProfile, getBodyWeightLogs, saveBodyWeightLog, deleteBodyWeightLog,
   getNewFeedbackCount, encodeTheme,
@@ -235,6 +235,7 @@ export default function App() {
   const dragOffsetY = useRef(0)
   const sheetRef    = useRef(null)
   const isDragging  = useRef(false)
+  const sheetJustOpenedRef = useRef(false)
 
   function closeStartSheet() {
     setStartSheetClosing(true)
@@ -393,8 +394,10 @@ export default function App() {
   }
 
   function handleSessionAbandon() {
+    const sessionId = activeSession?.sessionId
     clearActiveSession()
     setActiveSession(null)
+    if (sessionId) abandonSession(sessionId)
     goHome()
     setActiveTab('home')
   }
@@ -635,7 +638,7 @@ export default function App() {
 
       {/* Start sheet — opened by idle ▶ nav tab */}
       {startSheetOpen && (
-        <div className={`sheet-backdrop ${startSheetClosing ? 'sheet-backdrop--closing' : ''}`} onClick={closeStartSheet}>
+        <div className={`sheet-backdrop ${startSheetClosing ? 'sheet-backdrop--closing' : ''}`} onClick={() => { if (!sheetJustOpenedRef.current) closeStartSheet() }}>
           <div
             ref={sheetRef}
             className={`sheet ${startSheetClosing ? 'sheet--closing' : ''}`}
@@ -705,7 +708,11 @@ export default function App() {
               onClick={() => {
                 if (id === 'session') {
                   if (activeSession) { goSession(); setActiveTab('session') }
-                  else { setStartSheetOpen(true) }
+                  else {
+                    sheetJustOpenedRef.current = true
+                    setTimeout(() => { sheetJustOpenedRef.current = false }, 400)
+                    setStartSheetOpen(true)
+                  }
                 } else {
                   goTab(id)
                 }
