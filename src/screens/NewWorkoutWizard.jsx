@@ -8,7 +8,7 @@ const DEFAULT_SETS   = 3
 const DEFAULT_REPS   = 10
 const DEFAULT_WEIGHT = 0
 
-function WizardField({ label, value, onDecrement, onIncrement, onChange, min = 0, step = 1 }) {
+function WizardField({ label, value, onDecrement, onIncrement, onChange, min = 0 }) {
   return (
     <div className="wiz-field">
       <div className="wiz-field-label">{label}</div>
@@ -44,7 +44,6 @@ export default function NewWorkoutWizard({ onComplete, onBack, unit }) {
   const [step,           setStep]           = useState(1)
   const [activeCategory, setActiveCategory] = useState('All')
   const [selectedIds,    setSelectedIds]    = useState([])
-  const [configIndex,    setConfigIndex]    = useState(0)
   // { exerciseId: { sets, reps, weight } }
   const [configs,        setConfigs]        = useState({})
 
@@ -71,23 +70,20 @@ export default function NewWorkoutWizard({ onComplete, onBack, unit }) {
       }
       return next
     })
-    setConfigIndex(0)
     setStep(2)
   }
 
-  function updateConfig(field, delta) {
-    const id = selectedIds[configIndex]
+  function updateConfig(id, field, delta) {
     setConfigs(prev => ({
       ...prev,
       [id]: {
         ...prev[id],
-        [field]: Math.max(0, +(prev[id][field] ?? 0) + delta),
+        [field]: Math.max(0, +(prev[id]?.[field] ?? 0) + delta),
       },
     }))
   }
 
-  function setConfigValue(field, value) {
-    const id = selectedIds[configIndex]
+  function setConfigValue(id, field, value) {
     setConfigs(prev => ({
       ...prev,
       [id]: { ...prev[id], [field]: value },
@@ -104,13 +100,6 @@ export default function NewWorkoutWizard({ onComplete, onBack, unit }) {
     })
     onComplete(exercises)
   }
-
-  const currentId      = selectedIds[configIndex]
-  const currentEx      = allExercises.find(e => e.id === currentId)
-  const currentConfig  = configs[currentId] ?? { sets: DEFAULT_SETS, reps: DEFAULT_REPS, weight: DEFAULT_WEIGHT }
-  const isLast         = configIndex === selectedIds.length - 1
-  const isCardio       = currentEx?.category === 'Cardio'
-  const isStretch      = currentEx?.category === 'Stretch'
 
   /* ── Step 1: Pick exercises ─────────────────────────────────────────── */
   if (step === 1) {
@@ -129,12 +118,12 @@ export default function NewWorkoutWizard({ onComplete, onBack, unit }) {
         </div>
         <p className="wiz-step-label">Step 1 of 2 — Select exercises</p>
 
-        {/* Category filter */}
+        {/* Category filter tabs */}
         <div className="wiz-categories">
           {['All', ...CATEGORIES].map(cat => (
             <button
               key={cat}
-              className={`wiz-cat-pill ${activeCategory === cat ? 'wiz-cat-pill--active' : ''}`}
+              className={`wiz-cat-tab ${activeCategory === cat ? 'wiz-cat-tab--active' : ''}`}
               onClick={() => setActiveCategory(cat)}
             >
               {cat}
@@ -145,19 +134,15 @@ export default function NewWorkoutWizard({ onComplete, onBack, unit }) {
         {/* Exercise pills */}
         <div className="wiz-exercise-area">
           <div className="wiz-exercise-grid">
-            {filtered.map(e => {
-              const selected = selectedIds.includes(e.id)
-              return (
-                <button
-                  key={e.id}
-                  className={`wiz-ex-pill ${selected ? 'wiz-ex-pill--active' : ''}`}
-                  onClick={() => toggleExercise(e.id)}
-                >
-                  {selected && <span className="wiz-check">✓</span>}
-                  {e.name}
-                </button>
-              )
-            })}
+            {filtered.map(e => (
+              <button
+                key={e.id}
+                className={`wiz-ex-pill ${selectedIds.includes(e.id) ? 'wiz-ex-pill--active' : ''}`}
+                onClick={() => toggleExercise(e.id)}
+              >
+                {e.name}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -180,7 +165,7 @@ export default function NewWorkoutWizard({ onComplete, onBack, unit }) {
     )
   }
 
-  /* ── Step 2: Configure each exercise ────────────────────────────────── */
+  /* ── Step 2: Configure all exercises (scrollable list) ──────────────── */
   return (
     <div className="wiz">
       <div className="wiz-header">
@@ -194,104 +179,79 @@ export default function NewWorkoutWizard({ onComplete, onBack, unit }) {
         <div className="wiz-step-line wiz-step-line--done" />
         <div className="wiz-step-dot wiz-step-dot--active" />
       </div>
-      <p className="wiz-step-label">
-        Step 2 of 2 — Exercise {configIndex + 1} of {selectedIds.length}
-      </p>
+      <p className="wiz-step-label">Step 2 of 2 — Set defaults for each exercise</p>
 
-      <div className="wiz-config-area">
-        {/* Progress dots */}
-        <div className="wiz-progress-dots">
-          {selectedIds.map((_, i) => (
-            <button
-              key={i}
-              className={`wiz-dot ${
-                i === configIndex ? 'wiz-dot--active' : i < configIndex ? 'wiz-dot--done' : ''
-              }`}
-              onClick={() => setConfigIndex(i)}
-              aria-label={`Go to exercise ${i + 1}`}
-            />
-          ))}
-        </div>
+      <div className="wiz-config-list">
+        {selectedIds.map(id => {
+          const ex       = allExercises.find(e => e.id === id)
+          const cfg      = configs[id] ?? { sets: DEFAULT_SETS, reps: DEFAULT_REPS, weight: DEFAULT_WEIGHT }
+          const isCardio  = ex?.category === 'Cardio'
+          const isStretch = ex?.category === 'Stretch'
 
-        {/* Config card */}
-        <div className="wiz-config-card">
-          <p className="wiz-ex-category">{currentEx?.category}</p>
-          <h3 className="wiz-ex-name">{currentEx?.name}</h3>
+          return (
+            <div className="wiz-config-row" key={id}>
+              <div className="wiz-config-row-info">
+                <span className="wiz-config-row-cat">{ex?.category}</span>
+                <span className="wiz-config-row-name">{ex?.name}</span>
+              </div>
 
-          <div className="wiz-fields">
-            <WizardField
-              label="Sets"
-              value={currentConfig.sets}
-              min={1}
-              step={1}
-              onDecrement={() => updateConfig('sets', -1)}
-              onIncrement={() => updateConfig('sets', 1)}
-              onChange={v => setConfigValue('sets', v)}
-            />
-            {isCardio ? (
-              <WizardField
-                label="Min"
-                value={currentConfig.reps}
-                min={0}
-                step={1}
-                onDecrement={() => updateConfig('reps', -1)}
-                onIncrement={() => updateConfig('reps', 1)}
-                onChange={v => setConfigValue('reps', v)}
-              />
-            ) : isStretch ? (
-              <WizardField
-                label="Sec"
-                value={currentConfig.reps}
-                min={0}
-                step={5}
-                onDecrement={() => updateConfig('reps', -5)}
-                onIncrement={() => updateConfig('reps', 5)}
-                onChange={v => setConfigValue('reps', v)}
-              />
-            ) : (
-              <>
+              <div className="wiz-fields">
                 <WizardField
-                  label="Reps"
-                  value={currentConfig.reps}
-                  min={0}
-                  step={1}
-                  onDecrement={() => updateConfig('reps', -1)}
-                  onIncrement={() => updateConfig('reps', 1)}
-                  onChange={v => setConfigValue('reps', v)}
+                  label="Sets"
+                  value={cfg.sets}
+                  min={1}
+                  onDecrement={() => updateConfig(id, 'sets', -1)}
+                  onIncrement={() => updateConfig(id, 'sets', 1)}
+                  onChange={v => setConfigValue(id, 'sets', v)}
                 />
-                <WizardField
-                  label={unit === 'kg' ? 'kg' : 'lbs'}
-                  value={currentConfig.weight}
-                  min={0}
-                  step={weightStep}
-                  onDecrement={() => updateConfig('weight', -weightStep)}
-                  onIncrement={() => updateConfig('weight', weightStep)}
-                  onChange={v => setConfigValue('weight', v)}
-                />
-              </>
-            )}
-          </div>
-        </div>
+                {isCardio ? (
+                  <WizardField
+                    label="Min"
+                    value={cfg.reps}
+                    min={0}
+                    onDecrement={() => updateConfig(id, 'reps', -1)}
+                    onIncrement={() => updateConfig(id, 'reps', 1)}
+                    onChange={v => setConfigValue(id, 'reps', v)}
+                  />
+                ) : isStretch ? (
+                  <WizardField
+                    label="Sec"
+                    value={cfg.reps}
+                    min={0}
+                    onDecrement={() => updateConfig(id, 'reps', -5)}
+                    onIncrement={() => updateConfig(id, 'reps', 5)}
+                    onChange={v => setConfigValue(id, 'reps', v)}
+                  />
+                ) : (
+                  <>
+                    <WizardField
+                      label="Reps"
+                      value={cfg.reps}
+                      min={0}
+                      onDecrement={() => updateConfig(id, 'reps', -1)}
+                      onIncrement={() => updateConfig(id, 'reps', 1)}
+                      onChange={v => setConfigValue(id, 'reps', v)}
+                    />
+                    <WizardField
+                      label={unit === 'kg' ? 'kg' : 'lbs'}
+                      value={cfg.weight}
+                      min={0}
+                      onDecrement={() => updateConfig(id, 'weight', -weightStep)}
+                      onIncrement={() => updateConfig(id, 'weight', weightStep)}
+                      onChange={v => setConfigValue(id, 'weight', v)}
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
 
-      {/* Nav */}
-      <div className="wiz-nav">
-        <button
-          className="wiz-ghost-btn"
-          onClick={() => setConfigIndex(i => i - 1)}
-          disabled={configIndex === 0}
-        >
-          ← Back
+      <div className="wiz-footer">
+        <button className="wiz-primary-btn" onClick={handleFinish}>
+          Finish
         </button>
-        {isLast ? (
-          <button className="wiz-primary-btn" onClick={handleFinish}>
-            Finish
-          </button>
-        ) : (
-          <button className="wiz-primary-btn" onClick={() => setConfigIndex(i => i + 1)}>
-            Next →
-          </button>
-        )}
       </div>
     </div>
   )
