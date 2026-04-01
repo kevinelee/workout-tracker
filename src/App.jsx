@@ -13,6 +13,7 @@ import { starterTemplates } from './data/starterTemplates'
 import { calcStreak } from './utils/streaks'
 import HomeScreen from './screens/HomeScreen'
 import WorkoutBuilderScreen from './screens/WorkoutBuilderScreen'
+import NewWorkoutWizard from './screens/NewWorkoutWizard'
 import SessionScreen from './screens/SessionScreen'
 import HistoryScreen from './screens/HistoryScreen'
 import SessionDetailScreen from './screens/SessionDetailScreen'
@@ -109,13 +110,14 @@ function useNav() {
   const [activeTab, setActiveTab] = useState('home')
 
   function goHome()                  { setScreen({ name: 'home' }); setActiveTab('home') }
+  function goWizard()                { setScreen({ name: 'wizard' }) }
   function goBuilder(template)       { setScreen({ name: 'builder', template }) }
   function goSession()               { setScreen({ name: 'session' }) }
   function goSummary(session, template, prevSession) { setScreen({ name: 'summary', session, template, prevSession }) }
   function goSessionDetail(session)  { setScreen({ name: 'sessionDetail', session }) }
   function goTab(id)                 { setActiveTab(id); setScreen({ name: id }) }
 
-  return { screen, activeTab, setActiveTab, goHome, goBuilder, goSession, goSummary, goSessionDetail, goTab }
+  return { screen, activeTab, setActiveTab, goHome, goWizard, goBuilder, goSession, goSummary, goSessionDetail, goTab }
 }
 
 export default function App() {
@@ -200,7 +202,7 @@ export default function App() {
     setAuthUser(null)
   }
 
-  const { screen, activeTab, setActiveTab, goHome, goBuilder, goSession, goSummary, goSessionDetail, goTab } = useNav()
+  const { screen, activeTab, setActiveTab, goHome, goWizard, goBuilder, goSession, goSummary, goSessionDetail, goTab } = useNav()
   const [templates, setTemplates]             = useState(null)
   const [sessions, setSessions]               = useState([])
   const [settings, setSettings]               = useState({ unit: 'lbs', colorScheme: 'default', themeMode: 'dark', controllerSide: 'right', restTimerDuration: 90, checkInEnabled: true })
@@ -417,7 +419,7 @@ export default function App() {
 
   const isAdmin = authUser?.id === import.meta.env.VITE_ADMIN_UID
 
-  const fullscreen = ['builder', 'session', 'summary', 'sessionDetail'].includes(screen.name)
+  const fullscreen = ['wizard', 'builder', 'session', 'summary', 'sessionDetail'].includes(screen.name)
 
   // Build nav tabs — inject Session tab when a workout is active
   const completedSets = activeSession?.logs?.reduce((sum, l) => sum + l.sets.filter(s => s.completed).length, 0) ?? 0
@@ -499,7 +501,7 @@ export default function App() {
             streak={streak}
             settings={settings}
             activeSession={activeSession}
-            onNew={() => goBuilder(null)}
+            onNew={() => goWizard()}
             onEdit={t => goBuilder(t)}
             onStart={handleStartSession}
             startingTemplateId={startingTemplateId}
@@ -507,6 +509,14 @@ export default function App() {
             startingQuickStart={startingQuickStart}
             onCheckIn={handleCheckIn}
             onResumeSession={() => { goSession(); setActiveTab('session') }}
+          />
+        )
+      case 'wizard':
+        return (
+          <NewWorkoutWizard
+            onComplete={exercises => goBuilder({ exercises })}
+            onBack={goHome}
+            unit={settings.unit}
           />
         )
       case 'builder':
@@ -662,7 +672,7 @@ export default function App() {
                 )
               })}
             </div>
-            <button className="sheet-custom-btn" onClick={() => { closeStartSheet(); setTimeout(() => goBuilder(null), 220) }}>
+            <button className="sheet-custom-btn" onClick={() => { closeStartSheet(); setTimeout(() => goWizard(), 220) }}>
               Build Custom Workout
             </button>
           </div>

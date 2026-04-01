@@ -25,7 +25,7 @@ function SortableExerciseRow({ id, ...props }) {
 }
 
 export default function WorkoutBuilderScreen({ template: initial, onSave, onBack, onDelete, unit }) {
-  const isNew = !initial
+  const isNew = !initial?.id
 
   const [name, setName] = useState(initial?.name ?? '')
   const [exercises, setExercises] = useState(
@@ -76,7 +76,7 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
   }
 
   async function handleDelete() {
-    if (!initial) return
+    if (!initial?.id) return
     setDeleting(true)
     await deleteTemplate(initial.id)
     onDelete()
