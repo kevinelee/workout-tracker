@@ -338,7 +338,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                   <p className="session-ex-name">{exercise.name}</p>
                   <p className="session-ex-meta">{doneCount}/{target} sets{doneCount > target ? ` +${doneCount - target}` : ''}</p>
                 </div>
-                {editMode && !isCollapsed && (
+                {editMode && (
                   <button
                     className={`session-notes-toggle ${openNotes.has(log.exerciseId) ? 'session-notes-toggle--open' : ''} ${log.notes ? 'session-notes-toggle--has-note' : ''}`}
                     onClick={e => { e.stopPropagation(); toggleNotes(log.exerciseId) }}
@@ -365,49 +365,49 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                 </button>
               </div>
 
-              {!isCollapsed && (
-                <>
-                  <div className="session-sets">
-                    {log.sets.map((set, si) => (
-                      <SessionSetRow
-                        key={si}
-                        set={set}
-                        index={si}
-                        onChange={updated => updateSet(li, si, updated)}
-                        onComplete={s => completeSet(li, si, s)}
-                        onRescind={() => rescindSet(li, si)}
-                        controllerSide={settings.controllerSide}
-                        isCardio={isCardio}
-                        cardioUnit={cardioUnit}
-                        isStretch={isStretch}
-                        unit={settings.unit}
-                        editMode={editMode}
-                      />
-                    ))}
+              <div className={`session-ex-body ${isCollapsed ? 'session-ex-body--collapsed' : ''}`}>
+              <div className="session-ex-body-inner">
+                <div className="session-sets">
+                  {log.sets.map((set, si) => (
+                    <SessionSetRow
+                      key={si}
+                      set={set}
+                      index={si}
+                      onChange={updated => updateSet(li, si, updated)}
+                      onComplete={s => completeSet(li, si, s)}
+                      onRescind={() => rescindSet(li, si)}
+                      controllerSide={settings.controllerSide}
+                      isCardio={isCardio}
+                      cardioUnit={cardioUnit}
+                      isStretch={isStretch}
+                      unit={settings.unit}
+                      editMode={editMode}
+                    />
+                  ))}
+                </div>
+
+                {editMode && (
+                  <button className="session-add-set-btn" onClick={() => addSet(li)}>
+                    + Add set
+                  </button>
+                )}
+
+                {editMode && (
+                  <div
+                    className={`session-notes-wrap ${openNotes.has(log.exerciseId) ? 'session-notes-wrap--open' : ''}`}
+                    ref={el => { noteRefs.current[log.exerciseId] = el }}
+                  >
+                    <textarea
+                      className="session-notes-input"
+                      placeholder="Add a note for this exercise…"
+                      value={log.notes ?? ''}
+                      onChange={e => updateNotes(li, e.target.value)}
+                      rows={3}
+                    />
                   </div>
-
-                  {editMode && (
-                    <button className="session-add-set-btn" onClick={() => addSet(li)}>
-                      + Add set
-                    </button>
-                  )}
-
-                  {editMode && (
-                    <div
-                      className={`session-notes-wrap ${openNotes.has(log.exerciseId) ? 'session-notes-wrap--open' : ''}`}
-                      ref={el => { noteRefs.current[log.exerciseId] = el }}
-                    >
-                      <textarea
-                        className="session-notes-input"
-                        placeholder="Add a note for this exercise…"
-                        value={log.notes ?? ''}
-                        onChange={e => updateNotes(li, e.target.value)}
-                        rows={3}
-                      />
-                    </div>
-                  )}
-                </>
-              )}
+                )}
+              </div>
+              </div>
             </div>
           )
         })}
