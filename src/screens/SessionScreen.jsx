@@ -44,6 +44,9 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   const warnTimerRef = useRef(null)
   const noteRefs = useRef({})
 
+  const [celebratingExercise, setCelebratingExercise] = useState(null)
+  const celebrateTimerRef = useRef(null)
+
   const [showAddExercise, setShowAddExercise] = useState(false)
   const [confirmRemoveIndex, setConfirmRemoveIndex] = useState(null)
   const [pendingFinish, setPendingFinish] = useState(null)
@@ -77,8 +80,11 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible) }
   }, [startedAt])
 
-  // Clear warn state when navigating away
-  useEffect(() => () => clearTimeout(warnTimerRef.current), [])
+  // Clear warn + celebrate timers when navigating away
+  useEffect(() => () => {
+    clearTimeout(warnTimerRef.current)
+    clearTimeout(celebrateTimerRef.current)
+  }, [])
 
   function updateLogsAndSync(newLogs, newPrMap) {
     setLogs(newLogs)
@@ -106,18 +112,28 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
 
   function completeSet(logIndex, setIndex, set) {
     if (set.completed) return
-    const exerciseId = logs[logIndex].exerciseId
+    const log = logs[logIndex]
+    const exerciseId = log.exerciseId
     const currentPR = prMap[exerciseId] ?? 0
     const isPR = set.weight > 0 && set.weight > currentPR
     const newPrMap = isPR ? { ...prMap, [exerciseId]: set.weight } : prMap
-    const newLogs = logs.map((log, li) =>
-      li !== logIndex ? log : {
-        ...log,
-        sets: log.sets.map((s, si) => si === setIndex ? { ...set, completed: true, isPR } : s),
+    const newLogs = logs.map((l, li) =>
+      li !== logIndex ? l : {
+        ...l,
+        sets: l.sets.map((s, si) => si === setIndex ? { ...set, completed: true, isPR } : s),
       }
     )
     updateLogsAndSync(newLogs, newPrMap)
     if (settings.restTimerDuration > 0) setRestDuration(settings.restTimerDuration)
+
+    // Celebrate when last target set just got checked off
+    const target = log.targetCount ?? log.sets.length
+    const nowDone = log.sets.filter(s => s.completed).length + 1
+    if (nowDone >= target) {
+      clearTimeout(celebrateTimerRef.current)
+      setCelebratingExercise(exerciseId)
+      celebrateTimerRef.current = setTimeout(() => setCelebratingExercise(null), 1200)
+    }
   }
 
   function updateNotes(logIndex, text) {
@@ -329,9 +345,11 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
           const cardioUnit  = exercise.cardioUnit ?? 'time'
           const isStretch   = exercise.category === 'Stretch'
           const isCollapsed = collapsedExercises.has(log.exerciseId)
+          const nextActiveIndex = !editMode ? log.sets.findIndex(s => !s.completed) : -1
+          const isCelebrating = celebratingExercise === log.exerciseId
 
           return (
-            <div key={log.exerciseId} className={`session-exercise ${allSetsDone ? 'session-exercise--done' : ''}`}>
+            <div key={log.exerciseId} className={`session-exercise ${allSetsDone ? 'session-exercise--done' : ''} ${isCelebrating ? 'session-exercise--celebrating' : ''}`}>
               <div className="session-ex-header">
                 <MuscleIcon muscleGroup={exercise.muscleGroup} className="session-ex-icon" />
                 <div className="session-ex-info">
@@ -382,6 +400,8 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                       isStretch={isStretch}
                       unit={settings.unit}
                       editMode={editMode}
+                      isActive={si === nextActiveIndex}
+                      currentPR={prMap[log.exerciseId] ?? 0}
                     />
                   ))}
                 </div>
@@ -419,33 +439,31 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
           </button>
         )}
 
-        {/* Abandon */}
-        <button className="session-abandon-btn" onClick={() => setShowAbandon(true)}>
-          Abandon workout
-        </button>
-      </div>
-
-      {/* Fixed bottom finish bar */}
-      <div className="session-finish-bar">
-        {allDone && (
-          <p className="session-finish-all-done">💪 All sets complete!</p>
-        )}
-        {!allDone && warnPending && (
-          <p className="session-finish-warning">
-            Only {completedSets}/{totalSets} sets done — tap again to finish anyway
-          </p>
-        )}
-        <button
-          className={`session-finish-main ${allDone ? 'session-finish-main--done' : ''} ${warnPending ? 'session-finish-main--warn' : ''}`}
-          onClick={handleFinishClick}
-          disabled={finishing}
-        >
-          {finishing
-            ? <span className="session-spinner" />
-            : warnPending
-              ? 'Tap again to confirm'
-              : 'Finish Workout'}
-        </button>
+        {/* Finish + Abandon */}
+        <div className="session-finish-inline">
+          {allDone && (
+            <p className="session-finish-all-done">💪 All sets complete!</p>
+          )}
+          {!allDone && warnPending && (
+            <p className="session-finish-warning">
+              Only {completedSets}/{totalSets} sets done — tap again to finish anyway
+            </p>
+          )}
+          <button
+            className={`session-finish-main ${allDone ? 'session-finish-main--done' : ''} ${warnPending ? 'session-finish-main--warn' : ''}`}
+            onClick={handleFinishClick}
+            disabled={finishing}
+          >
+            {finishing
+              ? <span className="session-spinner" />
+              : warnPending
+                ? 'Tap again to confirm'
+                : 'Finish Workout'}
+          </button>
+          <button className="session-abandon-btn" onClick={() => setShowAbandon(true)}>
+            Abandon workout
+          </button>
+        </div>
       </div>
 
       {/* Rest timer overlay */}

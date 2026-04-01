@@ -82,16 +82,7 @@
 }
 
 /* Fixed finish bar */
-.session-finish-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 10px 16px;
-  padding-bottom: max(14px, env(safe-area-inset-bottom));
-  background: var(--bg);
-  border-top: 1px solid var(--border);
-  z-index: 20;
+.session-finish-inline {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -187,7 +178,7 @@
 
 /* Body */
 .session-body {
-  padding: 14px 16px calc(96px + env(safe-area-inset-bottom));
+  padding: 14px 16px calc(24px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -250,6 +241,16 @@
 .session-exercise--done {
   border-color: rgba(74, 222, 128, 0.35);
   background: rgba(74, 222, 128, 0.06);
+}
+
+.session-exercise--celebrating {
+  animation: exercise-celebrate 1.2s ease-out;
+}
+
+@keyframes exercise-celebrate {
+  0%   { border-color: rgba(74, 222, 128, 0.9); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5); }
+  25%  { box-shadow: 0 0 0 8px rgba(74, 222, 128, 0); }
+  100% { border-color: rgba(74, 222, 128, 0.35); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
 }
 
 /* Collapsible body */
@@ -465,7 +466,6 @@
   width: 100%;
   cursor: pointer;
   min-height: 44px;
-  margin-top: 8px;
   transition: background 0.15s, color 0.15s;
 
   &:hover { background: rgba(248, 113, 113, 0.08); color: #f87171; }
