@@ -73,7 +73,13 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
 
   const locked = !editMode
 
-  const completeBtn = (
+  // In locked mode: whole row is the tap target; indicator is non-interactive
+  // In edit mode: dedicated circle button with its own click handler
+  const completeIndicator = locked ? (
+    <div className={`ssr-complete-btn${set.completed ? ' ssr-complete-btn--undo' : ''}`}>
+      {set.completed ? <span className="ssr-check">✓</span> : <span className="ssr-circle" />}
+    </div>
+  ) : (
     <button
       className={`ssr-complete-btn${set.completed ? ' ssr-complete-btn--undo' : ''}`}
       onClick={handleComplete}
@@ -84,8 +90,11 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
   )
 
   return (
-    <div className={`ssr ${set.completed ? 'ssr--done' : ''} ${set.isPR ? 'ssr--pr' : ''} ${set.isBonus ? 'ssr--bonus' : ''} ${burst ? 'ssr--burst' : ''} ${locked ? 'ssr--locked' : ''}`}>
-      {leftHand && completeBtn}
+    <div
+      className={`ssr ${set.completed ? 'ssr--done' : ''} ${set.isPR ? 'ssr--pr' : ''} ${set.isBonus ? 'ssr--bonus' : ''} ${burst ? 'ssr--burst' : ''} ${locked ? 'ssr--locked' : ''}`}
+      onClick={locked ? handleComplete : undefined}
+    >
+      {leftHand && completeIndicator}
       <span className="ssr-index">{set.isBonus ? '+' : index + 1}</span>
 
       {isStretch ? (
@@ -93,7 +102,7 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
           <span className="ssr-stepper-label">sec</span>
           <div className="ssr-stepper-controls">
             <button className="ssr-step-btn" onClick={() => update('reps', Math.max(5, set.reps - 5))} disabled={set.completed}>−</button>
-            <EditableValue value={set.reps} onSet={v => update('reps', v)} disabled={set.completed} />
+            <EditableValue value={set.reps} onSet={v => update('reps', v)} disabled={set.completed || locked} />
             <button className="ssr-step-btn" onClick={() => update('reps', set.reps + 5)} disabled={set.completed}>+</button>
           </div>
         </div>
@@ -103,7 +112,7 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
             <span className="ssr-stepper-label">{distUnit}</span>
             <div className="ssr-stepper-controls">
               <button className="ssr-step-btn" onClick={() => storeDist(dispDist - 1)} disabled={set.completed}>−</button>
-              <EditableValue value={dispDist} onSet={v => storeDist(v)} disabled={set.completed} />
+              <EditableValue value={dispDist} onSet={v => storeDist(v)} disabled={set.completed || locked} />
               <button className="ssr-step-btn" onClick={() => storeDist(dispDist + 1)} disabled={set.completed}>+</button>
             </div>
           </div>
@@ -111,7 +120,7 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
             <span className="ssr-stepper-label">min</span>
             <div className="ssr-stepper-controls">
               <button className="ssr-step-btn" onClick={() => update('reps', set.reps - 1)} disabled={set.completed}>−</button>
-              <EditableValue value={set.reps} onSet={v => update('reps', v)} disabled={set.completed} />
+              <EditableValue value={set.reps} onSet={v => update('reps', v)} disabled={set.completed || locked} />
               <button className="ssr-step-btn" onClick={() => update('reps', set.reps + 1)} disabled={set.completed}>+</button>
             </div>
           </div>
@@ -121,7 +130,7 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
           <span className="ssr-stepper-label">{isDistance ? distUnit : 'min'}</span>
           <div className="ssr-stepper-controls">
             <button className="ssr-step-btn" onClick={() => isDistance ? storeDist(dispDist - 1) : update('reps', set.reps - 1)} disabled={set.completed}>−</button>
-            <EditableValue value={isDistance ? dispDist : set.reps} onSet={v => isDistance ? storeDist(v) : update('reps', v)} disabled={set.completed} />
+            <EditableValue value={isDistance ? dispDist : set.reps} onSet={v => isDistance ? storeDist(v) : update('reps', v)} disabled={set.completed || locked} />
             <button className="ssr-step-btn" onClick={() => isDistance ? storeDist(dispDist + 1) : update('reps', set.reps + 1)} disabled={set.completed}>+</button>
           </div>
         </div>
@@ -131,7 +140,7 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
             <span className="ssr-stepper-label">reps</span>
             <div className="ssr-stepper-controls">
               <button className="ssr-step-btn" onClick={() => update('reps', set.reps - 1)} disabled={set.completed}>−</button>
-              <EditableValue value={set.reps} onSet={v => update('reps', v)} disabled={set.completed} />
+              <EditableValue value={set.reps} onSet={v => update('reps', v)} disabled={set.completed || locked} />
               <button className="ssr-step-btn" onClick={() => update('reps', set.reps + 1)} disabled={set.completed}>+</button>
             </div>
           </div>
@@ -139,14 +148,14 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
             <span className="ssr-stepper-label">{unit === 'kg' ? 'kg' : 'lbs'}</span>
             <div className="ssr-stepper-controls">
               <HoldButton className="ssr-step-btn" onTap={() => storeWeight(dispWeight - 1)} disabled={set.completed}>−</HoldButton>
-              <EditableValue value={dispWeight} onSet={v => storeWeight(v)} disabled={set.completed} />
+              <EditableValue value={dispWeight} onSet={v => storeWeight(v)} disabled={set.completed || locked} />
               <HoldButton className="ssr-step-btn" onTap={() => storeWeight(dispWeight + 1)} disabled={set.completed}>+</HoldButton>
             </div>
           </div>
         </>
       )}
 
-      {!leftHand && completeBtn}
+      {!leftHand && completeIndicator}
       {set.isPR && <span className="ssr-pr-badge">PR 🏆</span>}
     </div>
   )

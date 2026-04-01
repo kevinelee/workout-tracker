@@ -170,6 +170,19 @@
   100% { background: transparent; }
 }
 
+/* Locked mode: whole row is tappable */
+.ssr--locked {
+  cursor: pointer;
+}
+
+.ssr--locked:not(.ssr--done):hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ssr--locked:active {
+  background: rgba(74, 222, 128, 0.08);
+}
+
 /* Locked mode: hide +/- controls, show clean values only */
 .ssr--locked .ssr-step-btn {
   display: none;
