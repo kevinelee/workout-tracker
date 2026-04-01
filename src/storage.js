@@ -73,27 +73,31 @@ function dbSessionToApp(s) {
 function dbProfileToApp(p) {
   if (!p) return defaultProfile()
   return {
-    displayName:   p.display_name ?? '',
-    avatarUrl:     p.avatar_url ?? '',
-    heightCm:      p.height_cm   != null ? Number(p.height_cm)  : null,
-    weightKg:      p.weight_kg   != null ? Number(p.weight_kg)  : null,
-    age:           p.age         != null ? Number(p.age)        : null,
-    gender:        p.gender      ?? null,
-    activityLevel: p.activity_level ?? null,
-    trackWeight:   p.track_weight ?? null,
+    displayName:        p.display_name ?? '',
+    avatarUrl:          p.avatar_url ?? '',
+    heightCm:           p.height_cm          != null ? Number(p.height_cm)          : null,
+    weightKg:           p.weight_kg          != null ? Number(p.weight_kg)          : null,
+    age:                p.age                != null ? Number(p.age)                : null,
+    gender:             p.gender             ?? null,
+    activityLevel:      p.activity_level     ?? null,
+    trackWeight:        p.track_weight       ?? null,
+    weekStartDay:       p.week_start_day     != null ? Number(p.week_start_day)     : 1,
+    targetDaysPerWeek:  p.target_days_per_week != null ? Number(p.target_days_per_week) : 3,
   }
 }
 
 function defaultProfile() {
   return {
-    displayName:   '',
-    avatarUrl:     '',
-    heightCm:      null,
-    weightKg:      null,
-    age:           null,
-    gender:        null,
-    activityLevel: null,
-    trackWeight:   null,
+    displayName:        '',
+    avatarUrl:          '',
+    heightCm:           null,
+    weightKg:           null,
+    age:                null,
+    gender:             null,
+    activityLevel:      null,
+    trackWeight:        null,
+    weekStartDay:       1,
+    targetDaysPerWeek:  3,
   }
 }
 
@@ -172,6 +176,19 @@ export async function deleteCustomExercise(id) {
 
 // ── Workout Templates ────────────────────────────────────────
 
+const TEMPLATES_CACHE_KEY = uid => `wt:templates:${uid}`
+
+export function getCachedTemplates(uid) {
+  try {
+    const raw = localStorage.getItem(TEMPLATES_CACHE_KEY(uid))
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function writeCachedTemplates(templates) {
+  try { localStorage.setItem(TEMPLATES_CACHE_KEY(_uid), JSON.stringify(templates)) } catch {}
+}
+
 export async function getTemplates() {
   const { data } = await supabase
     .from('workout_templates')
@@ -183,7 +200,9 @@ export async function getTemplates() {
       )
     `)
     .order('created_at', { ascending: true })
-  return (data ?? []).map(dbTemplateToApp)
+  const result = (data ?? []).map(dbTemplateToApp)
+  writeCachedTemplates(result)
+  return result
 }
 
 export async function saveTemplate(template) {
@@ -368,14 +387,16 @@ export async function getProfile() {
 
 export async function saveProfile(profile) {
   await supabase.from('profiles').upsert({
-    id:             _uid,
-    display_name:   profile.displayName   ?? null,
-    height_cm:      profile.heightCm      ?? null,
-    weight_kg:      profile.weightKg      ?? null,
-    age:            profile.age           ?? null,
-    gender:         profile.gender        ?? null,
-    activity_level: profile.activityLevel ?? null,
-    track_weight:   profile.trackWeight   ?? null,
+    id:                    _uid,
+    display_name:          profile.displayName        ?? null,
+    height_cm:             profile.heightCm           ?? null,
+    weight_kg:             profile.weightKg           ?? null,
+    age:                   profile.age                ?? null,
+    gender:                profile.gender             ?? null,
+    activity_level:        profile.activityLevel      ?? null,
+    track_weight:          profile.trackWeight        ?? null,
+    week_start_day:        profile.weekStartDay       ?? 1,
+    target_days_per_week:  profile.targetDaysPerWeek  ?? 3,
   })
 }
 
@@ -518,6 +539,83 @@ export async function markFeedbackReviewed(id) {
   await supabase.from('feedback').update({ status: 'reviewed' }).eq('id', id)
 }
 
+export async function archiveFeedback(id) {
+  await supabase.from('feedback').update({ status: 'archived' }).eq('id', id)
+}
+
+// ── Admin: Activity feed ──────────────────────────────────────
+// Requires admin-level RLS policies on `sessions` and `profiles`:
+//   CREATE POLICY "admin_read_all_sessions" ON sessions FOR SELECT
+//     USING (auth.uid() = '<ADMIN_UID>');
+//   CREATE POLICY "admin_read_all_profiles" ON profiles FOR SELECT
+//     USING (auth.uid() = '<ADMIN_UID>');
+
+export async function getAdminActivity() {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  const [{ data: sessions }, { data: profiles }, { data: feedbackEmails }] = await Promise.all([
+    supabase
+      .from('sessions')
+      .select('id, user_id, started_at, finished_at, status')
+      .gte('started_at', sevenDaysAgo)
+      .order('started_at', { ascending: false }),
+    supabase
+      .from('profiles')
+      .select('id, display_name'),
+    supabase
+      .from('feedback')
+      .select('user_id, user_email')
+      .not('user_email', 'is', null),
+  ])
+
+  const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]))
+
+  // Build email fallback map: most recent email per user_id from feedback
+  const emailMap = {}
+  for (const f of (feedbackEmails ?? [])) {
+    if (f.user_id && f.user_email && !emailMap[f.user_id]) {
+      emailMap[f.user_id] = f.user_email
+    }
+  }
+
+  // Group sessions by user, track today's activity
+  const todayStr = new Date().toISOString().split('T')[0]
+  const userMap = {}
+
+  for (const s of (sessions ?? [])) {
+    if (!userMap[s.user_id]) {
+      const displayName = profileMap[s.user_id]?.display_name
+        || emailMap[s.user_id]
+        || s.user_id.slice(0, 8)
+      const { data: avatarData } = supabase.storage
+        .from('Avatars')
+        .getPublicUrl(`${s.user_id}/avatar.jpg`)
+      userMap[s.user_id] = {
+        userId:        s.user_id,
+        displayName,
+        avatarUrl:     avatarData?.publicUrl ?? null,
+        lastActive:    s.started_at,
+        hasActiveNow:  false,
+        workedOutToday: false,
+        todaySessions: 0,
+        recentSessions: [],
+      }
+    }
+    const u = userMap[s.user_id]
+    if (s.status === 'active') u.hasActiveNow = true
+    const sessionDay = s.started_at?.split('T')[0]
+    if (sessionDay === todayStr) {
+      u.workedOutToday = true
+      u.todaySessions++
+    }
+    if (u.recentSessions.length < 5) u.recentSessions.push(s)
+  }
+
+  return Object.values(userMap).sort((a, b) =>
+    new Date(b.lastActive) - new Date(a.lastActive)
+  )
+}
+
 export async function getNewFeedbackCount() {
   const { count } = await supabase
     .from('feedback')
@@ -543,6 +641,7 @@ export async function clearAll() {
 
 export function clearUserCache() {
   localStorage.removeItem(ACTIVE_KEY)
+  if (_uid) localStorage.removeItem(TEMPLATES_CACHE_KEY(_uid))
   _uid = null
   _customExercisesCache = []
 }

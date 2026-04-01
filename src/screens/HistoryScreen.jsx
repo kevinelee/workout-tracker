@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { sessionVolume, sessionPRCount, logVolume, fmtVolume, fmtDuration } from '../utils/volume'
 import { estimateCalories } from '../utils/calories'
 import { calcStreak } from '../utils/streaks'
@@ -35,6 +35,78 @@ function topExerciseNames(session, n = 3) {
   return sorted.slice(0, n).map(l => l.name)
 }
 
+function buildPRList(sessions) {
+  const prMap = {}
+  const ordered = [...sessions]
+    .filter(s => s.finishedAt)
+    .sort((a, b) => new Date(a.finishedAt) - new Date(b.finishedAt))
+  for (const session of ordered) {
+    for (const log of session.logs ?? []) {
+      for (const set of log.sets) {
+        if (!set.completed || !set.weight || set.weight <= 0) continue
+        const prev = prMap[log.exerciseId]
+        if (!prev || set.weight > prev.maxWeight) {
+          prMap[log.exerciseId] = { maxWeight: set.weight, date: session.finishedAt }
+        }
+      }
+    }
+  }
+  return Object.entries(prMap)
+    .map(([exerciseId, { maxWeight, date }]) => ({
+      exerciseId,
+      name: exerciseName(exerciseId),
+      maxWeight,
+      date,
+    }))
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+}
+
+// weekStartDay: 0 = Sunday, 1 = Monday (matches JS Date.getDay())
+function getThisWeekDays(sessions, weekStartDay = 1) {
+  const today = new Date()
+  const todayStr = today.toISOString().slice(0, 10)
+  const daysSinceStart = ((today.getDay() - weekStartDay) + 7) % 7
+  const weekStart = new Date(today)
+  weekStart.setDate(today.getDate() - daysSinceStart)
+  weekStart.setHours(0, 0, 0, 0)
+
+  const trainedDates = new Set()
+  for (const s of sessions) {
+    if (!s.finishedAt) continue
+    const d = new Date(s.finishedAt)
+    if (d >= weekStart) trainedDates.add(d.toISOString().slice(0, 10))
+  }
+
+  const DOW_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart)
+    d.setDate(weekStart.getDate() + i)
+    const dStr = d.toISOString().slice(0, 10)
+    return {
+      label:    DOW_LABELS[d.getDay()],
+      active:   trainedDates.has(dStr),
+      isToday:  dStr === todayStr,
+      isFuture: dStr > todayStr,
+    }
+  })
+  return { days, count: trainedDates.size }
+}
+
+function getMonthlyVolumes(sessions) {
+  const now = new Date()
+  const thisY = now.getFullYear(), thisM = now.getMonth()
+  const lastDate = new Date(thisY, thisM - 1, 1)
+  const lastY = lastDate.getFullYear(), lastM = lastDate.getMonth()
+  let thisVol = 0, lastVol = 0
+  for (const s of sessions) {
+    if (!s.finishedAt) continue
+    const d = new Date(s.finishedAt)
+    if (d.getFullYear() === thisY && d.getMonth() === thisM) thisVol += sessionVolume(s)
+    else if (d.getFullYear() === lastY && d.getMonth() === lastM) lastVol += sessionVolume(s)
+  }
+  return { thisVol, lastVol }
+}
+
 function inDateRange(session, range) {
   if (range === 'all') return true
   const d   = new Date(session.finishedAt)
@@ -53,18 +125,40 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
   const streak = calcStreak(sessions, checkIns)
   const finished = sessions.filter(s => s.finishedAt).sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))
 
-  const [filterId,       setFilterId]       = useState(null)
-  const [dateRange,      setDateRange]      = useState('all')
-  const [exerciseSearch, setExerciseSearch] = useState('')
-  const [visibleCount,   setVisibleCount]   = useState(PAGE_SIZE)
-  const [dayModal,       setDayModal]       = useState(null) // { date, sessions }
-  const [swipedId,       setSwipedId]       = useState(null)
-  const [deleteConfirm, setDeleteConfirm]   = useState(null) // session to confirm delete
-  const [isDeleting,    setIsDeleting]      = useState(false)
-  const touchStartRef = useRef(null)
+  const [filterId,           setFilterId]           = useState(null)
+  const [dateRange,          setDateRange]          = useState('all')
+  const [exerciseSearch,     setExerciseSearch]     = useState('')
+  const [visibleCount,       setVisibleCount]       = useState(PAGE_SIZE)
+  const [dayModal,           setDayModal]           = useState(null)
+  const [swipedId,           setSwipedId]           = useState(null)
+  const [deleteConfirm,      setDeleteConfirm]      = useState(null)
+  const [isDeleting,         setIsDeleting]         = useState(false)
+  const [showAllPRs,         setShowAllPRs]         = useState(false)
+  const [progressExerciseId, setProgressExerciseId] = useState(null)
+  const touchStartRef  = useRef(null)
+  const progressRef    = useRef(null)
+
+  const prList          = buildPRList(finished)
+  const weekStartDay    = profile?.weekStartDay ?? 1
+  const targetDays      = profile?.targetDaysPerWeek ?? 3
+  const weekActivity    = getThisWeekDays(finished, weekStartDay)
+  const monthlyVols     = getMonthlyVolumes(finished)
+  const unit            = settings?.unit ?? 'lbs'
+
+  useEffect(() => {
+    if (!progressExerciseId) return
+    const timer = setTimeout(() => {
+      progressRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 80)
+    return () => clearTimeout(timer)
+  }, [progressExerciseId])
+
+  function handlePRTap(exerciseId) {
+    setProgressExerciseId(exerciseId)
+  }
 
   function templateName(id) {
-    return templates.find(t => t.id === id)?.name ?? 'Workout'
+    return templates?.find(t => t.id === id)?.name ?? 'Workout'
   }
 
   // Templates that actually have finished sessions
@@ -125,6 +219,66 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
         </div>
       </div>
 
+      {/* Consistency */}
+      {finished.length > 0 && (
+        <section className="history-section">
+          <h3 className="history-section-title">Consistency</h3>
+          <div className="history-consistency">
+            <div className="history-week-dots">
+              {weekActivity.days.map((day, i) => (
+                <div key={i} className="history-week-day">
+                  <div className={[
+                    'history-week-dot',
+                    day.active    ? 'history-week-dot--active'  : '',
+                    day.isToday   ? 'history-week-dot--today'   : '',
+                    day.isFuture  ? 'history-week-dot--future'  : '',
+                  ].filter(Boolean).join(' ')} />
+                  <span className="history-week-label">{day.label}</span>
+                </div>
+              ))}
+            </div>
+            <div className="history-consistency-meta">
+              <span className={weekActivity.count >= targetDays ? 'history-vol-up' : ''}>
+                {weekActivity.count} / {targetDays} days this week
+                {weekActivity.count >= targetDays ? ' ✓' : ''}
+              </span>
+              {monthlyVols.lastVol > 0 && (
+                <span className={monthlyVols.thisVol >= monthlyVols.lastVol ? 'history-vol-up' : 'history-vol-down'}>
+                  {monthlyVols.thisVol >= monthlyVols.lastVol ? '↑' : '↓'}{' '}
+                  {Math.abs(Math.round((monthlyVols.thisVol - monthlyVols.lastVol) / monthlyVols.lastVol * 100))}% vs last month
+                </span>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Personal Records */}
+      {prList.length > 0 && (
+        <section className="history-section">
+          <h3 className="history-section-title">Personal Records</h3>
+          <ul className="history-pr-list">
+            {(showAllPRs ? prList : prList.slice(0, 5)).map(pr => (
+              <li key={pr.exerciseId}>
+                <button className="history-pr-row" onClick={() => handlePRTap(pr.exerciseId)}>
+                  <div className="history-pr-info">
+                    <span className="history-pr-name">{pr.name}</span>
+                    <span className="history-pr-date">{fmtDate(pr.date)}</span>
+                  </div>
+                  <span className="history-pr-weight">{pr.maxWeight} {unit}</span>
+                  <span className="history-card-arrow">›</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {prList.length > 5 && (
+            <button className="history-load-more" onClick={() => setShowAllPRs(v => !v)}>
+              {showAllPRs ? 'Show fewer' : `Show all ${prList.length} records`}
+            </button>
+          )}
+        </section>
+      )}
+
       {/* Heatmap */}
       <section className="history-section">
         <h3 className="history-section-title">Activity</h3>
@@ -162,9 +316,14 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
       </section>
 
       {/* Exercise progress */}
-      <section className="history-section">
+      <section className="history-section" ref={progressRef}>
         <h3 className="history-section-title">Exercise Progress</h3>
-        <ExerciseProgressChart sessions={finished} settings={settings} />
+        <ExerciseProgressChart
+          key={progressExerciseId ?? 'default'}
+          sessions={finished}
+          settings={settings}
+          initialId={progressExerciseId}
+        />
       </section>
 
       {/* Muscle volume */}
@@ -246,7 +405,6 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
                 const cals     = estimateCalories(s, profile?.weightKg)
                 const topEx    = topExerciseNames(s)
                 const isOpen   = swipedId === s.id
-                const volUnit  = settings?.unit ?? 'lbs'
                 return (
                   <li
                     key={s.id}
@@ -270,7 +428,7 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
                         <p className="history-card-name">{templateName(s.templateId)}</p>
                         <p className="history-card-meta">
                           {fmtDate(s.finishedAt)} · {fmtDuration(s.duration)}
-                          {vol > 0 && ` · ${fmtVolume(vol)} ${volUnit}`}
+                          {vol > 0 && ` · ${fmtVolume(vol)} ${unit}`}
                           {prs > 0 && <span className="history-pr-tag"> · 🏆 {prs} PR</span>}
                           {cals != null && <span className="history-cal-tag"> · 🔥 {cals} kcal</span>}
                         </p>

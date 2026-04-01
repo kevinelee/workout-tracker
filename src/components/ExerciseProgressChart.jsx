@@ -71,10 +71,13 @@ function CustomTooltip({ active, payload, label, unit }) {
   )
 }
 
-export default function ExerciseProgressChart({ sessions, settings }) {
+export default function ExerciseProgressChart({ sessions, settings, initialId }) {
   const unit = settings?.unit ?? 'lbs'
   const exercises = getStrengthExercisesWithHistory(sessions)
-  const [selectedId, setSelectedId] = useState(exercises[0]?.id ?? null)
+  const defaultId = (initialId && exercises.find(e => e.id === initialId))
+    ? initialId
+    : exercises[0]?.id ?? null
+  const [selectedId, setSelectedId] = useState(defaultId)
 
   if (exercises.length === 0) {
     return <p className="epc-empty">Complete sessions to see per-exercise progress.</p>

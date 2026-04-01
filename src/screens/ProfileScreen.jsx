@@ -18,6 +18,13 @@ const GENDER_OPTIONS = [
   { label: 'Other',  value: 'other'  },
 ]
 
+const WEEK_START_OPTIONS = [
+  { label: 'Sunday',  value: 0 },
+  { label: 'Monday',  value: 1 },
+]
+
+const TARGET_DAYS_OPTIONS = [1, 2, 3, 4, 5, 6, 7]
+
 const ACTIVITY_OPTIONS = [
   { label: 'Sedentary',   value: 'sedentary',  sub: 'Little to no exercise' },
   { label: 'Light',       value: 'light',       sub: '1–3 days / week'       },
@@ -64,7 +71,9 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
   const [age,            setAge]            = useState(profile?.age != null ? String(profile.age) : '')
   const [gender,         setGender]         = useState(profile?.gender ?? null)
   const [activityLevel,  setActivityLevel]  = useState(profile?.activityLevel ?? null)
-  const [trackWeight,    setTrackWeight]    = useState(profile?.trackWeight ?? null)
+  const [trackWeight,       setTrackWeight]       = useState(profile?.trackWeight ?? null)
+  const [weekStartDay,      setWeekStartDay]      = useState(profile?.weekStartDay ?? 1)
+  const [targetDaysPerWeek, setTargetDaysPerWeek] = useState(profile?.targetDaysPerWeek ?? 3)
 
   // Sync when profile loads for the first time (async bootstrap)
   useEffect(() => {
@@ -87,7 +96,9 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
     setGender(profile.gender ?? null)
     setActivityLevel(profile.activityLevel ?? null)
     setTrackWeight(profile.trackWeight ?? null)
-  }, [profile?.avatarUrl, profile?.displayName, profile?.heightCm, profile?.weightKg, profile?.age, profile?.gender, profile?.activityLevel, profile?.trackWeight])
+    setWeekStartDay(profile.weekStartDay ?? 1)
+    setTargetDaysPerWeek(profile.targetDaysPerWeek ?? 3)
+  }, [profile?.avatarUrl, profile?.displayName, profile?.heightCm, profile?.weightKg, profile?.age, profile?.gender, profile?.activityLevel, profile?.trackWeight, profile?.weekStartDay, profile?.targetDaysPerWeek])
 
   function handleAvatarChange(e) {
     const file = e.target.files?.[0]
@@ -120,12 +131,14 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
       ? (isImperial ? parseFloat(weight) * LBS_TO_KG : parseFloat(weight))
       : null
     return {
-      displayName:   displayName  || null,
-      heightCm:      heightCmVal  || null,
-      weightKg:      weightKgVal  || null,
-      age:           age ? parseInt(age, 10) : null,
+      displayName:        displayName || null,
+      heightCm:           heightCmVal || null,
+      weightKg:           weightKgVal || null,
+      age:                age ? parseInt(age, 10) : null,
       gender,
       activityLevel,
+      weekStartDay,
+      targetDaysPerWeek,
       ...overrides,
     }
   }
@@ -135,12 +148,11 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
   }
 
   function handlePillSelect(field, value) {
-    const next = { gender, activityLevel, [field]: value }
-    if (field === 'gender')        setGender(value)
-    if (field === 'activityLevel') setActivityLevel(value)
+    if (field === 'gender')             setGender(value)
+    if (field === 'activityLevel')      setActivityLevel(value)
+    if (field === 'weekStartDay')       setWeekStartDay(value)
+    if (field === 'targetDaysPerWeek')  setTargetDaysPerWeek(value)
     onSaveProfile(buildPayload({ [field]: value }))
-    // suppress unused variable warning
-    void next
   }
 
   async function handleWeightOptIn(accept) {
@@ -188,7 +200,9 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
               ? <img src={avatarUrl} alt="Profile" className="profile-avatar-img" onError={() => setAvatarUrl(null)} />
               : avatarUploading
                 ? <span className="profile-avatar-spinner" />
-                : initials
+                : !profile
+                  ? <span className="profile-avatar-skeleton" />
+                  : initials
             }
           </button>
           {!avatarUploading && (
@@ -369,7 +383,7 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
             <div className="profile-field profile-field--full">
               <label className="profile-label">Weight Progress</label>
               <WeightChart
-                logs={bodyWeightLogs ?? []}
+                logs={bodyWeightLogs}
                 unit={unit}
                 onLog={onLogWeight}
                 onDelete={onDeleteWeightLog}
@@ -398,6 +412,44 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
                 >
                   <span className="profile-activity-name">{o.label}</span>
                   <span className="profile-activity-sub">{o.sub}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* Training Schedule */}
+      <section className="profile-section">
+        <h3 className="profile-section-title">Training Schedule</h3>
+        <div className="profile-fields">
+
+          <div className="profile-field profile-field--full">
+            <label className="profile-label">Week Starts On</label>
+            <div className="profile-pills">
+              {WEEK_START_OPTIONS.map(o => (
+                <button
+                  key={o.value}
+                  className={`profile-pill${weekStartDay === o.value ? ' profile-pill--active' : ''}`}
+                  onClick={() => handlePillSelect('weekStartDay', o.value)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="profile-field profile-field--full">
+            <label className="profile-label">Target Days / Week</label>
+            <div className="profile-pills">
+              {TARGET_DAYS_OPTIONS.map(n => (
+                <button
+                  key={n}
+                  className={`profile-pill profile-pill--narrow${targetDaysPerWeek === n ? ' profile-pill--active' : ''}`}
+                  onClick={() => handlePillSelect('targetDaysPerWeek', n)}
+                >
+                  {n}
                 </button>
               ))}
             </div>
