@@ -321,6 +321,89 @@
   color: var(--text);
 }
 
+.activity-row {
+  cursor: pointer;
+}
+
+/* User detail modal */
+.admin-user-modal {
+  min-width: 280px;
+}
+
+.admin-modal-user-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+}
+
+.admin-user-stats {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--border, rgba(255,255,255,0.08));
+  border-bottom: 1px solid var(--border, rgba(255,255,255,0.08));
+  margin-bottom: 1rem;
+}
+
+.admin-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.admin-stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary, #fff);
+}
+
+.admin-stat-label {
+  font-size: 0.65rem;
+  color: var(--text-secondary, rgba(255,255,255,0.45));
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-stat--warn .admin-stat-value {
+  color: #f87171;
+}
+
+.admin-user-modal-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-overtime-warning {
+  font-size: 0.75rem;
+  color: #f87171;
+  text-align: center;
+  margin: 0;
+}
+
+.admin-terminate-btn {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-terminate-btn--urgent {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.2);
+}
+
+.admin-terminate-btn:active {
+  background: rgba(248, 113, 113, 0.3);
+}
+
 /* ── Feedback modal ─────────────────────────────────────────── */
 
 .admin-modal-backdrop {

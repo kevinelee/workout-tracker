@@ -558,7 +558,7 @@ export async function archiveFeedback(id) {
 export async function getAdminActivity() {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
-  const [{ data: sessions }, { data: profiles }, { data: feedbackEmails }] = await Promise.all([
+  const [{ data: sessions }, { data: profiles }, { data: feedbackEmails }, { data: authUsers }] = await Promise.all([
     supabase
       .from('sessions')
       .select('id, user_id, started_at, finished_at, status')
@@ -571,9 +571,13 @@ export async function getAdminActivity() {
       .from('feedback')
       .select('user_id, user_email')
       .not('user_email', 'is', null),
+    supabase.rpc('get_user_emails'),
   ])
 
   const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]))
+
+  // Auth email map from admin RPC (most authoritative source)
+  const authEmailMap = Object.fromEntries((authUsers ?? []).map(u => [u.id, u.email]))
 
   // Build email fallback map: most recent email per user_id from feedback
   const emailMap = {}
@@ -590,24 +594,28 @@ export async function getAdminActivity() {
   for (const s of (sessions ?? [])) {
     if (!userMap[s.user_id]) {
       const displayName = profileMap[s.user_id]?.display_name
+        || authEmailMap[s.user_id]
         || emailMap[s.user_id]
         || s.user_id.slice(0, 8)
       const { data: avatarData } = supabase.storage
         .from('Avatars')
         .getPublicUrl(`${s.user_id}/avatar.jpg`)
       userMap[s.user_id] = {
-        userId:        s.user_id,
+        userId:          s.user_id,
         displayName,
-        avatarUrl:     avatarData?.publicUrl ?? null,
-        lastActive:    s.started_at,
-        hasActiveNow:  false,
-        workedOutToday: false,
-        todaySessions: 0,
-        recentSessions: [],
+        avatarUrl:       avatarData?.publicUrl ?? null,
+        lastActive:      s.started_at,
+        hasActiveNow:    false,
+        activeSessionId: null,
+        workedOutToday:  false,
+        todaySessions:   0,
+        recentSessions:  [],
       }
     }
     const u = userMap[s.user_id]
-    if (s.status === 'active') u.hasActiveNow = true
+    const isRecentlyActive = s.status === 'active' &&
+      (Date.now() - new Date(s.started_at).getTime()) < 3 * 60 * 60 * 1000
+    if (isRecentlyActive) { u.hasActiveNow = true; u.activeSessionId = s.id }
     const sessionDay = s.started_at?.split('T')[0]
     if (sessionDay === todayStr) {
       u.workedOutToday = true
@@ -619,6 +627,17 @@ export async function getAdminActivity() {
   return Object.values(userMap).sort((a, b) =>
     new Date(b.lastActive) - new Date(a.lastActive)
   )
+}
+
+export async function getAdminUserStats(userId) {
+  const { data, error } = await supabase.rpc('admin_get_user_stats', { target_user_id: userId })
+  if (error) throw error
+  return data?.[0] ?? { total_sessions: 0, total_duration_seconds: 0, current_session_id: null, current_session_started_at: null }
+}
+
+export async function adminTerminateSession(sessionId) {
+  const { error } = await supabase.rpc('admin_terminate_session', { target_session_id: sessionId })
+  if (error) throw error
 }
 
 export async function getNewFeedbackCount() {

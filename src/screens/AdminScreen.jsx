@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { getFeedback, markFeedbackReviewed, archiveFeedback, getAdminActivity } from '../storage'
+import { getFeedback, markFeedbackReviewed, archiveFeedback, getAdminActivity, getAdminUserStats, adminTerminateSession } from '../storage'
 import { CHANGELOG } from '../data/changelog'
 import './AdminScreen.css'
 
@@ -118,10 +118,102 @@ function fmtRelative(iso) {
   return `${days}d ago`
 }
 
-function ActivityTab() {
-  const [users, setUsers]     = useState([])
+const THREE_HOURS = 3 * 60 * 60
+
+function fmtDuration(seconds) {
+  if (!seconds) return '0m'
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  if (h > 0) return `${h}h ${m}m`
+  return `${m}m`
+}
+
+function fmtElapsedLive(startedAt) {
+  if (!startedAt) return null
+  const secs = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
+  return { secs, label: fmtDuration(secs) }
+}
+
+function UserDetailModal({ user, onClose, onTerminate }) {
+  const [stats, setStats]     = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState(null)
+  const [elapsed, setElapsed] = useState(null)
+
+  useEffect(() => {
+    getAdminUserStats(user.userId)
+      .then(s => { setStats(s); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [user.userId])
+
+  // Live-update elapsed for active session
+  useEffect(() => {
+    if (!stats?.current_session_started_at) return
+    function tick() { setElapsed(fmtElapsedLive(stats.current_session_started_at)) }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [stats?.current_session_started_at])
+
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const isOverLimit = elapsed?.secs >= THREE_HOURS
+
+  return (
+    <div className="admin-modal-backdrop" onClick={onClose}>
+      <div className="admin-modal admin-user-modal" onClick={e => e.stopPropagation()}>
+        <div className="admin-modal-header">
+          <span className="admin-modal-user-name">{user.displayName || 'Unknown'}</span>
+          <button className="admin-modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        {loading ? (
+          <div className="admin-loading"><div className="admin-spinner" /></div>
+        ) : (
+          <div className="admin-user-stats">
+            <div className="admin-stat">
+              <span className="admin-stat-value">{stats?.total_sessions ?? 0}</span>
+              <span className="admin-stat-label">Workouts</span>
+            </div>
+            <div className="admin-stat">
+              <span className="admin-stat-value">{fmtDuration(stats?.total_duration_seconds)}</span>
+              <span className="admin-stat-label">Total time</span>
+            </div>
+            {user.hasActiveNow && (
+              <div className={`admin-stat${isOverLimit ? ' admin-stat--warn' : ''}`}>
+                <span className="admin-stat-value">{elapsed?.label ?? '—'}</span>
+                <span className="admin-stat-label">Current session</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {user.hasActiveNow && (
+          <div className="admin-user-modal-footer">
+            {isOverLimit && (
+              <p className="admin-overtime-warning">Session exceeds 3 hours</p>
+            )}
+            <button
+              className={`admin-terminate-btn${isOverLimit ? ' admin-terminate-btn--urgent' : ''}`}
+              onClick={() => { onTerminate(user.activeSessionId, user.userId); onClose() }}
+            >
+              End session
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ActivityTab() {
+  const [users, setUsers]           = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState(null)
+  const [selectedUser, setSelectedUser] = useState(null)
 
   function load() {
     setLoading(true)
@@ -137,6 +229,15 @@ function ActivityTab() {
 
   useEffect(() => { load() }, [])
 
+  async function handleTerminate(sessionId, userId) {
+    await adminTerminateSession(sessionId)
+    setUsers(prev => prev.map(u =>
+      u.userId === userId
+        ? { ...u, hasActiveNow: false, activeSessionId: null }
+        : u
+    ))
+  }
+
   if (loading) return <div className="admin-loading"><div className="admin-spinner" /></div>
 
   const today = users.filter(u => u.workedOutToday)
@@ -150,7 +251,7 @@ function ActivityTab() {
         <>
           <p className="activity-section-label">Worked out today — {today.length}</p>
           <ul className="activity-list">
-            {today.map(u => <ActivityRow key={u.userId} user={u} />)}
+            {today.map(u => <ActivityRow key={u.userId} user={u} onSelect={setSelectedUser} onTerminate={handleTerminate} />)}
           </ul>
         </>
       )}
@@ -158,20 +259,28 @@ function ActivityTab() {
         <>
           <p className="activity-section-label">Recent — last 7 days</p>
           <ul className="activity-list">
-            {rest.map(u => <ActivityRow key={u.userId} user={u} />)}
+            {rest.map(u => <ActivityRow key={u.userId} user={u} onSelect={setSelectedUser} onTerminate={handleTerminate} />)}
           </ul>
         </>
+      )}
+
+      {selectedUser && (
+        <UserDetailModal
+          user={selectedUser}
+          onClose={() => setSelectedUser(null)}
+          onTerminate={handleTerminate}
+        />
       )}
     </div>
   )
 }
 
-function ActivityRow({ user }) {
+function ActivityRow({ user, onSelect, onTerminate }) {
   const [imgFailed, setImgFailed] = useState(false)
   const initial = user.displayName ? user.displayName[0].toUpperCase() : '?'
 
   return (
-    <li className="activity-row">
+    <li className="activity-row" onClick={() => onSelect(user)}>
       <div className="activity-avatar">
         {user.avatarUrl && !imgFailed
           ? <img src={user.avatarUrl} alt={initial} className="activity-avatar-img" onError={() => setImgFailed(true)} />

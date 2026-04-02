@@ -36,7 +36,9 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   const [restDuration, setRestDuration] = useState(null)
   const [timerFlash, setTimerFlash] = useState(false)
   const [copiedBanner, setCopiedBanner] = useState(false)
-  const [showAbandon, setShowAbandon] = useState(false)
+  const [showAbandon, setShowAbandon]       = useState(false)
+  const [showTimeLimit, setShowTimeLimit]   = useState(false)
+  const timeLimitDismissedAt                = useRef(null)
   const [finishing, setFinishing] = useState(false)
   const [openNotes, setOpenNotes] = useState(new Set())
   const [collapsedExercises, setCollapsedExercises] = useState(new Set())
@@ -71,15 +73,27 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [confirmRemoveIndex, showAbandon, showAddExercise])
 
-  // Elapsed timer
+  // Elapsed timer + 3-hour time limit check
   useEffect(() => {
-    const id = setInterval(() => setElapsed(elapsedFromStart(startedAt)), 1000)
+    const THREE_HOURS = 3 * 60 * 60
+    const ONE_HOUR    = 60 * 60
+    function tick() {
+      const secs = elapsedFromStart(startedAt)
+      setElapsed(secs)
+      if (secs >= THREE_HOURS && !showTimeLimit) {
+        const lastDismissed = timeLimitDismissedAt.current
+        if (!lastDismissed || (Date.now() - lastDismissed) >= ONE_HOUR * 1000) {
+          setShowTimeLimit(true)
+        }
+      }
+    }
+    const id = setInterval(tick, 1000)
     function onVisible() {
-      if (document.visibilityState === 'visible') setElapsed(elapsedFromStart(startedAt))
+      if (document.visibilityState === 'visible') tick()
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible) }
-  }, [startedAt])
+  }, [startedAt, showTimeLimit])
 
   // Clear warn + celebrate timers when navigating away
   useEffect(() => () => {
@@ -589,6 +603,22 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
             <p className="session-modal-body">Your progress won't be saved.</p>
             <div className="session-modal-actions">
               <button className="session-modal-cancel" onClick={() => setShowAbandon(false)}>Keep going</button>
+              <button className="session-modal-confirm" onClick={onAbandon}>Abandon</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3-hour time limit */}
+      {showTimeLimit && (
+        <div className="session-modal-overlay">
+          <div className="session-modal" onClick={e => e.stopPropagation()}>
+            <p className="session-modal-title">Still there?</p>
+            <p className="session-modal-body">Your workout has been running for over 3 hours. Still going?</p>
+            <div className="session-modal-actions">
+              <button className="session-modal-cancel" onClick={() => { timeLimitDismissedAt.current = Date.now(); setShowTimeLimit(false) }}>
+                Keep going
+              </button>
               <button className="session-modal-confirm" onClick={onAbandon}>Abandon</button>
             </div>
           </div>
