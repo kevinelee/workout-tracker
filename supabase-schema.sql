@@ -331,17 +331,18 @@ create index if not exists check_ins_user_idx on check_ins (user_id);
 
 -- ── 11. Useful views ─────────────────────────────────────────
 
--- PR per exercise per user (max completed weight across all sessions)
+-- PR per exercise per user — max completed weight AND max completed reps
+-- Weight-based exercises use max_weight; reps-based (bodyweight) use max_reps.
 create or replace view personal_records as
 select
   s.user_id,
   sl.exercise_id,
-  max(ss.weight) as max_weight
+  max(ss.weight) as max_weight,
+  max(ss.reps)   as max_reps
 from session_sets   ss
 join session_logs   sl on sl.id = ss.session_log_id
 join sessions        s on  s.id = sl.session_id
 where ss.completed = true
-  and ss.weight    > 0
   and  s.status    = 'finished'
 group by s.user_id, sl.exercise_id;
 

@@ -43,7 +43,7 @@ function EditableValue({ value, onSet, disabled }) {
   )
 }
 
-export default function SessionSetRow({ set, index, onChange, onComplete, onRescind, controllerSide, isCardio, cardioUnit, isStretch, unit, editMode, isActive, currentPR }) {
+export default function SessionSetRow({ set, index, onChange, onComplete, onRescind, controllerSide, isCardio, cardioUnit, isStretch, unit, editMode, isActive, currentPR, prType = 'weight' }) {
   const [burst, setBurst] = useState(false)
   const rowRef = useRef(null)
   const leftHand  = controllerSide === 'left'
@@ -73,7 +73,11 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
   }
 
   const locked = !editMode
-  const isPRPending = !set.completed && set.weight > 0 && set.weight > currentPR
+  const isPRPending = !set.completed && (
+    prType === 'reps'
+      ? set.reps > 0 && set.reps > currentPR
+      : set.weight > 0 && set.weight > currentPR
+  )
 
   const circleContent = set.completed
     ? <span className={`ssr-check${set.isPR ? ' ssr-check--pr' : ''}`}>✓</span>
@@ -143,7 +147,7 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
         </div>
       ) : (
         <>
-          <div className="ssr-stepper">
+          <div className={`ssr-stepper${isPRPending && prType === 'reps' ? ' ssr-stepper--pr' : ''}`}>
             <span className="ssr-stepper-label">reps</span>
             <div className="ssr-stepper-controls">
               <button className="ssr-step-btn" onClick={() => update('reps', set.reps - 1)} disabled={set.completed}>−</button>
@@ -151,7 +155,7 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
               <button className="ssr-step-btn" onClick={() => update('reps', set.reps + 1)} disabled={set.completed}>+</button>
             </div>
           </div>
-          <div className={`ssr-stepper${isPRPending ? ' ssr-stepper--pr' : ''}`}>
+          <div className={`ssr-stepper${isPRPending && prType === 'weight' ? ' ssr-stepper--pr' : ''}`}>
             <span className="ssr-stepper-label">{unit === 'kg' ? 'kg' : 'lbs'}</span>
             <div className="ssr-stepper-controls">
               <HoldButton className="ssr-step-btn" onTap={() => storeWeight(dispWeight - 1)} disabled={set.completed}>−</HoldButton>

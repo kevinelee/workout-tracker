@@ -3,13 +3,14 @@ import {
   getTemplates, getCachedTemplates, getSessions, getSettings, saveSettings, getCheckIns, saveCheckIn,
   getLastSessionForTemplate, getPRMap,
   getActiveSession, saveActiveSession, clearActiveSession, abandonSession,
-  deleteSession, setStorageUser, clearUserCache, getCustomExercises, hasCheckedInToday,
+  deleteSession, setStorageUser, clearUserCache, getCustomExercises, getCachedCustomExercises, hasCheckedInToday,
   getProfile, saveProfile, getBodyWeightLogs, saveBodyWeightLog, deleteBodyWeightLog,
   getNewFeedbackCount, encodeTheme,
 } from './storage'
 import { supabase, signOut } from './lib/supabase'
 import { createSession } from './data/models'
 import { starterTemplates } from './data/starterTemplates'
+import { defaultExercises } from './data/exerciseLibrary'
 import { calcStreak } from './utils/streaks'
 import HomeScreen from './screens/HomeScreen'
 import WorkoutBuilderScreen from './screens/WorkoutBuilderScreen'
@@ -306,7 +307,11 @@ export default function App() {
     setStartingTemplateId(template.id)
     const session = createSession({ templateId: template.isQuickStart ? null : template.id, logs: [] })
     const exerciseIds = template.exercises.map(e => e.exerciseId)
-    const prMap = await getPRMap(exerciseIds)
+    const allExercises = [...defaultExercises, ...getCachedCustomExercises()]
+    const prTypes = Object.fromEntries(
+      exerciseIds.map(id => [id, allExercises.find(e => e.id === id)?.prType ?? 'weight'])
+    )
+    const prMap = await getPRMap(exerciseIds, prTypes)
     const logs = initLogsFromTemplate(template)
     const data = { template, sessionId: session.id, startedAt: session.startedAt, logs, prMap }
     saveActiveSession(data)

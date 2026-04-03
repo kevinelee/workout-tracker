@@ -463,17 +463,21 @@ export async function hasCheckedInToday() {
 
 // ── PR Tracking ──────────────────────────────────────────────
 
-export async function getPRMap(exerciseIds) {
+// prTypes: { [exerciseId]: 'weight' | 'reps' } — controls which column is used per exercise
+export async function getPRMap(exerciseIds, prTypes = {}) {
   if (!exerciseIds.length) return {}
   const { data } = await supabase
-    .from('personal_records')   // the view we created
-    .select('exercise_id, max_weight')
+    .from('personal_records')
+    .select('exercise_id, max_weight, max_reps')
     .eq('user_id', _uid)
     .in('exercise_id', exerciseIds)
 
   const map = Object.fromEntries(exerciseIds.map(id => [id, 0]))
   for (const row of data ?? []) {
-    map[row.exercise_id] = Number(row.max_weight)
+    const isRepsBased = prTypes[row.exercise_id] === 'reps'
+    map[row.exercise_id] = isRepsBased
+      ? Number(row.max_reps ?? 0)
+      : Number(row.max_weight ?? 0)
   }
   return map
 }

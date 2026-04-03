@@ -129,9 +129,13 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     if (set.completed) return
     const log = logs[logIndex]
     const exerciseId = log.exerciseId
+    const exercise = findExercise(exerciseId)
+    const prType = exercise?.prType ?? 'weight'
     const currentPR = prMap[exerciseId] ?? 0
-    const isPR = set.weight > 0 && set.weight > currentPR
-    const newPrMap = isPR ? { ...prMap, [exerciseId]: set.weight } : prMap
+    const isPR = prType === 'reps'
+      ? set.reps > 0 && set.reps > currentPR
+      : set.weight > 0 && set.weight > currentPR
+    const newPrMap = isPR ? { ...prMap, [exerciseId]: prType === 'reps' ? set.reps : set.weight } : prMap
     const newLogs = logs.map((l, li) =>
       li !== logIndex ? l : {
         ...l,
@@ -184,11 +188,13 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     let newPrMap = prMap
     if (rescindedSet.isPR) {
       const exerciseId = logs[logIndex].exerciseId
+      const exercise = findExercise(exerciseId)
+      const prType = exercise?.prType ?? 'weight'
       const baseline = basePrMapRef.current[exerciseId] ?? 0
       const sessionMax = newLogs
         .filter(l => l.exerciseId === exerciseId)
-        .flatMap(l => l.sets.filter(s => s.completed && s.weight > 0))
-        .reduce((max, s) => Math.max(max, s.weight), 0)
+        .flatMap(l => l.sets.filter(s => s.completed && (prType === 'reps' ? s.reps > 0 : s.weight > 0)))
+        .reduce((max, s) => Math.max(max, prType === 'reps' ? s.reps : s.weight), 0)
       newPrMap = { ...prMap, [exerciseId]: Math.max(baseline, sessionMax) }
     }
     updateLogsAndSync(newLogs, newPrMap)
@@ -444,6 +450,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                       editMode={editMode}
                       isActive={si === nextActiveIndex}
                       currentPR={prMap[log.exerciseId] ?? 0}
+                      prType={exercise?.prType ?? 'weight'}
                     />
                   ))}
                 </div>

@@ -22,7 +22,7 @@ export const defaultExercises = [
   { id: 'decline-press',         name: 'Decline Bench Press',    category: 'Push', muscleGroup: 'Chest',      isCustom: false },
   { id: 'dumbbell-press',        name: 'Dumbbell Chest Press',   category: 'Push', muscleGroup: 'Chest',      isCustom: false },
   { id: 'incline-dumbbell-press',name: 'Incline Dumbbell Press', category: 'Push', muscleGroup: 'Chest',      isCustom: false },
-  { id: 'push-up',               name: 'Push-Up',                category: 'Push', muscleGroup: 'Chest',      isCustom: false },
+  { id: 'push-up',               name: 'Push-Up',                category: 'Push', muscleGroup: 'Chest',      prType: 'reps', isCustom: false },
   { id: 'chest-fly',             name: 'Chest Fly',              category: 'Push', muscleGroup: 'Chest',      isCustom: false },
   { id: 'cable-fly',             name: 'Cable Fly',              category: 'Push', muscleGroup: 'Chest',      isCustom: false },
   { id: 'pec-deck',              name: 'Pec Deck',               category: 'Push', muscleGroup: 'Chest',      isCustom: false },
@@ -44,8 +44,8 @@ export const defaultExercises = [
 
   // ── Pull ─────────────────────────────────────────────────────
   // Lats
-  { id: 'pull-up',               name: 'Pull Up',                category: 'Pull', muscleGroup: 'Back',       isCustom: false },
-  { id: 'chin-up',               name: 'Chin Up',                category: 'Pull', muscleGroup: 'Back',       isCustom: false },
+  { id: 'pull-up',               name: 'Pull Up',                category: 'Pull', muscleGroup: 'Back',       prType: 'reps', isCustom: false },
+  { id: 'chin-up',               name: 'Chin Up',                category: 'Pull', muscleGroup: 'Back',       prType: 'reps', isCustom: false },
   { id: 'lat-pulldown',          name: 'Lat Pulldown',           category: 'Pull', muscleGroup: 'Back',       isCustom: false },
   { id: 'straight-arm-pulldown', name: 'Straight Arm Pulldown',  category: 'Pull', muscleGroup: 'Back',       isCustom: false },
 
@@ -112,8 +112,8 @@ export const defaultExercises = [
   // Abs
   { id: 'plank',                 name: 'Plank',                  category: 'Core', muscleGroup: 'Abs',        isCustom: false },
   { id: 'crunch',                name: 'Crunch',                 category: 'Core', muscleGroup: 'Abs',        isCustom: false },
-  { id: 'hanging-leg-raise',     name: 'Hanging Leg Raise',      category: 'Core', muscleGroup: 'Abs',        isCustom: false },
-  { id: 'leg-raise',             name: 'Leg Raise',              category: 'Core', muscleGroup: 'Abs',        isCustom: false },
+  { id: 'hanging-leg-raise',     name: 'Hanging Leg Raise',      category: 'Core', muscleGroup: 'Abs',        prType: 'reps', isCustom: false },
+  { id: 'leg-raise',             name: 'Leg Raise',              category: 'Core', muscleGroup: 'Abs',        prType: 'reps', isCustom: false },
   { id: 'cable-crunch',          name: 'Cable Crunch',           category: 'Core', muscleGroup: 'Abs',        isCustom: false },
   { id: 'bicycle-crunch',        name: 'Bicycle Crunch',         category: 'Core', muscleGroup: 'Abs',        isCustom: false },
   { id: 'v-up',                  name: 'V-Up',                   category: 'Core', muscleGroup: 'Abs',        isCustom: false },
