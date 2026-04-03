@@ -68,6 +68,7 @@
   font-family: var(--sans);
   padding: 7px 14px;
   min-height: 36px;
+  min-width: 64px;
   cursor: pointer;
   transition: all 0.15s;
   flex-shrink: 0;
