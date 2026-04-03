@@ -48,7 +48,8 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   const noteRefs = useRef({})
 
   const [celebratingExercise, setCelebratingExercise] = useState(null)
-  const celebrateTimerRef = useRef(null)
+  const celebrateTimerRef    = useRef(null)
+  const autoCollapseTimerRef = useRef(null)
 
   const [showAddExercise, setShowAddExercise] = useState(false)
   const [confirmRemoveIndex, setConfirmRemoveIndex] = useState(null)
@@ -95,10 +96,11 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible) }
   }, [startedAt, showTimeLimit])
 
-  // Clear warn + celebrate timers when navigating away
+  // Clear warn + celebrate + auto-collapse timers when navigating away
   useEffect(() => () => {
     clearTimeout(warnTimerRef.current)
     clearTimeout(celebrateTimerRef.current)
+    clearTimeout(autoCollapseTimerRef.current)
   }, [])
 
   function updateLogsAndSync(newLogs, newPrMap) {
@@ -145,13 +147,17 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     updateLogsAndSync(newLogs, newPrMap)
     if (settings.restTimerDuration > 0) setRestDuration(settings.restTimerDuration)
 
-    // Celebrate when last target set just got checked off
+    // Celebrate + auto-collapse when last target set is checked off
     const target = log.targetCount ?? log.sets.length
     const nowDone = log.sets.filter(s => s.completed).length + 1
     if (nowDone >= target) {
       clearTimeout(celebrateTimerRef.current)
+      clearTimeout(autoCollapseTimerRef.current)
       setCelebratingExercise(exerciseId)
       celebrateTimerRef.current = setTimeout(() => setCelebratingExercise(null), 1200)
+      autoCollapseTimerRef.current = setTimeout(() => {
+        setCollapsedExercises(prev => new Set([...prev, exerciseId]))
+      }, 1600)
     }
   }
 
@@ -178,6 +184,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   }
 
   function rescindSet(logIndex, setIndex) {
+    clearTimeout(autoCollapseTimerRef.current)
     const rescindedSet = logs[logIndex].sets[setIndex]
     const newLogs = logs.map((log, li) =>
       li !== logIndex ? log : {
@@ -387,7 +394,9 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                 <MuscleIcon muscleGroup={exercise.muscleGroup} className="session-ex-icon" />
                 <div className="session-ex-info">
                   <p className="session-ex-name">{exercise.name}</p>
-                  <p className="session-ex-meta">{doneCount}/{target} sets{doneCount > target ? ` +${doneCount - target}` : ''}</p>
+                  <p className={`session-ex-meta${allSetsDone ? ' session-ex-meta--done' : ''}`}>
+                    {allSetsDone ? '✓ ' : ''}{doneCount}/{target} sets{doneCount > target ? ` +${doneCount - target}` : ''}
+                  </p>
                 </div>
                 {editMode && (
                   <button

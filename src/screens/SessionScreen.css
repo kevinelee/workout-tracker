@@ -305,6 +305,11 @@
   margin: 2px 0 0;
 }
 
+.session-ex-meta--done {
+  color: #4ade80;
+  font-weight: 600;
+}
+
 .session-sets {
   padding: 4px 14px 10px;
 }
