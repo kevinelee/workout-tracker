@@ -72,6 +72,41 @@
   box-shadow: var(--shadow);
 }
 
+/* Muscle group filter chips */
+.es-muscle-chips {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.es-muscle-chip {
+  flex-shrink: 0;
+  padding: 5px 13px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--sans);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  min-height: 34px;
+
+  &:hover { border-color: var(--accent); color: var(--text-h); }
+}
+
+.es-muscle-chip--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 /* Category group */
 .es-group-label {
   font-size: 11px;

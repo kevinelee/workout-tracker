@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { defaultExercises, CATEGORIES } from '../data/exerciseLibrary'
+import { defaultExercises, CATEGORIES, MUSCLE_FILTERS } from '../data/exerciseLibrary'
 import { getCachedCustomExercises, saveCustomExercise } from '../storage'
 import { createExercise } from '../data/models'
 import MuscleIcon from './MuscleIcon'
@@ -9,10 +9,15 @@ function buildLibrary() {
   return [...defaultExercises, ...getCachedCustomExercises()]
 }
 
-function filterExercises(library, query) {
-  if (!query.trim()) return library
+function filterExercises(library, query, activeMuscle) {
+  let result = library
+  if (activeMuscle) {
+    const filter = MUSCLE_FILTERS.find(f => f.label === activeMuscle)
+    if (filter) result = result.filter(ex => filter.groups.includes(ex.muscleGroup))
+  }
+  if (!query.trim()) return result
   const q = query.toLowerCase()
-  return library.filter(
+  return result.filter(
     ex =>
       ex.name.toLowerCase().includes(q) ||
       ex.category.toLowerCase().includes(q) ||
@@ -89,10 +94,11 @@ export default function ExerciseSearch({ onSelect, placeholder = 'Search exercis
   const [open, setOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [library, setLibrary] = useState(buildLibrary)
+  const [activeMuscle, setActiveMuscle] = useState(null)
   const inputRef = useRef(null)
   const containerRef = useRef(null)
 
-  const filtered = filterExercises(library, query)
+  const filtered = filterExercises(library, query, activeMuscle)
   const grouped = groupByCategory(filtered)
   const hasResults = filtered.length > 0
   const exactMatch = library.some(ex => ex.name.toLowerCase() === query.toLowerCase().trim())
@@ -103,6 +109,7 @@ export default function ExerciseSearch({ onSelect, placeholder = 'Search exercis
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setOpen(false)
         setCreating(false)
+        setActiveMuscle(null)
       }
     }
     document.addEventListener('pointerdown', onPointerDown)
@@ -114,6 +121,7 @@ export default function ExerciseSearch({ onSelect, placeholder = 'Search exercis
     setQuery('')
     setOpen(false)
     setCreating(false)
+    setActiveMuscle(null)
     inputRef.current?.focus()
   }, [onSelect])
 
@@ -173,6 +181,18 @@ export default function ExerciseSearch({ onSelect, placeholder = 'Search exercis
 
       {open && (
         <div className="es-dropdown">
+          <div className="es-muscle-chips">
+            {MUSCLE_FILTERS.map(f => (
+              <button
+                key={f.label}
+                className={`es-muscle-chip${activeMuscle === f.label ? ' es-muscle-chip--active' : ''}`}
+                onPointerDown={e => e.preventDefault()}
+                onClick={() => setActiveMuscle(prev => prev === f.label ? null : f.label)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
           {creating ? (
             <CreateExerciseForm
               name={query}

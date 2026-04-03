@@ -3,6 +3,17 @@
 
 export const CATEGORIES = ['Push', 'Pull', 'Legs', 'Core', 'Cardio', 'Stretch']
 
+// Muscle group filter chips — label is what the user sees, groups are the muscleGroup values it covers
+export const MUSCLE_FILTERS = [
+  { label: 'Chest',     groups: ['Chest'] },
+  { label: 'Shoulders', groups: ['Shoulders', 'Rear Delts'] },
+  { label: 'Arms',      groups: ['Biceps', 'Triceps', 'Forearms'] },
+  { label: 'Back',      groups: ['Back', 'Lower Back', 'Traps'] },
+  { label: 'Core',      groups: ['Abs', 'Obliques'] },
+  { label: 'Legs',      groups: ['Quads', 'Hamstrings', 'Glutes', 'Calves'] },
+  { label: 'Cardio',    groups: ['Full Body'] },
+]
+
 export const defaultExercises = [
   // ── Push ─────────────────────────────────────────────────────
   // Chest
@@ -40,7 +51,7 @@ export const defaultExercises = [
 
   // Upper/Mid Back
   { id: 'deadlift',              name: 'Deadlift',               category: 'Pull', muscleGroup: 'Back',       isCustom: false },
-  { id: 'barbell-row',           name: 'Barbell Row',            category: 'Pull', muscleGroup: 'Back',       isCustom: false },
+  { id: 'barbell-row',           name: 'Bent-Over Row',          category: 'Pull', muscleGroup: 'Back',       isCustom: false },
   { id: 'dumbbell-row',          name: 'Dumbbell Row',           category: 'Pull', muscleGroup: 'Back',       isCustom: false },
   { id: 'seated-row',            name: 'Seated Cable Row',       category: 'Pull', muscleGroup: 'Back',       isCustom: false },
   { id: 't-bar-row',             name: 'T-Bar Row',              category: 'Pull', muscleGroup: 'Back',       isCustom: false },
