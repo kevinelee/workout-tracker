@@ -28,7 +28,7 @@ const MODE_OPTIONS = [
 
 const notifSupported = typeof Notification !== 'undefined'
 
-export default function SettingsScreen({ settings, onSave, sessions, templates, onSignOut, authUser }) {
+export default function SettingsScreen({ settings, onSave, sessions, templates, onSignOut, authUser, onRecalibrate }) {
   const [s, setS] = useState(settings)
   const [notifStatus, setNotifStatus] = useState(notifSupported ? Notification.permission : 'unsupported')
   const [customExercises, setCustomExercises] = useState(() => getCachedCustomExercises())
@@ -193,6 +193,13 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
           </div>
         </div>
       )}
+
+      {/* Profile */}
+      <Section title="Profile">
+        <button className="settings-action-btn" onClick={onRecalibrate}>
+          Recalibrate fitness profile
+        </button>
+      </Section>
 
       {/* Support */}
       <Section title="Support">

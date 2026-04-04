@@ -1,7 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import confetti from 'canvas-confetti'
-import { sessionVolume, sessionPRCount, volumeChangePercent, fmtVolume, fmtDuration, motivationalCopy } from '../utils/volume'
+import { supabase } from '../lib/supabase'
+import { sessionVolume, sessionPRCount, volumeChangePercent, fmtVolume, fmtDuration } from '../utils/volume'
 import { estimateCalories } from '../utils/calories'
+import { defaultExercises } from '../data/exerciseLibrary'
+import { getCachedCustomExercises } from '../storage'
 import './PostWorkoutSummary.css'
 
 function fmtTime(iso) {
@@ -9,16 +12,27 @@ function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 }
 
-export default function PostWorkoutSummary({ session, template, prevSession, onDone, profile }) {
-  const volume = sessionVolume(session)
-  const prsHit = sessionPRCount(session)
-  const prevVolume = prevSession ? sessionVolume(prevSession) : null
-  const volumePct = volumeChangePercent(volume, prevVolume)
-  const calories = estimateCalories(session, profile?.weightKg)
-  const completedSets = (session.logs ?? []).reduce((sum, log) => sum + log.sets.filter(s => s.completed).length, 0)
-  const totalSets = (session.logs ?? []).reduce((sum, log) => sum + log.sets.length, 0)
-  const allDone = completedSets === totalSets && totalSets > 0
-  const copy = motivationalCopy({ prsHit, volumePct, allDone })
+function fmtDate(iso) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+export default function PostWorkoutSummary({ session, template, prevSession, onDone, profile, settings }) {
+  const unit        = settings?.unit ?? 'lbs'
+  const allEx       = [...defaultExercises, ...getCachedCustomExercises()]
+  const findEx      = id => allEx.find(e => e.id === id)
+
+  const volume        = sessionVolume(session)
+  const prsHit        = sessionPRCount(session)
+  const prevVolume    = prevSession ? sessionVolume(prevSession) : null
+  const volumePct     = volumeChangePercent(volume, prevVolume)
+  const calories      = estimateCalories(session, profile?.weightKg)
+  const completedSets = (session.logs ?? []).reduce((sum, l) => sum + l.sets.filter(s => s.completed).length, 0)
+  const totalSets     = (session.logs ?? []).reduce((sum, l) => sum + l.sets.length, 0)
+  const isFirstSession = !prevSession
+
+  const [aiSummary, setAiSummary] = useState(null)  // null = loading, '' = error/skip
+  const [aiError,   setAiError]   = useState(false)
 
   useEffect(() => {
     if (prsHit > 0) {
@@ -26,10 +40,42 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
       setTimeout(() => confetti({ particleCount: 60, spread: 60, origin: { x: 0.2, y: 0.6 } }), 300)
       setTimeout(() => confetti({ particleCount: 60, spread: 60, origin: { x: 0.8, y: 0.6 } }), 500)
     }
+
+    const exercises = (session.logs ?? []).map(log => {
+      const ex = findEx(log.exerciseId)
+      return {
+        name:        ex?.name ?? log.exerciseId,
+        muscleGroup: ex?.muscleGroup ?? '',
+        sets:        log.sets,
+      }
+    })
+
+    supabase.functions.invoke('generate-workout-summary', {
+      body: {
+        workoutName:       template.name,
+        durationFormatted: fmtDuration(session.duration),
+        volume:            fmtVolume(volume),
+        prevVolume:        prevVolume != null ? fmtVolume(prevVolume) : null,
+        volumePct:         volumePct,
+        prsHit,
+        completedSets,
+        totalSets,
+        calories,
+        exercises,
+        fitnessProfile:  profile?.fitnessProfileSummary ?? null,
+        isFirstSession,
+        unit,
+      },
+    })
+      .then(({ data, error }) => {
+        if (error || !data?.summary) { setAiError(true); return }
+        setAiSummary(data.summary)
+      })
+      .catch(() => setAiError(true))
   }, [])
 
   function handleShare() {
-    const text = `Just finished ${template.name}! 💪 Volume: ${fmtVolume(volume)} lbs${prsHit > 0 ? ` · ${prsHit} new PR${prsHit > 1 ? 's' : ''}` : ''} — tracked with Workout Tracker`
+    const text = `Just finished ${template.name}! 💪 ${fmtVolume(volume)} ${unit} volume${prsHit > 0 ? ` · ${prsHit} new PR${prsHit > 1 ? 's' : ''}` : ''} — tracked with avg`
     if (navigator.share) {
       navigator.share({ title: 'Workout Complete', text }).catch(() => {})
     } else {
@@ -37,41 +83,148 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
     }
   }
 
-  return (
-    <div className="summary">
-      <div className="summary-card">
-        <p className="summary-emoji">{prsHit > 0 ? '🏆' : '💪'}</p>
-        <h2 className="summary-title">{template.name}</h2>
-        <p className="summary-copy">{copy}</p>
+  const hasPRs = prsHit > 0
 
-        <div className="summary-stats">
-          <Stat label="Volume" value={`${fmtVolume(volume)} lbs`} sub={volumePct !== null ? `${volumePct > 0 ? '+' : ''}${Math.round(volumePct)}% vs last` : 'First time!'} highlight={volumePct > 0} />
-          <Stat label="Duration" value={fmtDuration(session.duration)} />
-          <Stat label="Sets" value={`${completedSets}/${totalSets}`} />
-          {prsHit > 0 && <Stat label="PRs" value={prsHit} highlight />}
-          <Stat label="Started" value={fmtTime(session.startedAt)} />
-          <Stat label="Finished" value={fmtTime(session.finishedAt)} />
-          {calories != null && <Stat label="Calories" value={`~${calories} kcal`} sub="MET estimate" />}
+  return (
+    <div className="pws">
+      {/* Hero */}
+      <div className="pws-hero">
+        <div className={`pws-hero-icon ${hasPRs ? 'pws-hero-icon--pr' : ''}`}>
+          {hasPRs
+            ? <TrophyIcon />
+            : <CheckIcon />
+          }
         </div>
-        {calories == null && profile?.weightKg == null && (
-          <p className="summary-calorie-hint">Add your weight in Profile for calorie estimates</p>
+        <h1 className="pws-hero-name">{template.name}</h1>
+        <p className="pws-hero-meta">
+          {fmtDate(session.finishedAt)} · {fmtTime(session.startedAt)} – {fmtTime(session.finishedAt)}
+        </p>
+
+        {/* Quick stat pills */}
+        <div className="pws-pills">
+          <span className="pws-pill">{fmtDuration(session.duration)}</span>
+          <span className="pws-pill">{fmtVolume(volume)} {unit}</span>
+          <span className="pws-pill">{completedSets}/{totalSets} sets</span>
+          {prsHit > 0 && (
+            <span className="pws-pill pws-pill--pr">🏆 {prsHit} PR{prsHit > 1 ? 's' : ''}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="pws-body">
+
+        {/* AI Summary */}
+        {!aiError && (
+          <div className="pws-ai-card">
+            <span className="pws-ai-label">
+              <SparkleIcon /> AI Summary
+            </span>
+            {aiSummary === null
+              ? (
+                <div className="pws-ai-skeleton">
+                  <div className="pws-ai-skeleton-line" style={{ width: '92%' }} />
+                  <div className="pws-ai-skeleton-line" style={{ width: '78%' }} />
+                  <div className="pws-ai-skeleton-line" style={{ width: '55%' }} />
+                </div>
+              )
+              : <p className="pws-ai-text">{aiSummary}</p>
+            }
+          </div>
         )}
 
-        <div className="summary-actions">
-          <button className="summary-share-btn" onClick={handleShare}>Share 🔗</button>
-          <button className="summary-done-btn" onClick={onDone}>Done</button>
+        {/* Stats */}
+        <div className="pws-stats">
+          <StatCard
+            label="Volume"
+            value={`${fmtVolume(volume)} ${unit}`}
+            sub={volumePct !== null
+              ? `${volumePct > 0 ? '+' : ''}${Math.round(volumePct)}% vs last`
+              : 'First time!'
+            }
+            accent={volumePct > 0}
+          />
+          {calories != null
+            ? <StatCard label="Calories" value={`~${calories}`} sub="kcal (MET est.)" />
+            : <StatCard label="Weight" value="—" sub="add in Profile" dim />
+          }
+          <StatCard label="Started"  value={fmtTime(session.startedAt)} />
+          <StatCard label="Finished" value={fmtTime(session.finishedAt)} />
         </div>
+
+        {/* Exercise log */}
+        <div className="pws-exercises">
+          <p className="pws-section-label">Exercises</p>
+          {(session.logs ?? []).map((log, i) => {
+            const ex = findEx(log.exerciseId)
+            const done = log.sets.filter(s => s.completed)
+            const skipped = log.sets.length - done.length
+            const hasPR = done.some(s => s.isPR)
+            return (
+              <div key={i} className="pws-exercise">
+                <div className="pws-exercise-header">
+                  <span className="pws-exercise-name">{ex?.name ?? log.exerciseId}</span>
+                  {hasPR && <span className="pws-exercise-pr-badge">PR</span>}
+                </div>
+                <div className="pws-sets">
+                  {done.map((s, j) => (
+                    <span key={j} className={`pws-set ${s.isPR ? 'pws-set--pr' : ''}`}>
+                      {s.weight > 0 ? `${s.weight} × ${s.reps}` : `${s.reps} reps`}
+                    </span>
+                  ))}
+                  {skipped > 0 && (
+                    <span className="pws-set pws-set--skipped">{skipped} skipped</span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+      </div>
+
+      {/* Sticky footer */}
+      <div className="pws-footer">
+        <button className="pws-share-btn" onClick={handleShare}>Share</button>
+        <button className="pws-done-btn" onClick={onDone}>Done</button>
       </div>
     </div>
   )
 }
 
-function Stat({ label, value, sub, highlight }) {
+function StatCard({ label, value, sub, accent, dim }) {
   return (
-    <div className={`summary-stat ${highlight ? 'summary-stat--highlight' : ''}`}>
-      <p className="summary-stat-value">{value}</p>
-      <p className="summary-stat-label">{label}</p>
-      {sub && <p className="summary-stat-sub">{sub}</p>}
+    <div className={`pws-stat ${accent ? 'pws-stat--accent' : ''} ${dim ? 'pws-stat--dim' : ''}`}>
+      <p className="pws-stat-value">{value}</p>
+      <p className="pws-stat-label">{label}</p>
+      {sub && <p className="pws-stat-sub">{sub}</p>}
     </div>
+  )
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="5 14 11 20 23 8" />
+    </svg>
+  )
+}
+
+function TrophyIcon() {
+  return (
+    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 4h12v9a6 6 0 01-12 0V4z" />
+      <path d="M8 7H5a3 3 0 003 3M20 7h3a3 3 0 01-3 3" />
+      <line x1="14" y1="19" x2="14" y2="23" />
+      <line x1="9"  y1="23" x2="19" y2="23" />
+    </svg>
+  )
+}
+
+function SparkleIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor">
+      <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13l-1.5-4.5L2 7l4.5-1.5z" />
+    </svg>
   )
 }

@@ -1,0 +1,229 @@
+.onboarding {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px 48px;
+  background: var(--bg);
+  gap: 32px;
+}
+
+/* ── Progress dots ───────────────────────────────────────────── */
+
+.onboarding-dots {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.onboarding-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s, transform 0.2s, width 0.2s;
+}
+
+.onboarding-dot--done {
+  background: var(--accent);
+  opacity: 0.4;
+}
+
+.onboarding-dot--active {
+  background: var(--accent);
+  width: 24px;
+  border-radius: 4px;
+}
+
+/* ── Card ────────────────────────────────────────────────────── */
+
+.onboarding-card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation-duration: 0.28s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+}
+
+.onboarding-card--forward {
+  animation-name: slide-in-forward;
+}
+
+.onboarding-card--back {
+  animation-name: slide-in-back;
+}
+
+@keyframes slide-in-forward {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-back {
+  from { opacity: 0; transform: translateX(-32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.onboarding-question {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-h);
+  margin: 0;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.onboarding-hint {
+  font-size: 13px;
+  color: var(--text);
+  margin: -8px 0 0;
+  text-align: center;
+  opacity: 0.7;
+}
+
+/* ── Options ─────────────────────────────────────────────────── */
+
+.onboarding-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.onboarding-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+  font-family: var(--sans);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+
+  &:active { opacity: 0.75; }
+}
+
+.onboarding-option--selected {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.onboarding-option-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s;
+
+  svg {
+    width: 12px;
+    height: 12px;
+    display: none;
+  }
+
+  .onboarding-option--selected & {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+
+    svg { display: block; }
+  }
+}
+
+/* ── Error ───────────────────────────────────────────────────── */
+
+.onboarding-error {
+  font-size: 13px;
+  color: #f87171;
+  text-align: center;
+  margin: 0;
+}
+
+/* ── Actions ─────────────────────────────────────────────────── */
+
+.onboarding-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.onboarding-back {
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: opacity 0.15s;
+
+  &:active { opacity: 0.6; }
+}
+
+.onboarding-continue {
+  flex: 1;
+  background: var(--accent);
+  border: none;
+  border-radius: 14px;
+  padding: 14px 24px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--on-accent);
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: opacity 0.15s;
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  &:not(:disabled):active { opacity: 0.8; }
+}
+
+/* ── Generating state ────────────────────────────────────────── */
+
+.onboarding-generating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.onboarding-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.onboarding-generating-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}

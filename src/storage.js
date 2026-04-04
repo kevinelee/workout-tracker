@@ -80,24 +80,28 @@ function dbProfileToApp(p) {
     age:                p.age                != null ? Number(p.age)                : null,
     gender:             p.gender             ?? null,
     activityLevel:      p.activity_level     ?? null,
-    trackWeight:        p.track_weight       ?? null,
-    weekStartDay:       p.week_start_day     != null ? Number(p.week_start_day)     : 1,
-    targetDaysPerWeek:  p.target_days_per_week != null ? Number(p.target_days_per_week) : 3,
+    trackWeight:           p.track_weight       ?? null,
+    weekStartDay:          p.week_start_day     != null ? Number(p.week_start_day)     : 1,
+    targetDaysPerWeek:     p.target_days_per_week != null ? Number(p.target_days_per_week) : 3,
+    onboardingComplete:    p.onboarding_complete  ?? false,
+    fitnessProfileSummary: p.fitness_profile_summary ?? null,
   }
 }
 
 function defaultProfile() {
   return {
-    displayName:        '',
-    avatarUrl:          '',
-    heightCm:           null,
-    weightKg:           null,
-    age:                null,
-    gender:             null,
-    activityLevel:      null,
-    trackWeight:        null,
-    weekStartDay:       1,
-    targetDaysPerWeek:  3,
+    displayName:           '',
+    avatarUrl:             '',
+    heightCm:              null,
+    weightKg:              null,
+    age:                   null,
+    gender:                null,
+    activityLevel:         null,
+    trackWeight:           null,
+    weekStartDay:          1,
+    targetDaysPerWeek:     3,
+    onboardingComplete:    false,
+    fitnessProfileSummary: null,
   }
 }
 
@@ -394,9 +398,11 @@ export async function saveProfile(profile) {
     age:                   profile.age                ?? null,
     gender:                profile.gender             ?? null,
     activity_level:        profile.activityLevel      ?? null,
-    track_weight:          profile.trackWeight        ?? null,
-    week_start_day:        profile.weekStartDay       ?? 1,
-    target_days_per_week:  profile.targetDaysPerWeek  ?? 3,
+    track_weight:             profile.trackWeight           ?? null,
+    week_start_day:           profile.weekStartDay          ?? 1,
+    target_days_per_week:     profile.targetDaysPerWeek     ?? 3,
+    onboarding_complete:      profile.onboardingComplete    ?? false,
+    fitness_profile_summary:  profile.fitnessProfileSummary ?? null,
   })
 }
 

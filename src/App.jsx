@@ -21,6 +21,7 @@ import SessionDetailScreen from './screens/SessionDetailScreen'
 import SettingsScreen from './screens/SettingsScreen'
 import PostWorkoutSummary from './components/PostWorkoutSummary'
 import AuthScreen from './screens/AuthScreen'
+import OnboardingScreen from './screens/OnboardingScreen'
 import ProfileScreen from './screens/ProfileScreen'
 import AdminScreen from './screens/AdminScreen'
 import './App.css'
@@ -178,7 +179,7 @@ export default function App() {
     getSessions().then(setSessions).catch(console.error)
     getSettings().then(setSettings).catch(console.error)
     getCustomExercises().catch(console.error)
-    getProfile().then(setProfile).catch(console.error)
+    getProfile().then(p => { setProfile(p); if (!p?.onboardingComplete) setShowOnboarding(true) }).catch(console.error)
     getBodyWeightLogs().then(setBodyWeightLogs).catch(console.error)
     if (isAdminUser) getNewFeedbackCount().then(setFeedbackCount).catch(console.error)
 
@@ -203,6 +204,19 @@ export default function App() {
     setAuthUser(null)
   }
 
+  async function handleOnboardingComplete({ answers, summary }) {
+    const daysMap = answers.frequency?.includes('6') ? 6 : answers.frequency?.includes('4') ? 4 : 3
+    const updated = {
+      ...(profile ?? {}),
+      onboardingComplete:    true,
+      fitnessProfileSummary: summary,
+      targetDaysPerWeek:     daysMap,
+    }
+    await saveProfile(updated)
+    setProfile(updated)
+    setShowOnboarding(false)
+  }
+
   const { screen, activeTab, setActiveTab, goHome, goWizard, goBuilder, goSession, goSummary, goSessionDetail, goTab } = useNav()
   const [templates, setTemplates]             = useState(null)
   const [sessions, setSessions]               = useState([])
@@ -213,6 +227,7 @@ export default function App() {
   const [feedbackCount, setFeedbackCount]     = useState(0)
   const [profile, setProfile]                 = useState(null)
   const [bodyWeightLogs, setBodyWeightLogs]   = useState(null) // null = loading, [] = loaded empty
+  const [showOnboarding, setShowOnboarding]   = useState(false)
   const streak = calcStreak(sessions, checkIns)
 
   // Apply theme to document root
@@ -424,6 +439,7 @@ export default function App() {
     </div>
   )
   if (!authUser) return <AuthScreen onAuth={user => bootstrapUser(user)} />
+  if (showOnboarding) return <OnboardingScreen onComplete={handleOnboardingComplete} />
 
   const isAdmin = authUser?.id === import.meta.env.VITE_ADMIN_UID
 
@@ -556,6 +572,7 @@ export default function App() {
             prevSession={screen.prevSession}
             onDone={goHome}
             profile={profile}
+            settings={settings}
           />
         )
       case 'history':
@@ -602,6 +619,7 @@ export default function App() {
               setBodyWeightLogs(prev => prev.filter(l => l.id !== id))
             }}
             onAvatarUpdate={url => setProfile(p => ({ ...p, avatarUrl: url }))}
+            onRecalibrate={() => setShowOnboarding(true)}
           />
         )
       case 'settings':
@@ -613,6 +631,7 @@ export default function App() {
             templates={templates}
             onSignOut={handleSignOut}
             authUser={authUser}
+            onRecalibrate={() => setShowOnboarding(true)}
           />
         )
       case 'admin':

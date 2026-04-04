@@ -48,7 +48,7 @@ function ftInToCm(ft, inches) {
   return (f * 12 + i) * INCH_TO_CM
 }
 
-export default function ProfileScreen({ profile, sessions, checkIns, settings, authUser, onSaveProfile, bodyWeightLogs, onLogWeight, onDeleteWeightLog, onAvatarUpdate }) {
+export default function ProfileScreen({ profile, sessions, checkIns, settings, authUser, onSaveProfile, bodyWeightLogs, onLogWeight, onDeleteWeightLog, onAvatarUpdate, onRecalibrate }) {
   const unit       = settings?.unit ?? 'lbs'
   const isImperial = unit === 'lbs'
 
@@ -231,6 +231,19 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
           <p className="profile-email">{authUser?.email}</p>
         </div>
       </div>
+
+      {/* Fitness profile */}
+      {profile?.fitnessProfileSummary && (
+        <section className="profile-section">
+          <h3 className="profile-section-title">Fitness Profile</h3>
+          <div className="profile-fitness-card">
+            <p className="profile-fitness-summary">{profile.fitnessProfileSummary}</p>
+            <button className="profile-recalibrate-btn" onClick={onRecalibrate}>
+              Recalibrate
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* Lifetime stats */}
       <section className="profile-section">
