@@ -439,7 +439,7 @@ export default function App() {
     </div>
   )
   if (!authUser) return <AuthScreen onAuth={user => bootstrapUser(user)} />
-  if (showOnboarding) return <OnboardingScreen onComplete={handleOnboardingComplete} />
+  // if (showOnboarding) return <OnboardingScreen onComplete={handleOnboardingComplete} />
 
   const isAdmin = authUser?.id === import.meta.env.VITE_ADMIN_UID
 
