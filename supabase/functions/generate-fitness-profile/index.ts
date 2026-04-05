@@ -47,7 +47,8 @@ Write only the summary — no intro, no labels, no quotes.`
 
     if (!response.ok) {
       const err = await response.text()
-      return new Response(JSON.stringify({ error: err }), {
+      console.error('Anthropic API error:', response.status, err)
+      return new Response(JSON.stringify({ error: err, status: response.status }), {
         status: 502,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       })

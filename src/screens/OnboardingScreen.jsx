@@ -108,6 +108,10 @@ export default function OnboardingScreen({ onComplete }) {
     setStep(s => s - 1)
   }
 
+  function skip() {
+    onComplete({ answers, summary: '' })
+  }
+
   async function submit() {
     setLoading(true)
     setError(null)
@@ -130,6 +134,7 @@ export default function OnboardingScreen({ onComplete }) {
         <div className="onboarding-generating">
           <div className="onboarding-spinner" />
           <p className="onboarding-generating-text">Building your profile…</p>
+          <button className="onboarding-skip" onClick={skip}>Skip for now</button>
         </div>
       </div>
     )
@@ -181,7 +186,12 @@ export default function OnboardingScreen({ onComplete }) {
           })}
         </div>
 
-        {error && <p className="onboarding-error">{error}</p>}
+        {error && (
+          <>
+            <p className="onboarding-error">{error}</p>
+            <button className="onboarding-skip" onClick={skip}>Skip for now</button>
+          </>
+        )}
       </div>
 
       {/* Actions */}
