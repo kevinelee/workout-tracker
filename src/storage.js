@@ -281,17 +281,16 @@ export async function getSessions() {
 }
 
 export async function saveSession(session) {
-  // 1. Upsert session row
-  await supabase.from('sessions').upsert({
-    id:               session.id,
-    user_id:          _uid,
+  // 1. Update session row — use update() not upsert() to avoid overwriting user_id
+  const { error: sessionErr } = await supabase.from('sessions').update({
     template_id:      session.templateId ?? null,
     started_at:       session.startedAt,
     finished_at:      session.finishedAt ?? null,
     duration_seconds: session.duration ?? null,
     status:           session.finishedAt ? 'finished' : 'active',
     pr_map:           session.prMap ?? {},
-  })
+  }).eq('id', session.id).eq('user_id', _uid)
+  if (sessionErr) console.error('[saveSession] update session:', sessionErr)
 
   if (!session.logs?.length) return
 
@@ -326,6 +325,10 @@ export async function saveSession(session) {
 }
 
 export async function deleteSession(id) {
+  // Diagnostic: check what user_id is stored on this session
+  const { data: row } = await supabase.from('sessions').select('id, user_id, status').eq('id', id).single()
+  console.log('[deleteSession] session row visible to client:', row, '| _uid:', _uid)
+
   // Delete children explicitly — cascade may not be active on the live DB
   const { data: logs, error: logsErr } = await supabase
     .from('session_logs').select('id').eq('session_id', id)
