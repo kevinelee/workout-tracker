@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import {
-  getTemplates, getCachedTemplates, getSessions, getSettings, saveSettings, getCheckIns, saveCheckIn,
+  getTemplates, saveTemplate, getCachedTemplates, getSessions, getSettings, saveSettings, getCheckIns, saveCheckIn,
   getLastSessionForTemplate, getPRMap,
   getActiveSession, saveActiveSession, clearActiveSession, abandonSession,
   deleteSession, setStorageUser, clearUserCache, getCustomExercises, getCachedCustomExercises, hasCheckedInToday,
@@ -24,6 +24,7 @@ import AuthScreen from './screens/AuthScreen'
 import OnboardingScreen from './screens/OnboardingScreen'
 import ProfileScreen from './screens/ProfileScreen'
 import AdminScreen from './screens/AdminScreen'
+import GeneratePlanWizard from './screens/GeneratePlanWizard'
 import './App.css'
 
 const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -204,7 +205,7 @@ export default function App() {
     setAuthUser(null)
   }
 
-  async function handleOnboardingComplete({ answers, summary }) {
+  async function handleOnboardingComplete({ answers, summary, templates = [] }) {
     const daysMap = answers.frequency?.includes('6') ? 6 : answers.frequency?.includes('4') ? 4 : 3
     const updated = {
       ...(profile ?? {}),
@@ -214,7 +215,67 @@ export default function App() {
     }
     await saveProfile(updated)
     setProfile(updated)
+    for (const t of templates) {
+      await saveTemplate(t)
+    }
+    if (templates.length > 0) {
+      getTemplates().then(setTemplates).catch(console.error)
+    }
     setShowOnboarding(false)
+  }
+
+  const exerciseLibraryForAPI = defaultExercises.map(e => ({
+    id: e.id, name: e.name, category: e.category, muscleGroup: e.muscleGroup,
+  }))
+
+  const [showGeneratePlan, setShowGeneratePlan] = useState(false)
+
+  function handleGenerateWorkout() {
+    setShowGeneratePlan(true)
+  }
+
+  async function handleGeneratePlan({ days, focus }) {
+    const { data, error } = await supabase.functions.invoke('generate-workout-plan', {
+      body: {
+        mode: 'split',
+        answers: {
+          days,
+          focus,
+          goal: profile?.fitnessProfileSummary ?? '',
+          experience: '',
+          equipment: [],
+          frequency: `${days} days per week`,
+        },
+        exerciseLibrary: exerciseLibraryForAPI,
+        unit: settings.unit,
+      },
+    })
+    if (error || !data?.templates?.length) throw new Error('No templates returned')
+    return data.templates
+  }
+
+  async function handleGeneratePlanComplete(templates) {
+    for (const t of templates) {
+      await saveTemplate(t)
+    }
+    setShowGeneratePlan(false)
+    const updated = await getTemplates()
+    setTemplates(updated)
+    goHome()
+  }
+
+  async function handleSuggestExercises(description) {
+    const { data, error } = await supabase.functions.invoke('generate-workout-plan', {
+      body: {
+        mode: 'single',
+        fitnessProfile: profile?.fitnessProfileSummary ?? null,
+        description,
+        exerciseLibrary: exerciseLibraryForAPI,
+        unit: settings.unit,
+      },
+    })
+    if (error || !data?.templates?.length) return []
+    return (data.templates[0].exercises ?? []).map(e => e.exerciseId)
   }
 
   const { screen, activeTab, setActiveTab, goHome, goWizard, goBuilder, goSession, goSummary, goSessionDetail, goTab } = useNav()
@@ -398,14 +459,15 @@ export default function App() {
 
   async function handleSessionFinish(session, template) {
     clearActiveSession()
-    setActiveSession(null)
-    const all = await getSessions()
-    setSessions(all)
-    await refreshData()
-    const prev = template.isQuickStart ? null : all
+    // Navigate to summary immediately so the screen is never blank
+    const prev = template.isQuickStart ? null : sessions
       .filter(s => s.templateId === template.id && s.finishedAt && s.id !== session.id)
       .sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))[0] ?? null
+    setActiveSession(null)
     goSummary(session, template, prev)
+    // Refresh data in the background — don't block or swallow the summary
+    getSessions().then(all => setSessions(all)).catch(() => {})
+    refreshData().catch(() => {})
   }
 
   function handleSessionMinimize() {
@@ -445,7 +507,14 @@ export default function App() {
       <img src="/avg-logo.png" alt="avg" className="app-loading-logo" />
     </div>
   )
-  if (showOnboarding) return <OnboardingScreen onComplete={handleOnboardingComplete} />
+  if (showOnboarding) return <OnboardingScreen onComplete={handleOnboardingComplete} unit={settings.unit} />
+  if (showGeneratePlan) return (
+    <GeneratePlanWizard
+      onBack={() => setShowGeneratePlan(false)}
+      onGenerate={handleGeneratePlan}
+      onComplete={handleGeneratePlanComplete}
+    />
+  )
 
   const isAdmin = authUser?.id === import.meta.env.VITE_ADMIN_UID
 
@@ -539,6 +608,7 @@ export default function App() {
             startingQuickStart={startingQuickStart}
             onCheckIn={handleCheckIn}
             onResumeSession={() => { goSession(); setActiveTab('session') }}
+            onNewGenerate={handleGenerateWorkout}
           />
         )
       case 'wizard':
@@ -547,6 +617,7 @@ export default function App() {
             onComplete={exercises => goBuilder({ exercises })}
             onBack={goHome}
             unit={settings.unit}
+            onSuggest={profile?.fitnessProfileSummary ? handleSuggestExercises : null}
           />
         )
       case 'builder':

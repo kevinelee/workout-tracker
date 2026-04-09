@@ -24,8 +24,14 @@ function fmtElapsed(seconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-export default function HomeScreen({ templates, sessions, checkIns, checkedIn, dataLoaded, streak, settings, activeSession, startingTemplateId, startingQuickStart, onNew, onEdit, onStart, onQuickStart, onCheckIn, onResumeSession }) {
+export default function HomeScreen({
+  templates, sessions, checkIns, checkedIn, dataLoaded, streak, settings,
+  activeSession, startingTemplateId, startingQuickStart,
+  onNew, onEdit, onStart, onQuickStart, onCheckIn, onResumeSession,
+  onNewGenerate,
+}) {
   const milestone = streakMilestone(streak)
+  const [showNewSheet, setShowNewSheet] = useState(false)
 
   const lastSessionByTemplate = sessions.reduce((map, s) => {
     if (!s.templateId || !s.finishedAt) return map
@@ -43,14 +49,31 @@ export default function HomeScreen({ templates, sessions, checkIns, checkedIn, d
     return () => clearInterval(id)
   }, [activeSession?.startedAt])
 
+  // Close sheet on Escape
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') setShowNewSheet(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
   const completedSets = activeSession?.logs?.reduce((sum, l) => sum + l.sets.filter(s => s.completed).length, 0) ?? 0
   const totalSets     = activeSession?.logs?.reduce((sum, l) => sum + l.sets.length, 0) ?? 0
+
+  function handleNewManual() {
+    setShowNewSheet(false)
+    onNew()
+  }
+
+  function handleNewGenerate() {
+    setShowNewSheet(false)
+    onNewGenerate()
+  }
 
   return (
     <div className={`home ${settings.controllerSide === 'left' ? 'home--left' : ''}`}>
       <div className="home-header">
         <h2 className="home-title">My Workouts</h2>
-        <button className="home-new-btn" onClick={onNew}>+</button>
+        <button className="home-new-btn" onClick={() => setShowNewSheet(true)}>+</button>
       </div>
 
       {/* Active session resume banner */}
@@ -66,7 +89,6 @@ export default function HomeScreen({ templates, sessions, checkIns, checkedIn, d
           <span className="home-session-banner-cta">Resume →</span>
         </button>
       )}
-
 
       {templates === null ? (
         <ul className="home-list">
@@ -144,6 +166,48 @@ export default function HomeScreen({ templates, sessions, checkIns, checkedIn, d
           })}
         </div>
       </div>
+
+      {/* New workout choice sheet */}
+      {showNewSheet && (
+        <div className="home-sheet-overlay" onClick={() => setShowNewSheet(false)}>
+          <div className="home-sheet" onClick={e => e.stopPropagation()}>
+            <p className="home-sheet-title">New Workout</p>
+
+            <button className="home-sheet-option" onClick={handleNewManual}>
+              <div className="home-sheet-option-icon">
+                <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="11" y1="5" x2="11" y2="17" />
+                  <line x1="5" y1="11" x2="17" y2="11" />
+                </svg>
+              </div>
+              <div className="home-sheet-option-text">
+                <span className="home-sheet-option-label">Build it myself</span>
+                <span className="home-sheet-option-sub">Pick exercises and set your defaults</span>
+              </div>
+            </button>
+
+            <button
+              className="home-sheet-option"
+              onClick={handleNewGenerate}
+            >
+              <div className="home-sheet-option-icon home-sheet-option-icon--accent">
+                <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 2l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" />
+                </svg>
+              </div>
+              <div className="home-sheet-option-text">
+                <span className="home-sheet-option-label">Generate a plan</span>
+                <span className="home-sheet-option-sub">Answer 2 quick questions, get a full split</span>
+              </div>
+            </button>
+
+            <button className="home-sheet-cancel" onClick={() => setShowNewSheet(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
