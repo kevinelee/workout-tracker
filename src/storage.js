@@ -326,7 +326,14 @@ export async function saveSession(session) {
 }
 
 export async function deleteSession(id) {
-  await supabase.from('sessions').delete().eq('id', id)
+  // Delete children first in case FK cascade is not set on the DB
+  const { data: logs } = await supabase.from('session_logs').select('id').eq('session_id', id)
+  if (logs?.length) {
+    await supabase.from('session_sets').delete().in('session_log_id', logs.map(l => l.id))
+    await supabase.from('session_logs').delete().eq('session_id', id)
+  }
+  const { error } = await supabase.from('sessions').delete().eq('id', id)
+  if (error) throw error
 }
 
 export async function updateSessionDuration(id, durationSeconds) {
