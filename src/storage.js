@@ -325,31 +325,45 @@ export async function saveSession(session) {
 }
 
 export async function deleteSession(id) {
-  // Diagnostic: check what user_id is stored on this session
-  const { data: row } = await supabase.from('sessions').select('id, user_id, status').eq('id', id).single()
-  console.log('[deleteSession] session row visible to client:', row, '| _uid:', _uid)
-
   // Delete children explicitly — cascade may not be active on the live DB
-  const { data: logs, error: logsErr } = await supabase
+  const { data: logs } = await supabase
     .from('session_logs').select('id').eq('session_id', id)
-  if (logsErr) console.error('[deleteSession] fetch logs:', logsErr)
 
   if (logs?.length) {
     const logIds = logs.map(l => l.id)
-    const { error: setsErr } = await supabase
-      .from('session_sets').delete().in('session_log_id', logIds)
-    if (setsErr) console.error('[deleteSession] delete sets:', setsErr)
-
-    const { error: logsDelErr } = await supabase
-      .from('session_logs').delete().eq('session_id', id)
-    if (logsDelErr) console.error('[deleteSession] delete logs:', logsDelErr)
+    await supabase.from('session_sets').delete().in('session_log_id', logIds)
+    await supabase.from('session_logs').delete().eq('session_id', id)
   }
 
   const { error } = await supabase.from('sessions').delete().eq('id', id)
-  if (error) {
-    console.error('[deleteSession] delete session:', error)
-    throw error
+  if (!error) return
+
+  // RLS rejection (42501) — session may have null/mismatched user_id from a
+  // corrupted quick-start. Fall back to edge function which uses service role.
+  if (error.code === '42501') {
+    const { data: { session: authSession } } = await supabase.auth.getSession()
+    const token = authSession?.access_token
+    if (!token) throw error
+
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-session`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ session_id: id }),
+      }
+    )
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error ?? `delete-session edge function failed: ${res.status}`)
+    }
+    return
   }
+
+  throw error
 }
 
 export async function updateSessionDuration(id, durationSeconds) {
