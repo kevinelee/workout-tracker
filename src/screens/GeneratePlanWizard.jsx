@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { defaultExercises } from '../data/exerciseLibrary'
+import { muscleGroupsForTemplate } from '../utils/workout'
 import './GeneratePlanWizard.css'
 
 const DAYS_OPTIONS = [2, 3, 4, 5, 6]
@@ -15,14 +15,6 @@ const FOCUS_OPTIONS = [
   { label: 'Cardio', value: 'Cardio' },
 ]
 
-function muscleGroupsForTemplate(template) {
-  const groups = new Set()
-  for (const ex of template.exercises) {
-    const found = defaultExercises.find(e => e.id === ex.exerciseId)
-    if (found) groups.add(found.muscleGroup)
-  }
-  return [...groups].slice(0, 3).join(', ')
-}
 
 export default function GeneratePlanWizard({ onComplete, onBack, onGenerate }) {
   const [step, setStep]     = useState(0) // 0=days, 1=focus

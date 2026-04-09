@@ -264,19 +264,6 @@ export default function App() {
     goHome()
   }
 
-  async function handleSuggestExercises(description) {
-    const { data, error } = await supabase.functions.invoke('generate-workout-plan', {
-      body: {
-        mode: 'single',
-        fitnessProfile: profile?.fitnessProfileSummary ?? null,
-        description,
-        exerciseLibrary: exerciseLibraryForAPI,
-        unit: settings.unit,
-      },
-    })
-    if (error || !data?.templates?.length) return []
-    return (data.templates[0].exercises ?? []).map(e => e.exerciseId)
-  }
 
   const { screen, activeTab, setActiveTab, goHome, goWizard, goBuilder, goSession, goSummary, goSessionDetail, goTab } = useNav()
   const [templates, setTemplates]             = useState(null)
@@ -617,7 +604,6 @@ export default function App() {
             onComplete={exercises => goBuilder({ exercises })}
             onBack={goHome}
             unit={settings.unit}
-            onSuggest={profile?.fitnessProfileSummary ? handleSuggestExercises : null}
           />
         )
       case 'builder':

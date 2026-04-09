@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { defaultExercises } from '../data/exerciseLibrary'
+import { muscleGroupsForTemplate } from '../utils/workout'
 import './OnboardingScreen.css'
 
 const QUESTIONS = [
@@ -60,13 +62,19 @@ const QUESTIONS = [
   },
 ]
 
-export default function OnboardingScreen({ onComplete }) {
-  const [step, setStep]       = useState(0)
-  const [answers, setAnswers] = useState({})
-  const [dir, setDir]         = useState('forward') // 'forward' | 'back'
-  const [animKey, setAnimKey] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState(null)
+const exerciseLibrary = defaultExercises.map(e => ({
+  id: e.id, name: e.name, category: e.category, muscleGroup: e.muscleGroup,
+}))
+
+
+export default function OnboardingScreen({ onComplete, unit = 'lbs' }) {
+  const [step, setStep]               = useState(0)
+  const [answers, setAnswers]         = useState({})
+  const [dir, setDir]                 = useState('forward')
+  const [animKey, setAnimKey]         = useState(0)
+  const [loading, setLoading]         = useState(false)
+  const [error, setError]             = useState(null)
+  const [planTemplates, setPlanTemplates] = useState(null) // null = not generated yet
 
   const q = QUESTIONS[step]
   const isLast = step === QUESTIONS.length - 1
@@ -92,10 +100,7 @@ export default function OnboardingScreen({ onComplete }) {
 
   function next() {
     if (!hasAnswer) return
-    if (isLast) {
-      submit()
-      return
-    }
+    if (isLast) { submit(); return }
     setDir('forward')
     setAnimKey(k => k + 1)
     setStep(s => s + 1)
@@ -109,18 +114,31 @@ export default function OnboardingScreen({ onComplete }) {
   }
 
   function skip() {
-    onComplete({ answers, summary: '' })
+    onComplete({ answers, summary: '', templates: [] })
   }
 
   async function submit() {
     setLoading(true)
     setError(null)
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('generate-fitness-profile', {
-        body: { answers },
-      })
-      if (fnError) throw fnError
-      onComplete({ answers, summary: data.summary ?? '' })
+      await supabase.auth.refreshSession()
+
+      const [profileRes, planRes] = await Promise.all([
+        supabase.functions.invoke('generate-fitness-profile', {
+          body: { answers },
+        }),
+        supabase.functions.invoke('generate-workout-plan', {
+          body: { mode: 'split', answers, exerciseLibrary, unit },
+        }),
+      ])
+
+      if (profileRes.error) throw profileRes.error
+
+      const summary   = profileRes.data?.summary ?? ''
+      const templates = planRes.data?.templates ?? []
+
+      setLoading(false)
+      setPlanTemplates({ summary, templates })
     } catch (err) {
       console.error('Onboarding submit failed:', err)
       setLoading(false)
@@ -128,20 +146,78 @@ export default function OnboardingScreen({ onComplete }) {
     }
   }
 
+  // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="onboarding">
         <div className="onboarding-generating">
           <div className="onboarding-spinner" />
-          <p className="onboarding-generating-text">Building your profile…</p>
+          <p className="onboarding-generating-text">Building your plan…</p>
         </div>
       </div>
     )
   }
 
+  // ── Plan preview ─────────────────────────────────────────────────────────
+  if (planTemplates) {
+    const { summary, templates } = planTemplates
+    return (
+      <div className="onboarding onboarding--plan">
+        <div className="ob-plan-hero">
+          <div className="ob-plan-check">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="4 12 9 17 20 6" />
+            </svg>
+          </div>
+          <h2 className="ob-plan-title">Your plan is ready</h2>
+          {templates.length > 0 && (
+            <p className="ob-plan-sub">{templates.length} workout{templates.length !== 1 ? 's' : ''} tailored to your goals</p>
+          )}
+        </div>
+
+        {templates.length > 0 ? (
+          <div className="ob-plan-list">
+            {templates.map((t, i) => (
+              <div key={i} className="ob-plan-card">
+                <p className="ob-plan-card-name">{t.name}</p>
+                <p className="ob-plan-card-meta">
+                  {t.exercises.length} exercise{t.exercises.length !== 1 ? 's' : ''}
+                  {muscleGroupsForTemplate(t) && <span> · {muscleGroupsForTemplate(t)}</span>}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="ob-plan-empty">Plan generation failed — you can build your own workouts anytime.</p>
+        )}
+
+        <div className="onboarding-actions">
+          {templates.length > 0 ? (
+            <button
+              className="onboarding-continue"
+              onClick={() => onComplete({ answers, summary, templates })}
+            >
+              Add to My Workouts
+            </button>
+          ) : (
+            <button
+              className="onboarding-continue"
+              onClick={() => onComplete({ answers, summary, templates: [] })}
+            >
+              Continue
+            </button>
+          )}
+        </div>
+        <button className="onboarding-skip" onClick={() => onComplete({ answers, summary, templates: [] })}>
+          Skip for now
+        </button>
+      </div>
+    )
+  }
+
+  // ── Questions ────────────────────────────────────────────────────────────
   return (
     <div className="onboarding">
-      {/* Progress dots */}
       <div className="onboarding-dots">
         {QUESTIONS.map((_, i) => (
           <span
@@ -151,15 +227,9 @@ export default function OnboardingScreen({ onComplete }) {
         ))}
       </div>
 
-      {/* Question card */}
-      <div
-        key={animKey}
-        className={`onboarding-card onboarding-card--${dir}`}
-      >
+      <div key={animKey} className={`onboarding-card onboarding-card--${dir}`}>
         <h2 className="onboarding-question">{q.question}</h2>
-        {q.multi && (
-          <p className="onboarding-hint">Select all that apply</p>
-        )}
+        {q.multi && <p className="onboarding-hint">Select all that apply</p>}
 
         <div className="onboarding-options">
           {q.options.map(opt => {
@@ -188,7 +258,6 @@ export default function OnboardingScreen({ onComplete }) {
         {error && <p className="onboarding-error">{error}</p>}
       </div>
 
-      {/* Actions */}
       <div className="onboarding-actions">
         {step > 0 && (
           <button className="onboarding-back" onClick={back}>Back</button>
@@ -201,8 +270,10 @@ export default function OnboardingScreen({ onComplete }) {
           {isLast ? 'Finish' : 'Continue'}
         </button>
       </div>
-      {(isLast || error) && (
-        <button className="onboarding-skip" onClick={skip}>Skip for now</button>
+      {(step === 0 || isLast || error) && (
+        <button className="onboarding-skip" onClick={skip}>
+          Skip for now{step === 0 && <span className="onboarding-skip-sub">You can set this up in your profile later.</span>}
+        </button>
       )}
     </div>
   )
