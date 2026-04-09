@@ -23,8 +23,9 @@ export function volumeChangePercent(current, previous) {
 }
 
 export function fmtVolume(lbs) {
-  if (lbs >= 1000) return `${(lbs / 1000).toFixed(1)}k`
-  return String(lbs)
+  const n = Math.round(lbs)
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
+  return String(n)
 }
 
 export function fmtDuration(seconds) {

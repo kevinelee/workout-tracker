@@ -2,6 +2,7 @@
   display: flex;
   gap: 4px;
   width: 100%;
+  height: 104px;
 }
 
 .heatmap-days {
@@ -37,7 +38,6 @@
 
 .heatmap-cell {
   width: 100%;
-  aspect-ratio: 1;
   border-radius: 3px;
   background: var(--border);
   transition: background 0.15s;
