@@ -62,9 +62,14 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
 
   async function handleDelete() {
     setIsDeleting(true)
-    await deleteSession(displaySession.id)
-    onDelete?.()
-    onBack()
+    try {
+      await deleteSession(displaySession.id)
+      await onDelete?.()
+      onBack()
+    } catch (err) {
+      console.error('Failed to delete session:', err)
+      setIsDeleting(false)
+    }
   }
 
   function setEditDuration(h, m) {

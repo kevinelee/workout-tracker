@@ -194,9 +194,14 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
   async function handleDeleteConfirmed() {
     if (!deleteConfirm) return
     setIsDeleting(true)
-    await onDeleteSession(deleteConfirm.id)
-    setIsDeleting(false)
-    setDeleteConfirm(null)
+    try {
+      await onDeleteSession(deleteConfirm.id)
+      setDeleteConfirm(null)
+    } catch (err) {
+      console.error('Failed to delete session:', err)
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   let filtered = finished

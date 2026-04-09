@@ -326,14 +326,27 @@ export async function saveSession(session) {
 }
 
 export async function deleteSession(id) {
-  // Delete children first in case FK cascade is not set on the DB
-  const { data: logs } = await supabase.from('session_logs').select('id').eq('session_id', id)
+  // Delete children explicitly — cascade may not be active on the live DB
+  const { data: logs, error: logsErr } = await supabase
+    .from('session_logs').select('id').eq('session_id', id)
+  if (logsErr) console.error('[deleteSession] fetch logs:', logsErr)
+
   if (logs?.length) {
-    await supabase.from('session_sets').delete().in('session_log_id', logs.map(l => l.id))
-    await supabase.from('session_logs').delete().eq('session_id', id)
+    const logIds = logs.map(l => l.id)
+    const { error: setsErr } = await supabase
+      .from('session_sets').delete().in('session_log_id', logIds)
+    if (setsErr) console.error('[deleteSession] delete sets:', setsErr)
+
+    const { error: logsDelErr } = await supabase
+      .from('session_logs').delete().eq('session_id', id)
+    if (logsDelErr) console.error('[deleteSession] delete logs:', logsDelErr)
   }
+
   const { error } = await supabase.from('sessions').delete().eq('id', id)
-  if (error) throw error
+  if (error) {
+    console.error('[deleteSession] delete session:', error)
+    throw error
+  }
 }
 
 export async function updateSessionDuration(id, durationSeconds) {
