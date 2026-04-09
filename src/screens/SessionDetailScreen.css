@@ -33,6 +33,51 @@
   flex: 1;
 }
 
+.detail-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.detail-edit-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 8px;
+  opacity: 0.5;
+  color: var(--text-h);
+  transition: opacity 0.15s;
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover { opacity: 1; }
+}
+
+.detail-save-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  color: var(--on-accent);
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--sans);
+  padding: 8px 16px;
+  cursor: pointer;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s;
+
+  &:active { opacity: 0.8; }
+  &:disabled { opacity: 0.6; cursor: default; }
+}
+
 .detail-delete-btn {
   background: none;
   border: none;
@@ -49,6 +94,51 @@
   justify-content: center;
 
   &:hover { opacity: 1; }
+}
+
+.detail-duration-edit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-h);
+  font-family: var(--sans);
+}
+
+.detail-duration-input {
+  width: 44px;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--text-h);
+  font-size: 14px;
+  font-family: var(--mono);
+  font-weight: 600;
+  text-align: center;
+  padding: 4px 2px;
+  -moz-appearance: textfield;
+
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button { -webkit-appearance: none; }
+  &:focus { outline: none; }
+}
+
+.detail-set-input {
+  width: 52px;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--text-h);
+  font-size: 14px;
+  font-family: var(--mono);
+  font-weight: 600;
+  text-align: center;
+  padding: 4px 2px;
+  -moz-appearance: textfield;
+
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button { -webkit-appearance: none; }
+  &:focus { outline: none; border-color: var(--accent); }
 }
 
 .detail-confirm-overlay {

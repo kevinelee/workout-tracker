@@ -40,6 +40,11 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   const [showTimeLimit, setShowTimeLimit]   = useState(false)
   const timeLimitDismissedAt                = useRef(null)
   const [finishing, setFinishing] = useState(false)
+  const [manualDuration, setManualDuration] = useState(null)
+  const [showTimerEdit, setShowTimerEdit] = useState(false)
+  const [timerEditH, setTimerEditH] = useState(0)
+  const [timerEditM, setTimerEditM] = useState(0)
+  const [timerEditS, setTimerEditS] = useState(0)
   const [openNotes, setOpenNotes] = useState(new Set())
   const [collapsedExercises, setCollapsedExercises] = useState(new Set())
   const [editMode, setEditMode] = useState(false)
@@ -118,10 +123,23 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   }
 
   function updateSet(logIndex, setIndex, updatedSet) {
+    const oldSet = logs[logIndex].sets[setIndex]
+    const weightChanged = updatedSet.weight !== oldSet.weight
+    const repsChanged   = updatedSet.reps   !== oldSet.reps
     const newLogs = logs.map((log, li) =>
       li !== logIndex ? log : {
         ...log,
-        sets: log.sets.map((s, si) => si === setIndex ? updatedSet : s),
+        sets: log.sets.map((s, si) => {
+          if (si === setIndex) return updatedSet
+          // Cascade changed values to uncompleted sets below with matching old values
+          if (si > setIndex && !s.completed) {
+            const cascaded = { ...s }
+            if (weightChanged && s.weight === oldSet.weight) cascaded.weight = updatedSet.weight
+            if (repsChanged   && s.reps   === oldSet.reps)   cascaded.reps   = updatedSet.reps
+            return cascaded
+          }
+          return s
+        }),
       }
     )
     updateLogsAndSync(newLogs, null)
@@ -147,8 +165,8 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     updateLogsAndSync(newLogs, newPrMap)
     if (settings.restTimerDuration > 0) setRestDuration(settings.restTimerDuration)
 
-    // Celebrate + auto-collapse when last target set is checked off
-    const target = log.targetCount ?? log.sets.length
+    // Celebrate + auto-collapse when all sets (including any added extras) are done
+    const target = log.sets.length
     const nowDone = log.sets.filter(s => s.completed).length + 1
     if (nowDone >= target) {
       clearTimeout(celebrateTimerRef.current)
@@ -254,7 +272,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
         templateId: template.isQuickStart ? null : template.id,
         startedAt,
         finishedAt: new Date().toISOString(),
-        duration: elapsed,
+        duration: manualDuration ?? elapsed,
         logs,
         prMap,
       }
@@ -340,7 +358,20 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
           <button className="session-back" onClick={onMinimize} aria-label="Minimize">‹</button>
           <div className="session-title-wrap">
             <h2 className="session-name">{template.name}</h2>
-            <span className="session-timer">{fmtElapsed(elapsed)}</span>
+            <button
+              className="session-timer"
+              onClick={() => {
+                const secs = manualDuration ?? elapsed
+                setTimerEditH(Math.floor(secs / 3600))
+                setTimerEditM(Math.floor((secs % 3600) / 60))
+                setTimerEditS(secs % 60)
+                setShowTimerEdit(true)
+              }}
+              aria-label="Edit duration"
+            >
+              {fmtElapsed(manualDuration ?? elapsed)}
+              {manualDuration != null && <span className="session-timer-edited">✎</span>}
+            </button>
           </div>
           <button
             className={`session-edit-btn ${editMode ? 'session-edit-btn--active' : ''}`}
@@ -383,6 +414,15 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
           const isCardio    = exercise.category === 'Cardio'
           const cardioUnit  = exercise.cardioUnit ?? 'time'
           const isStretch   = exercise.category === 'Stretch'
+          const exPrType    = exercise?.prType ?? 'weight'
+          const exPR        = prMap[log.exerciseId] ?? 0
+          const prLabel     = exPR > 0 && !isCardio && !isStretch
+            ? exPrType === 'reps'
+              ? `${exPR} reps`
+              : settings.unit === 'kg'
+                ? `${Math.round(exPR / 2.2046)} kg`
+                : `${exPR} lbs`
+            : null
           const isCollapsed = collapsedExercises.has(log.exerciseId)
           const isNextActiveExercise = !editMode && logs.findIndex(l => l.sets.some(s => !s.completed)) === li
           const nextActiveIndex = isNextActiveExercise ? log.sets.findIndex(s => !s.completed) : -1
@@ -396,6 +436,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                   <p className="session-ex-name">{exercise.name}</p>
                   <p className={`session-ex-meta${allSetsDone ? ' session-ex-meta--done' : ''}`}>
                     {allSetsDone ? '✓ ' : ''}{doneCount}/{target} sets{doneCount > target ? ` +${doneCount - target}` : ''}
+                    {prLabel && <span className="session-ex-pr-label"> · 🏆 {prLabel}</span>}
                   </p>
                 </div>
                 {editMode && (
@@ -620,6 +661,64 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
             <div className="session-modal-actions">
               <button className="session-modal-cancel" onClick={() => setShowAbandon(false)}>Keep going</button>
               <button className="session-modal-confirm" onClick={onAbandon}>Abandon</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Timer edit modal */}
+      {showTimerEdit && (
+        <div className="session-modal-overlay" onClick={() => setShowTimerEdit(false)}>
+          <div className="session-modal" onClick={e => e.stopPropagation()}>
+            <p className="session-modal-title">Set duration</p>
+            <p className="session-modal-body">Enter the actual time you spent working out.</p>
+            <div className="session-duration-inputs">
+              <label className="session-duration-field">
+                <input
+                  className="session-duration-input"
+                  type="number"
+                  min="0"
+                  max="23"
+                  value={timerEditH}
+                  onChange={e => setTimerEditH(Math.max(0, parseInt(e.target.value) || 0))}
+                />
+                <span>h</span>
+              </label>
+              <label className="session-duration-field">
+                <input
+                  className="session-duration-input"
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={timerEditM}
+                  onChange={e => setTimerEditM(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                />
+                <span>m</span>
+              </label>
+              <label className="session-duration-field">
+                <input
+                  className="session-duration-input"
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={timerEditS}
+                  onChange={e => setTimerEditS(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                />
+                <span>s</span>
+              </label>
+            </div>
+            <div className="session-modal-actions">
+              <button className="session-modal-cancel" onClick={() => setShowTimerEdit(false)}>Cancel</button>
+              <button
+                className="session-modal-confirm"
+                onClick={() => {
+                  const secs = timerEditH * 3600 + timerEditM * 60 + timerEditS
+                  setManualDuration(secs > 0 ? secs : null)
+                  setShowTimerEdit(false)
+                }}
+              >
+                Set
+              </button>
             </div>
           </div>
         </div>

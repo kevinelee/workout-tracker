@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { sessionVolume, sessionPRCount, volumeChangePercent, fmtVolume, fmtDuration } from '../utils/volume'
 import { estimateCalories } from '../utils/calories'
 import { defaultExercises } from '../data/exerciseLibrary'
-import { getCachedCustomExercises } from '../storage'
+import { getCachedCustomExercises, updateSessionDuration } from '../storage'
 import './PostWorkoutSummary.css'
 
 function fmtTime(iso) {
@@ -26,13 +26,18 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
   const prsHit        = sessionPRCount(session)
   const prevVolume    = prevSession ? sessionVolume(prevSession) : null
   const volumePct     = volumeChangePercent(volume, prevVolume)
-  const calories      = estimateCalories(session, profile?.weightKg)
+  const calories      = estimateCalories({ ...session, duration: durationSecs }, profile?.weightKg)
   const completedSets = (session.logs ?? []).reduce((sum, l) => sum + l.sets.filter(s => s.completed).length, 0)
   const totalSets     = (session.logs ?? []).reduce((sum, l) => sum + l.sets.length, 0)
   const isFirstSession = !prevSession
 
   const [aiSummary, setAiSummary] = useState(null)  // null = loading, '' = error/skip
   const [aiError,   setAiError]   = useState(false)
+  const [durationSecs, setDurationSecs] = useState(session.duration ?? 0)
+  const [showDurationEdit, setShowDurationEdit] = useState(false)
+  const [durationEditH, setDurationEditH] = useState(Math.floor((session.duration ?? 0) / 3600))
+  const [durationEditM, setDurationEditM] = useState(Math.floor(((session.duration ?? 0) % 3600) / 60))
+  const [durationEditS, setDurationEditS] = useState((session.duration ?? 0) % 60)
 
   useEffect(() => {
     if (prsHit > 0) {
@@ -53,7 +58,7 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
     supabase.functions.invoke('generate-workout-summary', {
       body: {
         workoutName:       template.name,
-        durationFormatted: fmtDuration(session.duration),
+        durationFormatted: fmtDuration(durationSecs || session.duration),
         volume:            fmtVolume(volume),
         prevVolume:        prevVolume != null ? fmtVolume(prevVolume) : null,
         volumePct:         volumePct,
@@ -102,7 +107,9 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
 
         {/* Quick stat pills */}
         <div className="pws-pills">
-          <span className="pws-pill">{fmtDuration(session.duration)}</span>
+          <button className="pws-pill pws-pill--editable" onClick={() => setShowDurationEdit(true)}>
+            {durationSecs > 0 ? fmtDuration(durationSecs) : 'Set duration'} ✎
+          </button>
           <span className="pws-pill">{fmtVolume(volume)} {unit}</span>
           <span className="pws-pill">{completedSets}/{totalSets} sets</span>
           {prsHit > 0 && (
@@ -182,6 +189,65 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
         </div>
 
       </div>
+
+      {/* Duration edit modal */}
+      {showDurationEdit && (
+        <div className="pws-modal-overlay" onClick={() => setShowDurationEdit(false)}>
+          <div className="pws-modal" onClick={e => e.stopPropagation()}>
+            <p className="pws-modal-title">Set duration</p>
+            <p className="pws-modal-body">How long did your workout actually take?</p>
+            <div className="pws-duration-inputs">
+              <label className="pws-duration-field">
+                <input
+                  className="pws-duration-input"
+                  type="number"
+                  min="0"
+                  max="23"
+                  value={durationEditH}
+                  onChange={e => setDurationEditH(Math.max(0, parseInt(e.target.value) || 0))}
+                />
+                <span>h</span>
+              </label>
+              <label className="pws-duration-field">
+                <input
+                  className="pws-duration-input"
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={durationEditM}
+                  onChange={e => setDurationEditM(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                />
+                <span>m</span>
+              </label>
+              <label className="pws-duration-field">
+                <input
+                  className="pws-duration-input"
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={durationEditS}
+                  onChange={e => setDurationEditS(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                />
+                <span>s</span>
+              </label>
+            </div>
+            <div className="pws-modal-actions">
+              <button className="pws-modal-cancel" onClick={() => setShowDurationEdit(false)}>Cancel</button>
+              <button
+                className="pws-modal-confirm"
+                onClick={async () => {
+                  const secs = durationEditH * 3600 + durationEditM * 60 + durationEditS
+                  setDurationSecs(secs)
+                  setShowDurationEdit(false)
+                  if (session.id) await updateSessionDuration(session.id, secs)
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sticky footer */}
       <div className="pws-footer">

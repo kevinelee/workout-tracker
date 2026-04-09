@@ -55,6 +55,57 @@
   color: var(--text);
   font-variant-numeric: tabular-nums;
   font-family: var(--mono);
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.15s;
+
+  &:hover { background: var(--border); }
+}
+
+.session-timer-edited {
+  font-size: 11px;
+  color: var(--accent);
+  font-family: var(--sans);
+}
+
+.session-duration-inputs {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin: 4px 0 8px;
+}
+
+.session-duration-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  color: var(--text-h);
+  font-family: var(--sans);
+}
+
+.session-duration-input {
+  width: 64px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-h);
+  font-size: 18px;
+  font-family: var(--mono);
+  font-weight: 600;
+  text-align: center;
+  padding: 8px 4px;
+  -moz-appearance: textfield;
+
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button { -webkit-appearance: none; }
+  &:focus { outline: none; border-color: var(--accent); }
 }
 
 /* Edit toggle button in header */
@@ -308,6 +359,10 @@
 .session-ex-meta--done {
   color: #4ade80;
   font-weight: 600;
+}
+
+.session-ex-pr-label {
+  opacity: 0.65;
 }
 
 .session-sets {

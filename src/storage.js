@@ -245,7 +245,21 @@ export async function saveTemplate(template) {
 }
 
 export async function deleteTemplate(id) {
-  await supabase.from('workout_templates').delete().eq('id', id)
+  const { error } = await supabase.from('workout_templates').delete().eq('id', id)
+  if (error) throw error
+}
+
+export function getTemplateOrder() {
+  if (!_uid) return null
+  try {
+    const raw = localStorage.getItem(`wt:template-order:${_uid}`)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+export function saveTemplateOrder(ids) {
+  if (!_uid) return
+  try { localStorage.setItem(`wt:template-order:${_uid}`, JSON.stringify(ids)) } catch {}
 }
 
 
@@ -313,6 +327,10 @@ export async function saveSession(session) {
 
 export async function deleteSession(id) {
   await supabase.from('sessions').delete().eq('id', id)
+}
+
+export async function updateSessionDuration(id, durationSeconds) {
+  await supabase.from('sessions').update({ duration_seconds: durationSeconds }).eq('id', id)
 }
 
 export async function getLastSessionForTemplate(templateId) {
@@ -675,7 +693,10 @@ export async function clearAll() {
 
 export function clearUserCache() {
   localStorage.removeItem(ACTIVE_KEY)
-  if (_uid) localStorage.removeItem(TEMPLATES_CACHE_KEY(_uid))
+  if (_uid) {
+    localStorage.removeItem(TEMPLATES_CACHE_KEY(_uid))
+    localStorage.removeItem(`wt:template-order:${_uid}`)
+  }
   _uid = null
   _customExercisesCache = []
 }

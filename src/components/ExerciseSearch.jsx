@@ -27,7 +27,9 @@ function filterExercises(library, query, activeMuscle) {
 
 function groupByCategory(exercises) {
   return CATEGORIES.reduce((acc, cat) => {
-    const matches = exercises.filter(ex => ex.category === cat)
+    const matches = exercises
+      .filter(ex => ex.category === cat)
+      .sort((a, b) => a.name.localeCompare(b.name))
     if (matches.length) acc[cat] = matches
     return acc
   }, {})

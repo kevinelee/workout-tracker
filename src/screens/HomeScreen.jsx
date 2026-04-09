@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { streakMilestone } from '../utils/streaks'
 import { starterTemplates } from '../data/starterTemplates'
+import { getTemplateOrder, saveTemplateOrder } from '../storage'
 import './HomeScreen.css'
 
 function fmtLastDone(isoDate) {
@@ -14,6 +15,32 @@ function fmtLastDone(isoDate) {
   if (diffDays < 14) return 'Last done: 1 week ago'
   if (diffDays < 30) return `Last done: ${Math.floor(diffDays / 7)} weeks ago`
   return `Last done: ${then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 20, height: 20 }}>
+      <polyline points="7 4 13 10 7 16" />
+    </svg>
+  )
+}
+
+function ChevronLeftIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 20, height: 20 }}>
+      <polyline points="13 4 7 10 13 16" />
+    </svg>
+  )
+}
+
+function DragHandleIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" style={{ width: 18, height: 18 }}>
+      <rect x="4" y="5"  width="12" height="1.8" rx="0.9" />
+      <rect x="4" y="9.1" width="12" height="1.8" rx="0.9" />
+      <rect x="4" y="13.2" width="12" height="1.8" rx="0.9" />
+    </svg>
+  )
 }
 
 function fmtElapsed(seconds) {
@@ -32,6 +59,100 @@ export default function HomeScreen({
 }) {
   const milestone = streakMilestone(streak)
   const [showNewSheet, setShowNewSheet] = useState(false)
+
+  // ── Drag-to-reorder ────────────────────────────────────────
+  const [templateOrder, setTemplateOrder] = useState(null)
+  const [dragId, setDragId]   = useState(null)
+  const [hoverIdx, setHoverIdx] = useState(null)
+  const itemElsRef    = useRef({})  // { [templateId]: HTMLElement }
+  const isDraggingRef = useRef(false)
+  const dragIdRef     = useRef(null)
+  const hoverIdxRef   = useRef(null)
+
+  // Load persisted order once templates arrive
+  useEffect(() => {
+    if (!templates) return
+    const order = getTemplateOrder()
+    if (order) setTemplateOrder(order)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!templates])
+
+  // Templates sorted by saved order; new ones appended at end
+  const baseList = useMemo(() => {
+    if (!templates) return templates
+    if (!templateOrder?.length) return templates
+    const map = new Map(templates.map(t => [t.id, t]))
+    const ordered   = templateOrder.filter(id => map.has(id)).map(id => map.get(id))
+    const remainder = templates.filter(t => !templateOrder.includes(t.id))
+    return [...ordered, ...remainder]
+  }, [templates, templateOrder])
+
+  // During drag: preview with dragged item at hover position
+  const displayList = useMemo(() => {
+    if (!baseList || !dragId || hoverIdx === null) return baseList
+    const fromIdx = baseList.findIndex(t => t.id === dragId)
+    if (fromIdx === -1 || fromIdx === hoverIdx) return baseList
+    const result = [...baseList]
+    const [item] = result.splice(fromIdx, 1)
+    result.splice(hoverIdx, 0, item)
+    return result
+  }, [baseList, dragId, hoverIdx])
+
+  function getHoverIdx(clientY) {
+    const list = displayList ?? []
+    let best = 0, minDist = Infinity
+    list.forEach((t, i) => {
+      const el = itemElsRef.current[t.id]
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const dist = Math.abs(clientY - (rect.top + rect.height / 2))
+      if (dist < minDist) { minDist = dist; best = i }
+    })
+    return best
+  }
+
+  function handleDragPointerDown(e, templateId) {
+    e.stopPropagation()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    isDraggingRef.current = true
+    dragIdRef.current     = templateId
+    hoverIdxRef.current   = (baseList ?? []).findIndex(t => t.id === templateId)
+    setDragId(templateId)
+    setHoverIdx(hoverIdxRef.current)
+  }
+
+  function handleDragPointerMove(e) {
+    if (!isDraggingRef.current) return
+    const newHover = getHoverIdx(e.clientY)
+    if (newHover !== hoverIdxRef.current) {
+      hoverIdxRef.current = newHover
+      setHoverIdx(newHover)
+    }
+  }
+
+  function handleDragPointerUp() {
+    if (!isDraggingRef.current) return
+    isDraggingRef.current = false
+    const draggedId = dragIdRef.current
+    const toIdx     = hoverIdxRef.current
+    setDragId(null)
+    setHoverIdx(null)
+    dragIdRef.current   = null
+    hoverIdxRef.current = null
+
+    if (draggedId != null && toIdx != null) {
+      const from = (baseList ?? []).findIndex(t => t.id === draggedId)
+      if (from !== -1 && from !== toIdx) {
+        const next = [...(baseList ?? [])]
+        const [item] = next.splice(from, 1)
+        next.splice(toIdx, 0, item)
+        const newOrder = next.map(t => t.id)
+        setTemplateOrder(newOrder)
+        saveTemplateOrder(newOrder)
+      }
+    }
+  }
+  // ──────────────────────────────────────────────────────────
 
   const lastSessionByTemplate = sessions.reduce((map, s) => {
     if (!s.templateId || !s.finishedAt) return map
@@ -134,34 +255,51 @@ export default function HomeScreen({
           <p className="home-empty-sub">Pick a Quick Start below or tap <strong>+ New</strong> to build your own.</p>
         </div>
       ) : (
-        <ul className="home-list home-list--loaded">
-          {templates.map(t => (
-            <li key={t.id}>
-              <div className="home-card">
-                <div className="home-card-info">
-                  <p className="home-card-name">{t.name}</p>
-                  <p className="home-card-meta">
-                    {t.exercises.length} exercise{t.exercises.length !== 1 ? 's' : ''}
-                    {fmtLastDone(lastSessionByTemplate[t.id]) && (
-                      <span className="home-card-last-done"> · {fmtLastDone(lastSessionByTemplate[t.id])}</span>
-                    )}
-                  </p>
-                </div>
-                <div className="home-card-actions">
-                  <button className="home-edit-btn" onClick={() => onEdit(t)} aria-label="Edit workout">✏️</button>
+        <ul className={`home-list home-list--loaded${dragId ? ' home-list--dragging' : ''}`}>
+          {(displayList ?? []).map(t => {
+            const isDragging = t.id === dragId
+            return (
+              <li key={t.id} ref={el => { if (el) itemElsRef.current[t.id] = el; else delete itemElsRef.current[t.id] }}>
+                <div className={`home-card${isDragging ? ' home-card--dragging' : ''}`}>
                   <button
-                    className={`home-start-btn ${startingTemplateId === t.id ? 'home-start-btn--loading' : ''}`}
-                    onClick={() => onStart(t)}
-                    disabled={!!startingTemplateId || !!startingQuickStart}
+                    className="home-drag-handle"
+                    onPointerDown={e => handleDragPointerDown(e, t.id)}
+                    onPointerMove={handleDragPointerMove}
+                    onPointerUp={handleDragPointerUp}
+                    onClick={e => e.stopPropagation()}
+                    aria-label="Drag to reorder"
                   >
-                    {startingTemplateId === t.id
-                      ? <span className="home-start-spinner" />
-                      : 'Start'}
+                    <DragHandleIcon />
                   </button>
+                  <div className="home-card-info">
+                    <p className="home-card-name">{t.name}</p>
+                    <p className="home-card-meta">
+                      {t.exercises.length} exercise{t.exercises.length !== 1 ? 's' : ''}
+                      {fmtLastDone(lastSessionByTemplate[t.id]) && (
+                        <span className="home-card-last-done"> · {fmtLastDone(lastSessionByTemplate[t.id])}</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="home-card-actions">
+                    <button className="home-edit-btn" onClick={() => onEdit(t)} aria-label="Edit workout">✏️</button>
+                    <button
+                      className={`home-start-btn ${startingTemplateId === t.id ? 'home-start-btn--loading' : ''}`}
+                      onClick={() => onStart(t)}
+                      disabled={!!startingTemplateId || !!startingQuickStart}
+                      aria-label="Start workout"
+                    >
+                      {startingTemplateId === t.id
+                        ? <span className="home-start-spinner" />
+                        : settings.controllerSide === 'left'
+                          ? <ChevronLeftIcon />
+                          : <ChevronRightIcon />
+                      }
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </li>
-          ))}
+              </li>
+            )
+          })}
         </ul>
       )}
 

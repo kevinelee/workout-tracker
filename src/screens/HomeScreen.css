@@ -198,6 +198,37 @@
   flex-shrink: 0;
 }
 
+.home-drag-handle {
+  background: none;
+  border: none;
+  color: var(--text-dim, var(--text));
+  opacity: 0.35;
+  padding: 8px 6px 8px 0;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  touch-action: none;
+  transition: opacity 0.15s;
+
+  &:hover { opacity: 0.65; }
+  &:active { cursor: grabbing; opacity: 0.9; }
+}
+
+.home-card--dragging {
+  opacity: 0.45;
+  border-style: dashed;
+}
+
+.home-list--dragging {
+  user-select: none;
+}
+
+.home-list--dragging li {
+  transition: transform 0.15s ease;
+}
+
 .home-edit-btn {
   background: none;
   border: none;
@@ -223,21 +254,19 @@
   background: var(--accent);
   color: #fff;
   border: none;
-  border-radius: 10px;
-  padding: 10px 18px;
-  font-size: 15px;
-  font-weight: 600;
-  font-family: var(--sans);
-  min-height: 44px;
-  min-width: 62px;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: filter 0.15s;
+  transition: filter 0.15s, transform 0.12s;
 
-  &:hover { filter: brightness(1.1); }
-  &:disabled { opacity: 0.6; cursor: default; filter: none; }
+  &:hover { filter: brightness(1.12); transform: scale(1.05); }
+  &:active { transform: scale(0.93); }
+  &:disabled { opacity: 0.6; cursor: default; filter: none; transform: none; }
 }
 
 .home-start-btn--loading {
@@ -311,6 +340,12 @@
 /* ── Left-hand mode ── */
 .home--left .home-card {
   flex-direction: row-reverse;
+}
+
+/* Keep drag handle visually at the correct end in LH mode */
+.home--left .home-drag-handle {
+  padding: 8px 0 8px 6px;
+  order: 99; /* Push to the far right (which is the "leading" side in row-reverse) */
 }
 
 /* Start is now on the far left — reverse actions order so Start leads */

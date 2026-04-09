@@ -50,7 +50,7 @@ export const defaultExercises = [
   { id: 'straight-arm-pulldown', name: 'Straight Arm Pulldown',  category: 'Pull', muscleGroup: 'Back',       isCustom: false },
 
   // Upper/Mid Back
-  { id: 'deadlift',              name: 'Deadlift',               category: 'Pull', muscleGroup: 'Back',       isCustom: false },
+  { id: 'deadlift',              name: 'Deadlift',               category: 'Legs', muscleGroup: 'Hamstrings', isCustom: false },
   { id: 'barbell-row',           name: 'Bent-Over Row',          category: 'Pull', muscleGroup: 'Back',       isCustom: false },
   { id: 'dumbbell-row',          name: 'Dumbbell Row',           category: 'Pull', muscleGroup: 'Back',       isCustom: false },
   { id: 'seated-row',            name: 'Seated Cable Row',       category: 'Pull', muscleGroup: 'Back',       isCustom: false },

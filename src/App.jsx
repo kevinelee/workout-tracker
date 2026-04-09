@@ -108,6 +108,22 @@ function initLogsFromSession(template, lastSession) {
 
 export { initLogsFromTemplate, initLogsFromSession }
 
+function ChevronRightIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
+      <polyline points="7 4 13 10 7 16" />
+    </svg>
+  )
+}
+
+function ChevronLeftIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
+      <polyline points="13 4 7 10 13 16" />
+    </svg>
+  )
+}
+
 function useNav() {
   const [screen, setScreen] = useState({ name: 'home' })
   const [activeTab, setActiveTab] = useState('home')
@@ -399,6 +415,9 @@ export default function App() {
   const [startingTemplateId, setStartingTemplateId] = useState(null)
   const [startingQuickStart, setStartingQuickStart] = useState(null) // label of quick start being loaded
 
+  // Workout review sheet — shown before starting, lets user preview exercises
+  const [reviewSheet, setReviewSheet] = useState(null)
+
   // Progressive overload pre-session sheet
   // null | { template, loading, headline, suggestions: [{ exerciseId, note }] }
   const [overloadSheet, setOverloadSheet] = useState(null)
@@ -527,7 +546,7 @@ export default function App() {
   }
 
   function handleStartSession(template) {
-    attemptStart(template)
+    setReviewSheet(template)
   }
 
   function handleQuickStartStarter(starter) {
@@ -791,6 +810,7 @@ export default function App() {
             templateName={templateName(screen.session.templateId)}
             onBack={() => goTab('history')}
             onDelete={async () => { setSessions(await getSessions()) }}
+            onSave={async () => { setSessions(await getSessions()) }}
             profile={profile}
           />
         )
@@ -898,6 +918,51 @@ export default function App() {
             </div>
             <button className="sheet-custom-btn" onClick={() => { closeStartSheet(); setTimeout(() => goWizard(), 220) }}>
               Build Custom Workout
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Workout review sheet — preview before starting */}
+      {reviewSheet && (
+        <div className="sheet-backdrop" onClick={() => setReviewSheet(null)}>
+          <div className="sheet review-sheet" onClick={e => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <div className="review-header">
+              <p className="review-title">{reviewSheet.name}</p>
+              <p className="review-meta">
+                {reviewSheet.exercises.length} exercise{reviewSheet.exercises.length !== 1 ? 's' : ''}
+                {' · '}
+                {reviewSheet.exercises.reduce((sum, ex) => sum + (ex.sets?.length ?? 0), 0)} sets
+              </p>
+            </div>
+            <div className="review-exercises">
+              {reviewSheet.exercises.map((ex, i) => {
+                const def = [...defaultExercises, ...getCachedCustomExercises()].find(e => e.id === ex.exerciseId)
+                const sets = ex.sets ?? []
+                const first = sets[0]
+                const setsLabel = sets.length === 0
+                  ? ''
+                  : first?.weight > 0
+                    ? `${sets.length} × ${first.reps} reps @ ${first.weight} ${settings.unit}`
+                    : `${sets.length} × ${first?.reps ?? 0} reps`
+                return (
+                  <div key={i} className="review-exercise">
+                    <p className="review-ex-name">{def?.name ?? ex.exerciseId}</p>
+                    {setsLabel && <p className="review-ex-sets">{setsLabel}</p>}
+                  </div>
+                )
+              })}
+            </div>
+            <button
+              className="review-start-btn"
+              onClick={() => { setReviewSheet(null); attemptStart(reviewSheet) }}
+              disabled={!!startingTemplateId}
+            >
+              {startingTemplateId
+                ? <span className="overload-spinner" />
+                : <>Start Workout {settings.controllerSide === 'left' ? <ChevronLeftIcon /> : <ChevronRightIcon />}</>
+              }
             </button>
           </div>
         </div>
