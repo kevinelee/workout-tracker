@@ -28,7 +28,7 @@ export default function HomeScreen({
   templates, sessions, checkIns, checkedIn, dataLoaded, streak, settings,
   activeSession, startingTemplateId, startingQuickStart,
   onNew, onEdit, onStart, onQuickStart, onCheckIn, onResumeSession,
-  onNewGenerate,
+  onNewGenerate, weeklyInsight, onDismissInsight, onRefreshInsight,
 }) {
   const milestone = streakMilestone(streak)
   const [showNewSheet, setShowNewSheet] = useState(false)
@@ -88,6 +88,29 @@ export default function HomeScreen({
           </div>
           <span className="home-session-banner-cta">Resume →</span>
         </button>
+      )}
+
+      {/* Weekly insight card */}
+      {weeklyInsight && (
+        <div className="home-insight-card">
+          {weeklyInsight.loading ? (
+            <div className="home-insight-loading">
+              <div className="home-insight-spinner" />
+              <span>Analyzing your week…</span>
+            </div>
+          ) : (
+            <>
+              <div className="home-insight-body">
+                <p className="home-insight-label">Weekly recap</p>
+                <p className="home-insight-text">{weeklyInsight.insight}</p>
+              </div>
+              <div className="home-insight-actions">
+                <button className="home-insight-refresh" onClick={onRefreshInsight} aria-label="Refresh">↻</button>
+                <button className="home-insight-dismiss" onClick={onDismissInsight} aria-label="Dismiss">✕</button>
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {templates === null ? (

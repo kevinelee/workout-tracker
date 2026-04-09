@@ -264,6 +264,97 @@ export default function App() {
     goHome()
   }
 
+  // ── Overload suggestions ─────────────────────────────────────────────────
+
+  function getWeekKey() {
+    const now   = new Date()
+    const start = new Date(now.getFullYear(), 0, 1)
+    const week  = Math.ceil(((now - start) / 86400000 + start.getDay() + 1) / 7)
+    return `${now.getFullYear()}-W${week}`
+  }
+
+  async function showOverloadSheet(template) {
+    const allExercises = [...defaultExercises, ...getCachedCustomExercises()]
+
+    // Build recent session history for this template (last 3 completed)
+    const recent = sessions
+      .filter(s => s.templateId === template.id && s.finishedAt)
+      .sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))
+      .slice(0, 3)
+
+    const exercises = template.exercises.map(ex => {
+      const def = allExercises.find(e => e.id === ex.exerciseId)
+      const first = ex.sets?.[0] ?? {}
+      return {
+        exerciseId:   ex.exerciseId,
+        name:         def?.name ?? ex.exerciseId,
+        targetSets:   ex.sets?.length ?? 3,
+        targetReps:   first.reps ?? 8,
+        targetWeight: first.weight ?? 0,
+      }
+    })
+
+    const recentSessions = recent.map(s => ({
+      date: s.finishedAt?.slice(0, 10),
+      logs: (s.logs ?? []).map(l => ({
+        exerciseId: l.exerciseId,
+        sets: l.sets ?? [],
+      })),
+    }))
+
+    setOverloadSheet({ template, loading: true, headline: null, suggestions: [] })
+
+    // Hard timeout — never block the workout more than 4s
+    overloadTimeoutRef.current = setTimeout(() => {
+      setOverloadSheet(null)
+      doStartSession(template)
+    }, 4000)
+
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-overload-suggestions', {
+        body: { template: { name: template.name }, exercises, recentSessions, unit: settings.unit },
+      })
+      clearTimeout(overloadTimeoutRef.current)
+      if (error || !data) throw new Error('empty')
+      setOverloadSheet({ template, loading: false, headline: data.headline, suggestions: data.suggestions ?? [] })
+    } catch {
+      clearTimeout(overloadTimeoutRef.current)
+      setOverloadSheet(null)
+      doStartSession(template)
+    }
+  }
+
+  // ── Weekly insight ───────────────────────────────────────────────────────
+
+  async function generateWeeklyInsight(currentSessions) {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const thisWeek = currentSessions.filter(s => s.finishedAt && new Date(s.finishedAt) >= weekAgo)
+    if (!thisWeek.length) return
+
+    const allExercises = [...defaultExercises, ...getCachedCustomExercises()]
+    const sessionData  = thisWeek.map(s => ({
+      date:         s.finishedAt?.slice(0, 10),
+      templateName: s.template?.name ?? templates?.find(t => t.id === s.templateId)?.name ?? 'Workout',
+      durationMins: s.duration ? Math.round(s.duration / 60) : null,
+      exercises:    (s.logs ?? [])
+        .map(l => allExercises.find(e => e.id === l.exerciseId)?.name)
+        .filter(Boolean),
+    }))
+
+    setWeeklyInsight({ insight: null, loading: true })
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-weekly-insight', {
+        body: { sessions: sessionData, goal: profile?.goal ?? '', unit: settings.unit },
+      })
+      if (error || !data?.insight) throw new Error('empty')
+      const result = { insight: data.insight, week: getWeekKey() }
+      localStorage.setItem('weekly-insight', JSON.stringify(result))
+      setWeeklyInsight({ insight: data.insight, loading: false })
+    } catch {
+      setWeeklyInsight(null)
+    }
+  }
+
 
   const { screen, activeTab, setActiveTab, goHome, goWizard, goBuilder, goSession, goSummary, goSessionDetail, goTab } = useNav()
   const [templates, setTemplates]             = useState(null)
@@ -283,6 +374,21 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', encodeTheme(settings.colorScheme ?? 'default', settings.themeMode ?? 'dark'))
   }, [settings.colorScheme, settings.themeMode])
 
+  // Weekly insight — generate once per calendar week when sessions load
+  useEffect(() => {
+    if (!dataLoaded || weeklyInsightFiredRef.current) return
+    const weekKey = getWeekKey()
+    const cached  = (() => { try { return JSON.parse(localStorage.getItem('weekly-insight') ?? '') } catch { return null } })()
+    if (cached?.week === weekKey) {
+      if (!cached.dismissed) setWeeklyInsight({ insight: cached.insight, loading: false })
+      weeklyInsightFiredRef.current = true
+      return
+    }
+    weeklyInsightFiredRef.current = true
+    generateWeeklyInsight(sessions)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataLoaded])
+
   // Active session — persisted to localStorage so it survives navigation & sleep
   const [activeSession, setActiveSession] = useState(() => getActiveSession())
 
@@ -292,6 +398,16 @@ export default function App() {
   const [pendingStart, setPendingStart]           = useState(null) // template waiting for override confirm
   const [startingTemplateId, setStartingTemplateId] = useState(null)
   const [startingQuickStart, setStartingQuickStart] = useState(null) // label of quick start being loaded
+
+  // Progressive overload pre-session sheet
+  // null | { template, loading, headline, suggestions: [{ exerciseId, note }] }
+  const [overloadSheet, setOverloadSheet] = useState(null)
+  const overloadTimeoutRef = useRef(null)
+
+  // Weekly insight
+  // null | { insight, loading }
+  const [weeklyInsight, setWeeklyInsight] = useState(null)
+  const weeklyInsightFiredRef = useRef(false)
 
 
   // Drag-to-dismiss state
@@ -398,6 +514,13 @@ export default function App() {
     if (activeSession?.sessionId) {
       setPendingStart(template)
       setStartSheetOpen(false)
+      return
+    }
+    // Show overload sheet for templates that have prior session history
+    const hasHistory = !template.isQuickStart && sessions.some(s => s.templateId === template.id && s.finishedAt)
+    if (hasHistory) {
+      closeStartSheet()
+      showOverloadSheet(template)
       return
     }
     doStartSession(template)
@@ -596,6 +719,17 @@ export default function App() {
             onCheckIn={handleCheckIn}
             onResumeSession={() => { goSession(); setActiveTab('session') }}
             onNewGenerate={handleGenerateWorkout}
+            weeklyInsight={weeklyInsight}
+            onDismissInsight={() => {
+              localStorage.setItem('weekly-insight', JSON.stringify({ week: getWeekKey(), insight: weeklyInsight?.insight ?? '', dismissed: true }))
+              setWeeklyInsight(null)
+            }}
+            onRefreshInsight={() => {
+              weeklyInsightFiredRef.current = false
+              localStorage.removeItem('weekly-insight')
+              setWeeklyInsight(null)
+              generateWeeklyInsight(sessions)
+            }}
           />
         )
       case 'wizard':
@@ -765,6 +899,44 @@ export default function App() {
             <button className="sheet-custom-btn" onClick={() => { closeStartSheet(); setTimeout(() => goWizard(), 220) }}>
               Build Custom Workout
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Progressive overload pre-session sheet */}
+      {overloadSheet && (
+        <div className="sheet-backdrop" onClick={() => { clearTimeout(overloadTimeoutRef.current); setOverloadSheet(null); doStartSession(overloadSheet.template) }}>
+          <div className="sheet overload-sheet" onClick={e => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            {overloadSheet.loading ? (
+              <div className="overload-loading">
+                <div className="overload-spinner" />
+                <p className="overload-loading-text">Getting your targets…</p>
+              </div>
+            ) : (
+              <>
+                {overloadSheet.headline && (
+                  <p className="overload-headline">{overloadSheet.headline}</p>
+                )}
+                <div className="overload-list">
+                  {overloadSheet.suggestions.map((s, i) => {
+                    const ex = [...defaultExercises, ...getCachedCustomExercises()].find(e => e.id === s.exerciseId)
+                    return (
+                      <div key={i} className="overload-row">
+                        <p className="overload-ex-name">{ex?.name ?? s.exerciseId}</p>
+                        <p className="overload-ex-note">{s.note}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+                <button
+                  className="overload-start-btn"
+                  onClick={() => { setOverloadSheet(null); doStartSession(overloadSheet.template) }}
+                >
+                  Start Workout →
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
