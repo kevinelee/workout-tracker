@@ -26,6 +26,19 @@
   justify-content: center;
 }
 
+.detail-cancel {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 15px;
+  font-family: var(--sans);
+  padding: 4px 8px;
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
 .detail-title {
   font-size: 18px;
   font-weight: 700;

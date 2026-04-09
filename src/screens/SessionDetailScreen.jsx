@@ -97,7 +97,7 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
     <div className="detail">
       <div className="detail-header">
         {editing
-          ? <button className="detail-back" onClick={cancelEditing}>Cancel</button>
+          ? <button className="detail-cancel" onClick={cancelEditing}>Cancel</button>
           : <button className="detail-back" onClick={onBack}>‹</button>
         }
         <h2 className="detail-title">{templateName}</h2>
