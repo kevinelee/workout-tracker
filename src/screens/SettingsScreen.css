@@ -256,6 +256,70 @@
   &:hover { border-color: var(--accent); color: var(--accent); }
 }
 
+/* Account */
+.settings-account-email {
+  font-size: 13px;
+  color: var(--text);
+  margin: 0 0 10px;
+  opacity: 0.7;
+}
+
+.settings-pw-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-pw-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--text-h);
+  font-size: 15px;
+  font-family: var(--sans);
+  outline: none;
+  transition: border-color 0.15s;
+
+  &:focus { border-color: var(--accent); }
+  &::placeholder { color: var(--text); opacity: 0.4; }
+}
+
+.settings-pw-error {
+  font-size: 13px;
+  color: #f87171;
+  margin: 0;
+}
+
+.settings-pw-success {
+  font-size: 13px;
+  color: #4ade80;
+  margin: 0;
+}
+
+/* Legal links (render as anchor but look like action buttons) */
+.settings-legal-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: var(--text-h);
+}
+
+/* What's new button nudge */
+.settings-whats-new-btn {
+  margin-top: 8px;
+}
+
+/* Version footer */
+.settings-version {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.35;
+  margin: 4px 0 8px;
+}
+
 /* Danger */
 .settings-danger-btn {
   background: none;

@@ -96,6 +96,22 @@
   &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 }
 
+/* Compact row — 3 steppers (e.g. treadmill: distance + min + sec) */
+.set-row--compact {
+  gap: 6px;
+}
+
+.set-row--compact .stepper-btn {
+  padding: 8px 4px;
+  min-width: 32px;
+  font-size: 18px;
+}
+
+.set-row--compact .stepper-value {
+  min-width: 20px;
+  font-size: 14px;
+}
+
 /* Remove button */
 .set-remove-btn {
   background: none;

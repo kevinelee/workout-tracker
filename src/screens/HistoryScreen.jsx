@@ -139,10 +139,6 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
   const progressRef    = useRef(null)
 
   const prList          = buildPRList(finished)
-  const weekStartDay    = profile?.weekStartDay ?? 1
-  const targetDays      = profile?.targetDaysPerWeek ?? 3
-  const weekActivity    = getThisWeekDays(finished, weekStartDay)
-  const monthlyVols     = getMonthlyVolumes(finished)
   const unit            = settings?.unit ?? 'lbs'
 
   useEffect(() => {
@@ -223,40 +219,6 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
           <p className="history-streak-sub">{streak === 0 ? 'Start a session to begin your streak' : 'Keep it going!'}</p>
         </div>
       </div>
-
-      {/* Consistency */}
-      {finished.length > 0 && (
-        <section className="history-section">
-          <h3 className="history-section-title">Consistency</h3>
-          <div className="history-consistency">
-            <div className="history-week-dots">
-              {weekActivity.days.map((day, i) => (
-                <div key={i} className="history-week-day">
-                  <div className={[
-                    'history-week-dot',
-                    day.active    ? 'history-week-dot--active'  : '',
-                    day.isToday   ? 'history-week-dot--today'   : '',
-                    day.isFuture  ? 'history-week-dot--future'  : '',
-                  ].filter(Boolean).join(' ')} />
-                  <span className="history-week-label">{day.label}</span>
-                </div>
-              ))}
-            </div>
-            <div className="history-consistency-meta">
-              <span className={weekActivity.count >= targetDays ? 'history-vol-up' : ''}>
-                {weekActivity.count} / {targetDays} days this week
-                {weekActivity.count >= targetDays ? ' ✓' : ''}
-              </span>
-              {monthlyVols.lastVol > 0 && (
-                <span className={monthlyVols.thisVol >= monthlyVols.lastVol ? 'history-vol-up' : 'history-vol-down'}>
-                  {monthlyVols.thisVol >= monthlyVols.lastVol ? '↑' : '↓'}{' '}
-                  {Math.abs(Math.round((monthlyVols.thisVol - monthlyVols.lastVol) / monthlyVols.lastVol * 100))}% vs last month
-                </span>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Personal Records */}
       {prList.length > 0 && (

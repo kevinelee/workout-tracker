@@ -22,8 +22,10 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
   const [displaySession, setDisplaySession] = useState(session)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDeleting,    setIsDeleting]    = useState(false)
+  const [deleteError,   setDeleteError]   = useState(null)
   const [editing,       setEditing]       = useState(false)
   const [isSaving,      setIsSaving]      = useState(false)
+  const [saveError,     setSaveError]     = useState(null)
   const [editedSession, setEditedSession] = useState(null)
 
   const volume   = sessionVolume(displaySession)
@@ -47,14 +49,14 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
   async function handleSave() {
     if (isSaving) return
     setIsSaving(true)
+    setSaveError(null)
     try {
       await saveSession(editedSession)
-      setDisplaySession(editedSession)
-      setEditing(false)
-      setEditedSession(null)
-      onSave?.()
+      await onSave?.()
+      onBack()
     } catch (err) {
       console.error('Failed to save session edits:', err)
+      setSaveError('Failed to save. Please try again.')
     } finally {
       setIsSaving(false)
     }
@@ -62,12 +64,14 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
 
   async function handleDelete() {
     setIsDeleting(true)
+    setDeleteError(null)
     try {
       await deleteSession(displaySession.id)
       await onDelete?.()
       onBack()
     } catch (err) {
       console.error('Failed to delete session:', err)
+      setDeleteError('Failed to delete. Please try again.')
       setIsDeleting(false)
     }
   }
@@ -121,6 +125,7 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
           <div className="detail-confirm" onClick={e => e.stopPropagation()}>
             <p className="detail-confirm-title">Delete this session?</p>
             <p className="detail-confirm-body">This can't be undone.</p>
+            {deleteError && <p className="detail-confirm-error">{deleteError}</p>}
             <div className="detail-confirm-actions">
               <button className="detail-confirm-cancel" onClick={() => setConfirmDelete(false)} disabled={isDeleting}>Keep</button>
               <button className="detail-confirm-ok" onClick={handleDelete} disabled={isDeleting}>
@@ -132,6 +137,7 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
       )}
 
       <div className="detail-body">
+        {saveError && <p className="detail-save-error">{saveError}</p>}
         <div className="detail-meta-row">
           <span>{fmtDate(active.finishedAt)}</span>
           {editing

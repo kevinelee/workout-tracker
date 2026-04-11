@@ -173,7 +173,7 @@
 
 .sheet {
   width: 100%;
-  background: #1a1c23;
+  background: var(--surface);
   border-top: 1px solid var(--border);
   border-radius: 20px 20px 0 0;
   padding: 12px 20px 32px;
@@ -400,7 +400,7 @@
 
 .overload-loading-text {
   font-size: 15px;
-  color: var(--text-m);
+  color: var(--text-h);
   margin: 0;
 }
 
@@ -430,7 +430,7 @@
 .overload-ex-name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 0 0 3px;

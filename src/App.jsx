@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Component } from 'react'
 import {
   getTemplates, saveTemplate, getCachedTemplates, getSessions, getSettings, saveSettings, getCheckIns, saveCheckIn,
   getLastSessionForTemplate, getPRMap,
@@ -21,10 +21,12 @@ import SessionDetailScreen from './screens/SessionDetailScreen'
 import SettingsScreen from './screens/SettingsScreen'
 import PostWorkoutSummary from './components/PostWorkoutSummary'
 import AuthScreen from './screens/AuthScreen'
+import LandingScreen from './screens/LandingScreen'
 import OnboardingScreen from './screens/OnboardingScreen'
 import ProfileScreen from './screens/ProfileScreen'
 import AdminScreen from './screens/AdminScreen'
 import GeneratePlanWizard from './screens/GeneratePlanWizard'
+import WhatsNewModal, { hasSeenLatest, LATEST_VERSION } from './components/WhatsNewModal'
 import './App.css'
 
 const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -124,6 +126,36 @@ function ChevronLeftIcon() {
   )
 }
 
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+  componentDidCatch(error, info) {
+    console.error('[ErrorBoundary] Render error:', error, info)
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', gap: 16, padding: 24, textAlign: 'center', background: 'var(--bg)' }}>
+          <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-h)', margin: 0 }}>Something went wrong</p>
+          <p style={{ fontSize: 13, color: 'var(--text)', margin: 0, opacity: 0.7 }}>{this.state.error?.message}</p>
+          <button
+            style={{ marginTop: 8, padding: '12px 24px', background: 'var(--accent)', border: 'none', borderRadius: 12, color: '#fff', fontSize: 15, fontWeight: 600, fontFamily: 'var(--sans)', cursor: 'pointer' }}
+            onClick={() => window.location.reload()}
+          >
+            Reload app
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 function useNav() {
   const [screen, setScreen] = useState({ name: 'home' })
   const [activeTab, setActiveTab] = useState('home')
@@ -142,6 +174,7 @@ function useNav() {
 export default function App() {
   const [authUser, setAuthUser]   = useState(null)
   const [authReady, setAuthReady] = useState(false)
+  const [authMode, setAuthMode]   = useState('signin') // passed to AuthScreen after landing
   // Track the user ID we've already bootstrapped so TOKEN_REFRESHED and
   // duplicate INITIAL_SESSION events don't re-run all Supabase queries.
   const bootstrappedUidRef = useRef(null)
@@ -154,6 +187,13 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         bootstrapUser(session.user)
+        // Proactively refresh the token in the background. The auto-refresh
+        // timer doesn't run while the browser tab is suspended (phone sleep,
+        // background), so the access token may be expired by the time the
+        // user tries to write. refreshSession() gets a fresh token without
+        // blocking startup; TOKEN_REFRESHED will fire and the supabase client
+        // will use the new token for all subsequent requests.
+        supabase.auth.refreshSession().catch(() => {})
       } else {
         setAuthReady(true)
       }
@@ -170,7 +210,21 @@ export default function App() {
         setAuthReady(true)
       }
     })
-    return () => subscription.unsubscribe()
+
+    // Re-check auth whenever the tab becomes visible again (catches the case where
+    // the phone/browser went to sleep after the token expired but before the
+    // auto-refresh timer fired).
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible' && bootstrappedUidRef.current) {
+        supabase.auth.refreshSession().catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [])
 
   async function bootstrapUser(user) {
@@ -426,6 +480,15 @@ export default function App() {
   // Weekly insight
   // null | { insight, loading }
   const [weeklyInsight, setWeeklyInsight] = useState(null)
+
+  // What's New modal
+  const [showWhatsNew, setShowWhatsNew] = useState(false)
+
+  // Auto-show What's New once per version after the user is logged in
+  useEffect(() => {
+    if (!authUser) return
+    if (!hasSeenLatest()) setShowWhatsNew(true)
+  }, [authUser])
   const weeklyInsightFiredRef = useRef(false)
 
 
@@ -629,7 +692,18 @@ export default function App() {
       <img src="/avg-logo.png" alt="avg" className="app-loading-logo" />
     </div>
   )
-  if (!authUser) return <AuthScreen onAuth={user => bootstrapUser(user)} />
+  if (!authUser) {
+    const seenLanding = localStorage.getItem('seen-landing')
+    if (!seenLanding) {
+      return (
+        <LandingScreen
+          onGetStarted={() => { localStorage.setItem('seen-landing', '1'); setAuthMode('signup') }}
+          onSignIn={() => { localStorage.setItem('seen-landing', '1'); setAuthMode('signin') }}
+        />
+      )
+    }
+    return <AuthScreen onAuth={user => bootstrapUser(user)} initialMode={authMode} />
+  }
   if (showOnboarding === null) return (
     <div className="app-loading">
       <div className="app-loading-spinner" />
@@ -849,6 +923,8 @@ export default function App() {
             onSignOut={handleSignOut}
             authUser={authUser}
             onRecalibrate={() => setShowOnboarding(true)}
+            onShowWhatsNew={() => setShowWhatsNew(true)}
+            appVersion={LATEST_VERSION}
           />
         )
       case 'admin':
@@ -872,9 +948,11 @@ export default function App() {
       )}
 
       <main className="app-main">
-        <div key={screen.name} className="screen-enter">
-          {renderScreen()}
-        </div>
+        <ErrorBoundary key={screen.name}>
+          <div className="screen-enter">
+            {renderScreen()}
+          </div>
+        </ErrorBoundary>
       </main>
 
       {/* Start sheet — opened by idle ▶ nav tab */}
@@ -1059,6 +1137,10 @@ export default function App() {
             </button>
           ))}
         </nav>
+      )}
+
+      {showWhatsNew && (
+        <WhatsNewModal onClose={() => setShowWhatsNew(false)} />
       )}
     </div>
   )

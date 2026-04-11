@@ -341,3 +341,19 @@
   border-top: 1px solid var(--border);
   margin: 0;
 }
+
+.detail-save-error {
+  font-size: 13px;
+  color: #f87171;
+  margin: 0;
+  padding: 8px 14px;
+  background: #3f1f1f;
+  border: 1px solid #7f2020;
+  border-radius: 10px;
+}
+
+.detail-confirm-error {
+  font-size: 13px;
+  color: #f87171;
+  margin: 0;
+}

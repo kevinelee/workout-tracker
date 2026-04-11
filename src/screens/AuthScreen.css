@@ -125,3 +125,18 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+.auth-legal {
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.5;
+  text-align: center;
+  margin: 12px 0 0;
+  line-height: 1.5;
+}
+
+.auth-legal-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

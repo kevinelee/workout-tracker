@@ -22,6 +22,10 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
   const allEx       = [...defaultExercises, ...getCachedCustomExercises()]
   const findEx      = id => allEx.find(e => e.id === id)
 
+  const [aiSummary, setAiSummary] = useState(null)  // null = loading, '' = error/skip
+  const [aiError,   setAiError]   = useState(false)
+  const [durationSecs, setDurationSecs] = useState(session.duration ?? 0)
+
   const volume        = sessionVolume(session)
   const prsHit        = sessionPRCount(session)
   const prevVolume    = prevSession ? sessionVolume(prevSession) : null
@@ -30,10 +34,6 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
   const completedSets = (session.logs ?? []).reduce((sum, l) => sum + l.sets.filter(s => s.completed).length, 0)
   const totalSets     = (session.logs ?? []).reduce((sum, l) => sum + l.sets.length, 0)
   const isFirstSession = !prevSession
-
-  const [aiSummary, setAiSummary] = useState(null)  // null = loading, '' = error/skip
-  const [aiError,   setAiError]   = useState(false)
-  const [durationSecs, setDurationSecs] = useState(session.duration ?? 0)
   const [showDurationEdit, setShowDurationEdit] = useState(false)
   const [durationEditH, setDurationEditH] = useState(Math.floor((session.duration ?? 0) / 3600))
   const [durationEditM, setDurationEditM] = useState(Math.floor(((session.duration ?? 0) % 3600) / 60))

@@ -61,6 +61,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   const [pendingFinish, setPendingFinish] = useState(null)
   const [pendingQuickStart, setPendingQuickStart] = useState(null)
   const [newWorkoutName, setNewWorkoutName] = useState('')
+  const [modalSaving, setModalSaving] = useState(false)
 
   const [lastSession, setLastSession] = useState(null)
   useEffect(() => {
@@ -313,6 +314,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   }
 
   async function handleSaveAsNewWorkout(session, name) {
+    setModalSaving(true)
     const savedExercises = logs.map(log => {
       const existing = template.exercises.find(e => e.exerciseId === log.exerciseId)
       if (existing) return existing
@@ -323,11 +325,12 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
       })
     })
     const savedTemplate = { ...template, name: name.trim(), isQuickStart: false, exercises: savedExercises }
-    try { await saveTemplate(savedTemplate) } catch (err) { console.error(err) }
+    try { await saveTemplate(savedTemplate) } catch (err) { console.error(err); setModalSaving(false); return }
     onFinish(session, savedTemplate)
   }
 
   async function handleUpdateTemplate(session) {
+    setModalSaving(true)
     const updatedExercises = logs.map(log => {
       const existing = template.exercises.find(e => e.exerciseId === log.exerciseId)
       if (existing) return existing
@@ -338,7 +341,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
       })
     })
     const updatedTemplate = { ...template, exercises: updatedExercises }
-    try { await saveTemplate(updatedTemplate) } catch (err) { console.error(err) }
+    try { await saveTemplate(updatedTemplate) } catch (err) { console.error(err); setModalSaving(false); return }
     onFinish(session, updatedTemplate)
   }
 
@@ -586,15 +589,15 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
               autoFocus
             />
             <div className="session-modal-actions">
-              <button className="session-modal-secondary" onClick={() => onFinish(pendingQuickStart.session, template)}>
+              <button className="session-modal-secondary" disabled={modalSaving} onClick={() => onFinish(pendingQuickStart.session, template)}>
                 Skip
               </button>
               <button
                 className="session-modal-confirm session-modal-confirm--update"
-                disabled={!newWorkoutName.trim()}
+                disabled={!newWorkoutName.trim() || modalSaving}
                 onClick={() => handleSaveAsNewWorkout(pendingQuickStart.session, newWorkoutName)}
               >
-                Save workout
+                {modalSaving ? <span className="session-spinner session-spinner--dark" /> : 'Save workout'}
               </button>
             </div>
           </div>
@@ -616,8 +619,14 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
               {removed.length > 0 && <p className="session-modal-diff session-modal-diff--removed">− {removed.join(', ')}</p>}
               <p className="session-modal-body">Save these changes to your workout template?</p>
               <div className="session-modal-actions">
-                <button className="session-modal-cancel" onClick={() => onFinish(pendingFinish.session, template)}>Keep original</button>
-                <button className="session-modal-confirm session-modal-confirm--update" onClick={() => handleUpdateTemplate(pendingFinish.session)}>Update workout</button>
+                <button className="session-modal-cancel" disabled={modalSaving} onClick={() => onFinish(pendingFinish.session, template)}>Keep original</button>
+                <button
+                  className="session-modal-confirm session-modal-confirm--update"
+                  disabled={modalSaving}
+                  onClick={() => handleUpdateTemplate(pendingFinish.session)}
+                >
+                  {modalSaving ? <span className="session-spinner session-spinner--dark" /> : 'Update workout'}
+                </button>
               </div>
             </div>
           </div>

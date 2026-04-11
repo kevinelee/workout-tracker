@@ -78,7 +78,7 @@ export default function SetRow({ set, index, onChange, onRemove, isCardio, cardi
   }
 
   return (
-    <div className="set-row">
+    <div className={`set-row${isBoth ? ' set-row--compact' : ''}`}>
       <span className="set-index">{index + 1}</span>
 
       {isStretch ? (

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getCachedCustomExercises, deleteCustomExercise, clearAll } from '../storage'
 import { exportJSON, exportCSV } from '../utils/export'
+import { updatePassword, supabase } from '../lib/supabase'
 import FeedbackModal from '../components/FeedbackModal'
 import './SettingsScreen.css'
 
@@ -28,14 +29,22 @@ const MODE_OPTIONS = [
 
 const notifSupported = typeof Notification !== 'undefined'
 
-export default function SettingsScreen({ settings, onSave, sessions, templates, onSignOut, authUser, onRecalibrate }) {
+export default function SettingsScreen({ settings, onSave, sessions, templates, onSignOut, authUser, onRecalibrate, onShowWhatsNew, appVersion }) {
   const [s, setS] = useState(settings)
   const [notifStatus, setNotifStatus] = useState(notifSupported ? Notification.permission : 'unsupported')
   const [customExercises, setCustomExercises] = useState(() => getCachedCustomExercises())
   const [confirmDeleteExercise, setConfirmDeleteExercise] = useState(null)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false)
+  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false)
+  const [deleteAccountError, setDeleteAccountError] = useState(null)
   const [exerciseEditMode, setExerciseEditMode] = useState(false)
   const [feedbackModal, setFeedbackModal] = useState(null) // 'bug' | 'feedback' | null
+  const [pwNew, setPwNew]         = useState('')
+  const [pwConfirm, setPwConfirm] = useState('')
+  const [pwError, setPwError]     = useState(null)
+  const [pwSuccess, setPwSuccess] = useState(false)
+  const [pwLoading, setPwLoading] = useState(false)
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -43,10 +52,41 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
       if (feedbackModal)              { setFeedbackModal(null); return }
       if (confirmDeleteExercise !== null) { setConfirmDeleteExercise(null); return }
       if (confirmSignOut)             { setConfirmSignOut(false); return }
+      if (confirmDeleteAccount)       { setConfirmDeleteAccount(false); return }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [feedbackModal, confirmDeleteExercise, confirmSignOut])
+  }, [feedbackModal, confirmDeleteExercise, confirmSignOut, confirmDeleteAccount])
+
+  async function handleChangePassword(e) {
+    e.preventDefault()
+    setPwError(null)
+    setPwSuccess(false)
+    if (pwNew.length < 6) { setPwError('Password must be at least 6 characters.'); return }
+    if (pwNew !== pwConfirm) { setPwError('Passwords do not match.'); return }
+    setPwLoading(true)
+    const { error } = await updatePassword(pwNew)
+    setPwLoading(false)
+    if (error) { setPwError(error.message); return }
+    setPwSuccess(true)
+    setPwNew('')
+    setPwConfirm('')
+  }
+
+  async function handleDeleteAccount() {
+    setDeleteAccountLoading(true)
+    setDeleteAccountError(null)
+    try {
+      const { error } = await supabase.functions.invoke('delete-account')
+      if (error) throw error
+      // Edge function deleted the auth user; sign out client-side
+      await clearAll()
+      window.location.reload()
+    } catch (err) {
+      setDeleteAccountError(err?.message ?? 'Something went wrong. Please try again.')
+      setDeleteAccountLoading(false)
+    }
+  }
 
   async function handleDeleteExercise(id) {
     await deleteCustomExercise(id)
@@ -211,6 +251,53 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
             💬 Share Feedback
           </button>
         </div>
+        {onShowWhatsNew && (
+          <button className="settings-action-btn settings-whats-new-btn" onClick={onShowWhatsNew}>
+            What's New
+          </button>
+        )}
+      </Section>
+
+      {/* Legal */}
+      <Section title="Legal">
+        <div className="settings-export-row">
+          <a className="settings-action-btn settings-legal-link" href="/privacy" target="_blank" rel="noopener noreferrer">
+            Privacy Policy
+          </a>
+          <a className="settings-action-btn settings-legal-link" href="/terms" target="_blank" rel="noopener noreferrer">
+            Terms of Service
+          </a>
+        </div>
+      </Section>
+
+      {/* Account */}
+      <Section title="Account">
+        <p className="settings-account-email">{authUser?.email}</p>
+        <form className="settings-pw-form" onSubmit={handleChangePassword}>
+          <input
+            className="settings-pw-input"
+            type="password"
+            autoComplete="new-password"
+            placeholder="New password"
+            minLength={6}
+            value={pwNew}
+            onChange={e => { setPwNew(e.target.value); setPwSuccess(false); setPwError(null) }}
+          />
+          <input
+            className="settings-pw-input"
+            type="password"
+            autoComplete="new-password"
+            placeholder="Confirm new password"
+            minLength={6}
+            value={pwConfirm}
+            onChange={e => { setPwConfirm(e.target.value); setPwSuccess(false); setPwError(null) }}
+          />
+          {pwError   && <p className="settings-pw-error">{pwError}</p>}
+          {pwSuccess && <p className="settings-pw-success">Password updated.</p>}
+          <button className="settings-action-btn" type="submit" disabled={pwLoading || !pwNew || !pwConfirm}>
+            {pwLoading ? 'Updating…' : 'Change password'}
+          </button>
+        </form>
       </Section>
 
       {/* Danger zone */}
@@ -220,11 +307,47 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
         </button>
         <button
           className="settings-danger-btn"
-          onClick={() => { if (window.confirm('Delete ALL data? This cannot be undone.')) { clearAll().then(() => window.location.reload()) } }}
+          onClick={() => { if (window.confirm('Delete ALL local data? This cannot be undone.')) { clearAll().then(() => window.location.reload()) } }}
         >
-          Delete all data
+          Clear local data
+        </button>
+        <button
+          className="settings-danger-btn"
+          onClick={() => setConfirmDeleteAccount(true)}
+        >
+          Delete account
         </button>
       </Section>
+
+      {/* Delete account confirm */}
+      {confirmDeleteAccount && (
+        <div className="sheet-backdrop" onClick={() => !deleteAccountLoading && setConfirmDeleteAccount(false)}>
+          <div className="sheet sheet--confirm" onClick={e => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <p className="sheet-title">Delete account?</p>
+            <p className="sheet-confirm-body">
+              This permanently deletes your account and all your data — workouts, history, settings, everything. This cannot be undone.
+            </p>
+            {deleteAccountError && <p className="settings-pw-error" style={{ padding: '0 4px' }}>{deleteAccountError}</p>}
+            <div className="sheet-confirm-actions">
+              <button
+                className="sheet-confirm-cancel"
+                onClick={() => setConfirmDeleteAccount(false)}
+                disabled={deleteAccountLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className="sheet-confirm-ok"
+                onClick={handleDeleteAccount}
+                disabled={deleteAccountLoading}
+              >
+                {deleteAccountLoading ? 'Deleting…' : 'Delete account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sign-out confirm */}
       {confirmSignOut && (
@@ -248,6 +371,10 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
           defaultType={feedbackModal}
           onClose={() => setFeedbackModal(null)}
         />
+      )}
+
+      {appVersion && (
+        <p className="settings-version">{appVersion}</p>
       )}
     </div>
   )

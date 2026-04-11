@@ -275,22 +275,54 @@ export async function getSessions() {
         session_sets (*)
       )
     `)
+    .eq('user_id', _uid)
     .eq('status', 'finished')
     .order('finished_at', { ascending: false })
   return (data ?? []).map(dbSessionToApp)
 }
 
+async function saveSessionViaEdgeFunction(session) {
+  const { data: { session: authSession } } = await supabase.auth.getSession()
+  const token = authSession?.access_token
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/save-session`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ session }),
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `save-session edge function failed: ${res.status}`)
+  }
+}
+
 export async function saveSession(session) {
-  // 1. Update session row — use update() not upsert() to avoid overwriting user_id
-  const { error: sessionErr } = await supabase.from('sessions').update({
+  // 1. Update session row — use update() not upsert() to avoid overwriting user_id.
+  //    Add .select('id') so we can detect if 0 rows matched (orphaned session).
+  const { data: updated, error: sessionErr } = await supabase.from('sessions').update({
     template_id:      session.templateId ?? null,
     started_at:       session.startedAt,
     finished_at:      session.finishedAt ?? null,
     duration_seconds: session.duration ?? null,
     status:           session.finishedAt ? 'finished' : 'active',
     pr_map:           session.prMap ?? {},
-  }).eq('id', session.id).eq('user_id', _uid)
+  }).eq('id', session.id).eq('user_id', _uid).select('id')
+
   if (sessionErr) console.error('[saveSession] update session:', sessionErr)
+
+  // If 0 rows were updated the session is likely orphaned (null user_id).
+  // Fall back to the edge function which uses the service role to claim + update it.
+  if (!sessionErr && (!updated || updated.length === 0)) {
+    await saveSessionViaEdgeFunction(session)
+    return
+  }
 
   if (!session.logs?.length) return
 
@@ -335,35 +367,20 @@ export async function deleteSession(id) {
     await supabase.from('session_logs').delete().eq('session_id', id)
   }
 
-  const { error } = await supabase.from('sessions').delete().eq('id', id)
-  if (!error) return
+  const { data: deleted, error } = await supabase
+    .from('sessions').delete().eq('id', id).select('id')
 
-  // RLS rejection (42501) — session may have null/mismatched user_id from a
-  // corrupted quick-start. Fall back to edge function which uses service role.
-  if (error.code === '42501') {
-    const { data: { session: authSession } } = await supabase.auth.getSession()
-    const token = authSession?.access_token
-    if (!token) throw error
-
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-session`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ session_id: id }),
-      }
-    )
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.error ?? `delete-session edge function failed: ${res.status}`)
-    }
-    return
+  if (error) throw error
+  // If 0 rows were deleted the session either doesn't exist or RLS blocked it.
+  // Treat as success only if the select above already confirmed no logs existed
+  // (i.e. the session was already gone). If logs existed but sessions returned
+  // 0 rows, the delete was blocked — surface it as an error.
+  if (deleted?.length === 0) {
+    // Re-check: if no session row exists at all, it was already gone — OK.
+    const { count } = await supabase
+      .from('sessions').select('id', { count: 'exact', head: true }).eq('id', id)
+    if (count && count > 0) throw new Error('Could not delete session — permission denied')
   }
-
-  throw error
 }
 
 export async function updateSessionDuration(id, durationSeconds) {
