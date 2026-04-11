@@ -235,19 +235,22 @@
 /* ── Entries list ────────────────────────────────────────────── */
 
 .wc-entries {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow-y: auto;
+  max-height: 200px;
 }
 
 .wc-entry {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 14px;
+  padding: 9px 14px;
+}
+
+.wc-entry--sep {
+  border-bottom: 1px solid var(--border);
 }
 
 .wc-entry-date {
@@ -262,6 +265,12 @@
   color: var(--text-h);
 }
 
+.wc-entry-unit {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+}
+
 .wc-entry-delete {
   background: none;
   border: none;
@@ -271,8 +280,9 @@
   padding: 4px 6px;
   border-radius: 6px;
   transition: color 0.15s, background 0.15s;
-  opacity: 0.5;
+  opacity: 0.4;
+  flex-shrink: 0;
 
   &:hover { color: #f87171; background: rgba(248, 113, 113, 0.1); opacity: 1; }
-  &:disabled { opacity: 0.3; cursor: default; }
+  &:disabled { opacity: 0.2; cursor: default; }
 }
