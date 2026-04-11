@@ -35,6 +35,10 @@ function topExerciseNames(session, n = 3) {
   return sorted.slice(0, n).map(l => l.name)
 }
 
+function findExercise(id) {
+  return defaultExercises.find(e => e.id === id) ?? getCachedCustomExercises().find(e => e.id === id) ?? null
+}
+
 function buildPRList(sessions) {
   const prMap = {}
   const ordered = [...sessions]
@@ -42,6 +46,9 @@ function buildPRList(sessions) {
     .sort((a, b) => new Date(a.finishedAt) - new Date(b.finishedAt))
   for (const session of ordered) {
     for (const log of session.logs ?? []) {
+      const ex = findExercise(log.exerciseId)
+      // Skip cardio and stretch — their weight field stores distance/time, not lbs
+      if (!ex || ex.category === 'Cardio' || ex.category === 'Stretch') continue
       for (const set of log.sets) {
         if (!set.completed || !set.weight || set.weight <= 0) continue
         const prev = prMap[log.exerciseId]

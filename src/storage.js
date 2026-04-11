@@ -639,6 +639,7 @@ export async function saveFeedback(type, message, userEmail) {
     user_email: userEmail ?? null,
     type,
     message,
+    status:   'new',
     metadata: { userAgent: navigator.userAgent },
   })
 }
