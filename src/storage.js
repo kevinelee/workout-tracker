@@ -181,6 +181,8 @@ export async function deleteCustomExercise(id) {
 // ── Workout Templates ────────────────────────────────────────
 
 const TEMPLATES_CACHE_KEY = uid => `wt:templates:${uid}`
+const SETTINGS_CACHE_KEY  = uid => `wt:settings:${uid}`
+const SESSIONS_CACHE_KEY  = uid => `wt:sessions:${uid}`
 
 export function getCachedTemplates(uid) {
   try {
@@ -191,6 +193,29 @@ export function getCachedTemplates(uid) {
 
 function writeCachedTemplates(templates) {
   try { localStorage.setItem(TEMPLATES_CACHE_KEY(_uid), JSON.stringify(templates)) } catch {}
+}
+
+export function getCachedSettings(uid) {
+  try {
+    const raw = localStorage.getItem(SETTINGS_CACHE_KEY(uid))
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function writeCachedSettings(settings) {
+  try { localStorage.setItem(SETTINGS_CACHE_KEY(_uid), JSON.stringify(settings)) } catch {}
+}
+
+export function getCachedSessions(uid) {
+  try {
+    const raw = localStorage.getItem(SESSIONS_CACHE_KEY(uid))
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function writeCachedSessions(sessions) {
+  // Cap at 50 most recent to avoid localStorage bloat
+  try { localStorage.setItem(SESSIONS_CACHE_KEY(_uid), JSON.stringify(sessions.slice(0, 50))) } catch {}
 }
 
 export async function getTemplates() {
@@ -278,7 +303,9 @@ export async function getSessions() {
     .eq('user_id', _uid)
     .eq('status', 'finished')
     .order('finished_at', { ascending: false })
-  return (data ?? []).map(dbSessionToApp)
+  const sessions = (data ?? []).map(dbSessionToApp)
+  writeCachedSessions(sessions)
+  return sessions
 }
 
 async function saveSessionViaEdgeFunction(session) {
@@ -407,7 +434,9 @@ export async function getSettings() {
     .select('*')
     .eq('user_id', _uid)
     .single()
-  return dbSettingsToApp(data)
+  const settings = dbSettingsToApp(data)
+  writeCachedSettings(settings)
+  return settings
 }
 
 export async function saveSettings(settings) {
@@ -749,6 +778,8 @@ export function clearUserCache() {
   localStorage.removeItem(ACTIVE_KEY)
   if (_uid) {
     localStorage.removeItem(TEMPLATES_CACHE_KEY(_uid))
+    localStorage.removeItem(SETTINGS_CACHE_KEY(_uid))
+    localStorage.removeItem(SESSIONS_CACHE_KEY(_uid))
     localStorage.removeItem(`wt:template-order:${_uid}`)
   }
   _uid = null

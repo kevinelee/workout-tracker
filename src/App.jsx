@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, Component } from 'react'
 import {
-  getTemplates, saveTemplate, getCachedTemplates, getSessions, getSettings, saveSettings, getCheckIns, saveCheckIn,
+  getTemplates, saveTemplate, getCachedTemplates, getSessions, getCachedSessions, getSettings, getCachedSettings, saveSettings, getCheckIns, saveCheckIn,
   getLastSessionForTemplate, getPRMap,
   getActiveSession, saveActiveSession, clearActiveSession, abandonSession,
   deleteSession, setStorageUser, clearUserCache, getCustomExercises, getCachedCustomExercises, hasCheckedInToday,
@@ -236,6 +236,10 @@ export default function App() {
     // Seed from localStorage cache so the UI is populated before any network round-trip.
     const cachedTemplates = getCachedTemplates(user.id)
     if (cachedTemplates) setTemplates(cachedTemplates)
+    const cachedSessions = getCachedSessions(user.id)
+    if (cachedSessions) setSessions(cachedSessions)
+    const cachedSettings = getCachedSettings(user.id)
+    if (cachedSettings) setSettings(cachedSettings)
 
     // Show the app shell immediately — don't block on data queries.
     // Screens render with empty defaults while data loads in the background.
@@ -250,7 +254,10 @@ export default function App() {
     getSessions().then(setSessions).catch(console.error)
     getSettings().then(setSettings).catch(console.error)
     getCustomExercises().catch(console.error)
-    getProfile().then(p => { setProfile(p); setShowOnboarding(!p?.onboardingComplete) }).catch(console.error)
+    // Only show onboarding for brand-new users (no profile row at all).
+    // Existing users whose profiles predate the onboardingComplete field
+    // would otherwise be wrongly sent back through the questionnaire.
+    getProfile().then(p => { setProfile(p); setShowOnboarding(p === null) }).catch(console.error)
     getBodyWeightLogs().then(setBodyWeightLogs).catch(console.error)
     if (isAdminUser) getNewFeedbackCount().then(setFeedbackCount).catch(console.error)
 
