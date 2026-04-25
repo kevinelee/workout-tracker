@@ -2,16 +2,36 @@ import { useState } from 'react'
 import { signIn, signUp, resetPassword } from '../lib/supabase'
 import './AuthScreen.css'
 
+const ACCESS_CODE_KEY = 'wt:access'
+const REQUIRED_CODE   = import.meta.env.VITE_ACCESS_CODE
+
+function isAccessGranted() {
+  if (!REQUIRED_CODE) return true
+  return localStorage.getItem(ACCESS_CODE_KEY) === REQUIRED_CODE
+}
+
 export default function AuthScreen({ onAuth, initialMode = 'signin' }) {
-  const [mode, setMode]         = useState(initialMode) // 'signin' | 'signup' | 'forgot' | 'confirm' | 'resetSent'
+  const [mode, setMode]         = useState(isAccessGranted() ? initialMode : 'access')
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
+  const [accessCode, setAccessCode] = useState('')
   const [error, setError]       = useState(null)
   const [loading, setLoading]   = useState(false)
 
   function switchMode(next) {
     setMode(next)
     setError(null)
+  }
+
+  function handleAccessSubmit(e) {
+    e.preventDefault()
+    if (accessCode.trim() === REQUIRED_CODE) {
+      localStorage.setItem(ACCESS_CODE_KEY, REQUIRED_CODE)
+      setError(null)
+      setMode('signin')
+    } else {
+      setError('Invalid access code')
+    }
   }
 
   async function handleSubmit(e) {
@@ -41,8 +61,40 @@ export default function AuthScreen({ onAuth, initialMode = 'signin' }) {
     if (data?.session) {
       onAuth(data.session.user)
     } else if (mode === 'signup') {
-      setMode('confirm')
+      if (data?.user && data.user.identities?.length === 0) {
+        setError('An account with this email already exists. Try signing in instead.')
+      } else {
+        setMode('confirm')
+      }
     }
+  }
+
+  if (mode === 'access') {
+    return (
+      <div className="auth">
+        <div className="auth-card">
+          <img src="/session.png" alt="session" className="auth-logo" />
+          <p className="auth-sub">Enter your access code to continue</p>
+          <form className="auth-form" onSubmit={handleAccessSubmit}>
+            <label className="auth-label">
+              Access code
+              <input
+                className="auth-input"
+                type="password"
+                autoComplete="off"
+                required
+                value={accessCode}
+                onChange={e => setAccessCode(e.target.value)}
+                placeholder="••••••••"
+                autoFocus
+              />
+            </label>
+            {error && <p className="auth-error">{error}</p>}
+            <button className="auth-submit" type="submit">Continue</button>
+          </form>
+        </div>
+      </div>
+    )
   }
 
   if (mode === 'confirm') {
