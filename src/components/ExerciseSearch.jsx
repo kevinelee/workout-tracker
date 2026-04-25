@@ -9,8 +9,9 @@ function buildLibrary() {
   return [...defaultExercises, ...getCachedCustomExercises()]
 }
 
-function filterExercises(library, query, activeMuscle) {
+function filterExercises(library, query, activeMuscle, excludeIds = []) {
   let result = library
+  if (excludeIds.length) result = result.filter(ex => !excludeIds.includes(ex.id))
   if (activeMuscle) {
     const filter = MUSCLE_FILTERS.find(f => f.label === activeMuscle)
     if (filter) result = result.filter(ex => filter.groups.includes(ex.muscleGroup))
@@ -91,7 +92,7 @@ function CreateExerciseForm({ name: initialName, onSave, onCancel }) {
 }
 
 // --- Main Component ---
-export default function ExerciseSearch({ onSelect, placeholder = 'Search exercises…' }) {
+export default function ExerciseSearch({ onSelect, placeholder = 'Search exercises…', excludeIds = [] }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -100,7 +101,7 @@ export default function ExerciseSearch({ onSelect, placeholder = 'Search exercis
   const inputRef = useRef(null)
   const containerRef = useRef(null)
 
-  const filtered = filterExercises(library, query, activeMuscle)
+  const filtered = filterExercises(library, query, activeMuscle, excludeIds)
   const grouped = groupByCategory(filtered)
   const hasResults = filtered.length > 0
   const exactMatch = library.some(ex => ex.name.toLowerCase() === query.toLowerCase().trim())

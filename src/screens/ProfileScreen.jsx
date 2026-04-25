@@ -75,6 +75,21 @@ export default function ProfileScreen({ profile, sessions, checkIns, settings, a
   const [weekStartDay,      setWeekStartDay]      = useState(profile?.weekStartDay ?? 1)
   const [targetDaysPerWeek, setTargetDaysPerWeek] = useState(profile?.targetDaysPerWeek ?? 3)
 
+  // Re-derive height/weight display values when unit system changes
+  useEffect(() => {
+    const ftIn = cmToFtIn(profile?.heightCm)
+    setHeightFt(ftIn.ft)
+    setHeightIn(ftIn.in)
+    setHeightCm(profile?.heightCm != null ? String(Math.round(profile.heightCm)) : '')
+    setWeight(
+      profile?.weightKg != null
+        ? isImperial
+          ? String(Math.round(profile.weightKg * KG_TO_LBS))
+          : String(+(profile.weightKg.toFixed(1)))
+        : ''
+    )
+  }, [isImperial]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Sync when profile loads for the first time (async bootstrap)
   useEffect(() => {
     if (!profile) return

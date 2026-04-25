@@ -35,7 +35,7 @@
   opacity: 0.9;
 }
 
-[data-theme="light"] .app-loading-logo {
+:is([data-theme="light"], [data-theme="pink-light"], [data-theme="blue-light"]) .app-loading-logo {
   filter: none;
 }
 
@@ -73,7 +73,7 @@
   opacity: 0.9;
 }
 
-[data-theme="light"] .app-logo-img {
+:is([data-theme="light"], [data-theme="pink-light"], [data-theme="blue-light"]) .app-logo-img {
   filter: none;
 }
 

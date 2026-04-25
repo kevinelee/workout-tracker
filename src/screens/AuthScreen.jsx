@@ -49,7 +49,7 @@ export default function AuthScreen({ onAuth, initialMode = 'signin' }) {
     return (
       <div className="auth">
         <div className="auth-card">
-          <img src="/avg-logo.png" alt="avg" className="auth-logo" />
+          <img src="/session.png" alt="session" className="auth-logo" />
           <h1 className="auth-title">Check your email</h1>
           <p className="auth-sub">We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account, then come back to sign in.</p>
           <button className="auth-link" onClick={() => switchMode('signin')}>Back to sign in</button>
@@ -62,7 +62,7 @@ export default function AuthScreen({ onAuth, initialMode = 'signin' }) {
     return (
       <div className="auth">
         <div className="auth-card">
-          <img src="/avg-logo.png" alt="avg" className="auth-logo" />
+          <img src="/session.png" alt="session" className="auth-logo" />
           <h1 className="auth-title">Check your email</h1>
           <p className="auth-sub">We sent a password reset link to <strong>{email}</strong>. Follow the link to choose a new password.</p>
           <button className="auth-link" onClick={() => switchMode('signin')}>Back to sign in</button>
@@ -74,8 +74,8 @@ export default function AuthScreen({ onAuth, initialMode = 'signin' }) {
   return (
     <div className="auth">
       <div className="auth-card">
-        <img src="/avg-logo.png" alt="avg" className="auth-logo" />
-        <h1 className="auth-title">Workout Tracker</h1>
+        <img src="/session.png" alt="session" className="auth-logo" />
+        <h1 className="auth-title">session</h1>
         <p className="auth-sub">
           {mode === 'signin'  ? 'Sign in to your account'  :
            mode === 'signup'  ? 'Create a free account'    :

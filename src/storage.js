@@ -39,6 +39,7 @@ function dbTemplateToApp(t) {
     id:         t.id,
     name:       t.name,
     createdAt:  t.created_at,
+    programId:  t.program_id ?? null,
     exercises,
   }
 }
@@ -85,6 +86,7 @@ function dbProfileToApp(p) {
     targetDaysPerWeek:     p.target_days_per_week != null ? Number(p.target_days_per_week) : 3,
     onboardingComplete:    p.onboarding_complete  ?? false,
     fitnessProfileSummary: p.fitness_profile_summary ?? null,
+    isPro:                 p.is_pro ?? true,
   }
 }
 
@@ -102,6 +104,7 @@ function defaultProfile() {
     targetDaysPerWeek:     3,
     onboardingComplete:    false,
     fitnessProfileSummary: null,
+    isPro:                 true,
   }
 }
 
@@ -235,36 +238,38 @@ export async function getTemplates() {
 }
 
 export async function saveTemplate(template) {
-  // 1. Upsert the template row
-  await supabase.from('workout_templates').upsert({
-    id:      template.id,
-    user_id: _uid,
-    name:    template.name,
+  const { error: upsertErr } = await supabase.from('workout_templates').upsert({
+    id:         template.id,
+    user_id:    _uid,
+    name:       template.name,
+    program_id: template.programId ?? null,
   })
+  if (upsertErr) throw upsertErr
 
-  // 2. Replace all exercises: delete existing, then re-insert
   await supabase.from('template_exercises').delete().eq('template_id', template.id)
 
   for (let i = 0; i < template.exercises.length; i++) {
     const ex = template.exercises[i]
     const teId = nanoid()
 
-    await supabase.from('template_exercises').insert({
+    const { error: teErr } = await supabase.from('template_exercises').insert({
       id:          teId,
       template_id: template.id,
       exercise_id: ex.exerciseId,
       position:    i,
       notes:       ex.notes ?? '',
     })
+    if (teErr) throw teErr
 
     for (let j = 0; j < ex.sets.length; j++) {
-      await supabase.from('template_sets').insert({
+      const { error: tsErr } = await supabase.from('template_sets').insert({
         id:                   nanoid(),
         template_exercise_id: teId,
         position:             j,
         reps:                 ex.sets[j].reps,
         weight:               ex.sets[j].weight,
       })
+      if (tsErr) throw tsErr
     }
   }
 }
@@ -287,6 +292,73 @@ export function saveTemplateOrder(ids) {
   try { localStorage.setItem(`wt:template-order:${_uid}`, JSON.stringify(ids)) } catch {}
 }
 
+// ── Programs ──────────────────────────────────────────────────
+
+function dbProgramToApp(p) {
+  if (!p) return null
+  return { id: p.id, name: p.name, isActive: p.is_active, createdAt: p.created_at }
+}
+
+export async function getPrograms() {
+  const { data } = await supabase
+    .from('programs')
+    .select('*')
+    .eq('user_id', _uid)
+    .order('created_at', { ascending: true })
+  return (data ?? []).map(dbProgramToApp)
+}
+
+export async function createProgram(name) {
+  const { data, error } = await supabase
+    .from('programs')
+    .insert({ id: crypto.randomUUID(), user_id: _uid, name, is_active: false })
+    .select()
+    .single()
+  if (error) throw error
+  return dbProgramToApp(data)
+}
+
+export async function renameProgram(id, name) {
+  await supabase.from('programs').update({ name }).eq('id', id).eq('user_id', _uid)
+}
+
+export async function deleteProgram(id) {
+  const { error } = await supabase.from('programs').delete().eq('id', id).eq('user_id', _uid)
+  if (error) throw error
+}
+
+export async function setActiveProgram(id) {
+  await supabase.from('programs').update({ is_active: false }).eq('user_id', _uid)
+  await supabase.from('programs').update({ is_active: true }).eq('id', id).eq('user_id', _uid)
+}
+
+export async function reassignProgramTemplates(fromProgramId, toProgramId) {
+  await supabase
+    .from('workout_templates')
+    .update({ program_id: toProgramId })
+    .eq('user_id', _uid)
+    .eq('program_id', fromProgramId)
+}
+
+export async function ensureDefaultProgram() {
+  const { data: existing } = await supabase
+    .from('programs').select('id').eq('user_id', _uid).limit(1)
+  if (existing && existing.length > 0) return null
+
+  const { data: program, error } = await supabase
+    .from('programs')
+    .insert({ id: crypto.randomUUID(), user_id: _uid, name: 'My Workouts', is_active: true })
+    .select().single()
+  if (error || !program) return null
+
+  await supabase
+    .from('workout_templates')
+    .update({ program_id: program.id })
+    .eq('user_id', _uid)
+    .is('program_id', null)
+
+  return dbProgramToApp(program)
+}
 
 // ── Sessions ─────────────────────────────────────────────────
 

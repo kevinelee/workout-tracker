@@ -144,6 +144,7 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
   const [progressExerciseId, setProgressExerciseId] = useState(null)
   const touchStartRef  = useRef(null)
   const progressRef    = useRef(null)
+  const prListRef      = useRef(null)
 
   const prList          = buildPRList(finished)
   const unit            = settings?.unit ?? 'lbs'
@@ -158,6 +159,11 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
 
   function handlePRTap(exerciseId) {
     setProgressExerciseId(exerciseId)
+  }
+
+  function handleBackToPRs() {
+    setProgressExerciseId(null)
+    setTimeout(() => prListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
 
   function templateName(id) {
@@ -229,7 +235,7 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
 
       {/* Personal Records */}
       {prList.length > 0 && (
-        <section className="history-section">
+        <section className="history-section" ref={prListRef}>
           <h3 className="history-section-title">Personal Records</h3>
           <ul className="history-pr-list">
             {(showAllPRs ? prList : prList.slice(0, 5)).map(pr => (
@@ -291,7 +297,14 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
 
       {/* Exercise progress */}
       <section className="history-section" ref={progressRef}>
-        <h3 className="history-section-title">Exercise Progress</h3>
+        <div className="history-section-title-row">
+          <h3 className="history-section-title">Exercise Progress</h3>
+          {progressExerciseId && (
+            <button className="history-back-to-prs" onClick={handleBackToPRs}>
+              ← PRs
+            </button>
+          )}
+        </div>
         <ExerciseProgressChart
           key={progressExerciseId ?? 'default'}
           sessions={finished}

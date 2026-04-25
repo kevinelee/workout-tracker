@@ -1,0 +1,1266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="The workout tracker built for people who take their training seriously. Log sets in seconds, track PRs automatically, and get AI-powered coaching." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <title>session — train smarter, get stronger</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:             #16171d;
+      --surface:        #1f2028;
+      --surface-2:      #272931;
+      --border:         #2e303a;
+      --text:           #9ca3af;
+      --text-h:         #f3f4f6;
+      --accent:         #c084fc;
+      --accent-dim:     rgba(192, 132, 252, 0.12);
+      --accent-border:  rgba(192, 132, 252, 0.35);
+      --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    html {
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      scroll-behavior: smooth;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    img { display: block; max-width: 100%; }
+    button { font-family: var(--sans); cursor: pointer; border: none; }
+
+    /* ─── Nav ─── */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 48px;
+      height: 64px;
+      background: rgba(22, 23, 29, 0.88);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      height: 26px;
+      width: auto;
+      filter: invert(1);
+      opacity: 0.85;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-link {
+      background: none;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .nav-link:hover { color: var(--text-h); background: var(--surface); }
+
+    .nav-cta {
+      background: var(--accent);
+      color: #0a0a0f;
+      border-radius: 10px;
+      padding: 9px 20px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.1px;
+      transition: filter 0.15s, transform 0.1s;
+    }
+    .nav-cta:hover { filter: brightness(1.12); transform: translateY(-1px); }
+    .nav-cta:active { transform: translateY(0); }
+
+    /* ─── Hero ─── */
+    .hero {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 112px 48px 96px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
+      border-radius: 100px;
+      padding: 7px 16px;
+      font-size: 13px;
+      color: var(--accent);
+      font-weight: 600;
+      letter-spacing: 0.1px;
+      margin-bottom: 36px;
+    }
+
+    .hero-badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .hero-title {
+      font-size: clamp(52px, 7.5vw, 88px);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -3px;
+      color: var(--text-h);
+      margin-bottom: 24px;
+      max-width: 800px;
+    }
+
+    .hero-title .accent { color: var(--accent); }
+
+    .hero-sub {
+      font-size: clamp(16px, 1.8vw, 20px);
+      color: var(--text);
+      line-height: 1.65;
+      max-width: 500px;
+      margin-bottom: 44px;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0a0a0f;
+      border-radius: 14px;
+      padding: 16px 32px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      transition: filter 0.15s, transform 0.1s, box-shadow 0.15s;
+    }
+    .btn-primary:hover {
+      filter: brightness(1.1);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(192, 132, 252, 0.28);
+    }
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-h);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    }
+    .btn-ghost:hover {
+      border-color: rgba(255,255,255,0.2);
+      background: var(--surface);
+      transform: translateY(-1px);
+    }
+
+    /* ─── Highlights strip ─── */
+    .highlights {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 48px 96px;
+    }
+
+    .highlights-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .highlight-card {
+      background: var(--surface);
+      padding: 36px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .highlight-num {
+      font-size: 44px;
+      font-weight: 800;
+      letter-spacing: -2px;
+      color: var(--text-h);
+      line-height: 1;
+    }
+
+    .highlight-num .accent { color: var(--accent); }
+
+    .highlight-label {
+      font-size: 15px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    /* ─── Features ─── */
+    .features {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 96px 48px;
+      border-top: 1px solid var(--border);
+    }
+
+    .section-eyebrow {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 18px;
+    }
+
+    .section-title {
+      font-size: clamp(34px, 4vw, 52px);
+      font-weight: 800;
+      color: var(--text-h);
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      margin-bottom: 18px;
+    }
+
+    .section-sub {
+      font-size: 18px;
+      color: var(--text);
+      line-height: 1.65;
+      max-width: 520px;
+      margin-bottom: 64px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      background: var(--border);
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .feature-card {
+      background: var(--bg);
+      padding: 40px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: background 0.2s;
+    }
+
+    .feature-card:hover { background: var(--surface); }
+
+    .feature-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .feature-icon svg {
+      width: 22px;
+      height: 22px;
+      color: var(--accent);
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .feature-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-h);
+      letter-spacing: -0.3px;
+    }
+
+    .feature-desc {
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    /* ─── Pricing ─── */
+    .pricing {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 96px 48px;
+      border-top: 1px solid var(--border);
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 720px;
+    }
+
+    .pricing-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 40px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .pricing-card--pro {
+      border-color: var(--accent-border);
+      background: linear-gradient(160deg, rgba(192, 132, 252, 0.07) 0%, var(--surface) 60%);
+      box-shadow: 0 0 0 1px var(--accent-border), 0 8px 32px rgba(192, 132, 252, 0.1);
+    }
+
+    .pricing-plan {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+
+    .pricing-amount {
+      font-size: 52px;
+      font-weight: 800;
+      color: var(--text-h);
+      letter-spacing: -2px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .pricing-amount span {
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--text);
+      letter-spacing: 0;
+    }
+
+    .pricing-period {
+      font-size: 13px;
+      color: var(--text);
+      opacity: 0.6;
+      margin-bottom: 32px;
+    }
+
+    .pricing-divider {
+      height: 1px;
+      background: var(--border);
+      margin-bottom: 28px;
+    }
+
+    .pricing-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 36px;
+      flex: 1;
+    }
+
+    .pricing-features li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .pricing-features li::before {
+      content: '';
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
+      flex-shrink: 0;
+      margin-top: 1px;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 8l3 3 5-5' stroke='%23c084fc' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-size: 14px;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    .pricing-cta {
+      width: 100%;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 680px) {
+      .pricing { padding: 64px 24px; }
+      .pricing-grid { grid-template-columns: 1fr; max-width: 100%; }
+    }
+
+    /* ─── How it works ─── */
+    .how {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 96px 48px;
+      border-top: 1px solid var(--border);
+    }
+
+    .how-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 56px;
+      position: relative;
+    }
+
+    .how-connector {
+      position: absolute;
+      top: 20px;
+      left: calc(33.33% - 4px);
+      right: calc(33.33% - 4px);
+      height: 1px;
+      background: linear-gradient(90deg, var(--accent-border), var(--border), var(--accent-border));
+    }
+
+    .how-step { display: flex; flex-direction: column; gap: 16px; }
+
+    .how-step-num {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--accent);
+      position: relative;
+      z-index: 1;
+    }
+
+    .how-step-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-h);
+      letter-spacing: -0.3px;
+    }
+
+    .how-step-desc {
+      font-size: 15px;
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    /* ─── Final CTA ─── */
+    .cta-wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 48px 112px;
+    }
+
+    .cta-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      padding: 96px 64px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-box::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% -10%, rgba(192, 132, 252, 0.18) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .cta-title {
+      font-size: clamp(38px, 5vw, 60px);
+      font-weight: 800;
+      color: var(--text-h);
+      line-height: 1.08;
+      letter-spacing: -2px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .cta-sub {
+      font-size: 18px;
+      color: var(--text);
+      line-height: 1.65;
+      max-width: 440px;
+      margin: 0 auto 44px;
+      position: relative;
+    }
+
+    .cta-actions {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      position: relative;
+    }
+
+    /* ─── Footer ─── */
+    .footer {
+      border-top: 1px solid var(--border);
+      padding: 36px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .footer-logo {
+      height: 22px;
+      width: auto;
+      filter: invert(1);
+      opacity: 0.4;
+    }
+
+    .footer-copy {
+      font-size: 13px;
+      color: var(--text);
+      opacity: 0.55;
+    }
+
+    .kofi-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 7px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .kofi-btn:hover { color: var(--text-h); border-color: rgba(255,255,255,0.2); background: var(--surface); }
+
+    /* ─── Auth Modal ─── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+      transform: translateY(16px);
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .modal-overlay.open .modal-card {
+      transform: translateY(0);
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-size: 18px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s;
+    }
+    .modal-close:hover { background: var(--border); color: var(--text-h); }
+
+    .modal-logo {
+      height: 28px;
+      width: auto;
+      filter: invert(1);
+      opacity: 0.85;
+      margin-bottom: 28px;
+    }
+
+    .modal-tabs {
+      display: flex;
+      gap: 2px;
+      background: var(--surface-2);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 28px;
+    }
+
+    .modal-tab {
+      flex: 1;
+      background: none;
+      color: var(--text);
+      border-radius: 9px;
+      padding: 9px;
+      font-size: 14px;
+      font-weight: 600;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .modal-tab.active {
+      background: var(--surface);
+      color: var(--text-h);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+
+    .modal-field {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-bottom: 14px;
+    }
+
+    .modal-field label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-h);
+    }
+
+    .modal-input {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-family: var(--sans);
+      color: var(--text-h);
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+    .modal-input::placeholder { color: var(--text); opacity: 0.5; }
+    .modal-input:focus { border-color: var(--accent); }
+
+    .modal-error {
+      font-size: 13px;
+      color: #f87171;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid rgba(248, 113, 113, 0.25);
+      border-radius: 8px;
+    }
+
+    .modal-submit {
+      width: 100%;
+      background: var(--accent);
+      color: #0a0a0f;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      margin-top: 8px;
+      transition: filter 0.15s, opacity 0.15s;
+    }
+    .modal-submit:hover { filter: brightness(1.1); }
+    .modal-submit:disabled { opacity: 0.6; cursor: default; filter: none; }
+
+    .modal-footer {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .modal-footer-link {
+      background: none;
+      color: var(--text);
+      font-size: 13px;
+      padding: 4px;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+    .modal-footer-link:hover { opacity: 1; }
+
+    .modal-confirm {
+      text-align: center;
+      padding: 8px 0;
+    }
+
+    .modal-confirm-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+    }
+
+    .modal-confirm-icon svg {
+      width: 24px;
+      height: 24px;
+      color: var(--accent);
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .modal-confirm h3 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-h);
+      letter-spacing: -0.3px;
+      margin-bottom: 10px;
+    }
+
+    .modal-confirm p {
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .modal-confirm p strong {
+      color: var(--text-h);
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 900px) {
+      .highlights-grid,
+      .features-grid { grid-template-columns: 1fr; }
+      .how-steps { grid-template-columns: 1fr; gap: 36px; }
+      .how-connector { display: none; }
+    }
+
+    @media (max-width: 680px) {
+      .nav { padding: 0 20px; }
+      .nav-link { display: none; }
+      .hero { padding: 72px 24px 64px; }
+      .hero-title { letter-spacing: -1.5px; }
+      .highlights { padding: 0 24px 64px; }
+      .features { padding: 64px 24px; }
+      .how { padding: 64px 24px; }
+      .cta-wrap { padding: 0 24px 80px; }
+      .cta-box { padding: 56px 28px; }
+      .footer { padding: 32px 24px; flex-direction: column; gap: 10px; text-align: center; }
+      .footer-copy { order: 3; }
+      .modal-card { padding: 28px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="nav">
+    <img src="/session.png" alt="session" class="nav-logo" />
+    <div class="nav-right">
+      <a class="nav-link" href="#pricing">Pricing</a>
+      <a class="nav-link" href="https://ko-fi.com/bingebonge" target="_blank" rel="noopener noreferrer">☕ Ko-fi</a>
+      <button class="nav-link" onclick="openModal('signin')">Sign in</button>
+      <button class="nav-cta" onclick="openModal('signup')">Get started</button>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      Free to start — Pro for serious training
+    </div>
+    <h1 class="hero-title">
+      Train smarter.<br /><span class="accent">Get stronger.</span>
+    </h1>
+    <p class="hero-sub">
+      The workout tracker built for people who take their training seriously.
+      Log sets in seconds, track PRs automatically, and get AI-powered coaching.
+    </p>
+    <div class="hero-actions">
+      <button class="btn-primary" onclick="openModal('signup')">Start for free</button>
+      <button class="btn-ghost" onclick="openModal('signin')">Sign in →</button>
+    </div>
+  </section>
+
+  <!-- Highlights strip -->
+  <div class="highlights">
+    <div class="highlights-grid">
+      <div class="highlight-card">
+        <div class="highlight-num">109<span class="accent">+</span></div>
+        <div class="highlight-label">Exercises built in — every major lift covered from day one</div>
+      </div>
+      <div class="highlight-card">
+        <div class="highlight-num"><span class="accent">∞</span></div>
+        <div class="highlight-label">Workouts logged on the free plan — full history & AI coaching with Pro</div>
+      </div>
+      <div class="highlight-card">
+        <div class="highlight-num">&lt;60<span class="accent">s</span></div>
+        <div class="highlight-label">From sign-up to your first AI-generated training plan</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <section class="features">
+    <p class="section-eyebrow">Features</p>
+    <h2 class="section-title">Everything you need.<br />Nothing you don't.</h2>
+    <p class="section-sub">
+      Built by lifters, for lifters. Every feature is designed to get out of your way
+      so you can focus on what actually matters — the workout.
+    </p>
+
+    <div class="features-grid">
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24">
+            <rect x="5" y="4" width="14" height="17" rx="2"/>
+            <path d="M9 4a1 1 0 011-1h4a1 1 0 011 1v1H9V4z"/>
+            <polyline points="9 12 11 14 15 10"/>
+            <line x1="9" y1="17" x2="14" y2="17"/>
+          </svg>
+        </div>
+        <p class="feature-name">Log in seconds</p>
+        <p class="feature-desc">Tap to complete sets, auto-fill weights from your last session, and built-in rest timers. Zero friction between you and the bar.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M7 3h10v8a5 5 0 01-10 0V3z"/>
+            <path d="M7 6H4a2 2 0 000 4h3"/>
+            <path d="M17 6h3a2 2 0 010 4h-3"/>
+            <line x1="12" y1="16" x2="12" y2="19"/>
+            <line x1="8" y1="19" x2="16" y2="19"/>
+          </svg>
+        </div>
+        <p class="feature-name">Automatic PRs</p>
+        <p class="feature-desc">Personal records tracked as you log — weight, reps, and volume. Watch your all-time bests climb without any manual entry.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2l1.8 5.4L19.2 9l-5.4 1.8L12 16.2l-1.8-5.4L4.8 9l5.4-1.8L12 2z"/>
+            <path d="M19 14l.9 2.7 2.7.9-2.7.9L19 21l-.9-2.7L15.4 17.6l2.7-.9L19 14z"/>
+          </svg>
+        </div>
+        <p class="feature-name">AI-generated plans</p>
+        <p class="feature-desc">Answer two questions and get a full training split tailored to your goals, schedule, and experience level — ready to start immediately.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24">
+            <polyline points="3 18 8 12 13 15 21 6"/>
+            <line x1="3" y1="21" x2="21" y2="21"/>
+            <line x1="3" y1="3" x2="3" y2="21"/>
+          </svg>
+        </div>
+        <p class="feature-name">Deep analytics</p>
+        <p class="feature-desc">Volume charts, exercise progress graphs, and a full workout heatmap so you always know whether you're trending up — or stagnating.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24">
+            <line x1="8" y1="12" x2="16" y2="12"/>
+            <rect x="4" y="8.5" width="4" height="7" rx="1.5"/>
+            <rect x="16" y="8.5" width="4" height="7" rx="1.5"/>
+          </svg>
+        </div>
+        <p class="feature-name">Muscle tracking</p>
+        <p class="feature-desc">Body-mapped muscle volume shows which groups you've been hitting — and which you've been skipping. Keep your training balanced.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2c0 4.5-5 7-5 11a5 5 0 0010 0c0-4-5-6.5-5-11z"/>
+            <path d="M12 12c0 2.5-2 3.5-2 5a2 2 0 004 0c0-1.5-2-2.5-2-5z"/>
+          </svg>
+        </div>
+        <p class="feature-name">Streaks & goals</p>
+        <p class="feature-desc">Set a weekly training target, build streaks, and get AI-powered weekly recaps to stay consistent and keep the momentum going.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="pricing" id="pricing">
+    <p class="section-eyebrow">Pricing</p>
+    <h2 class="section-title">Simple, honest pricing.</h2>
+    <p class="section-sub">Start free. Upgrade when you're ready for more.</p>
+
+    <div class="pricing-grid">
+
+      <div class="pricing-card">
+        <p class="pricing-plan">Free</p>
+        <p class="pricing-amount">$0</p>
+        <p class="pricing-period">forever</p>
+        <div class="pricing-divider"></div>
+        <ul class="pricing-features">
+          <li>Unlimited workout logging</li>
+          <li>Automatic PR tracking</li>
+          <li>1 active training program</li>
+          <li>90 days of history</li>
+          <li>Rest timers &amp; auto-fill</li>
+        </ul>
+        <button class="btn-ghost pricing-cta" onclick="openModal('signup')">Start for free</button>
+      </div>
+
+      <div class="pricing-card pricing-card--pro">
+        <p class="pricing-plan">Pro</p>
+        <p class="pricing-amount">$7 <span>/mo</span></p>
+        <p class="pricing-period">billed monthly</p>
+        <div class="pricing-divider"></div>
+        <ul class="pricing-features">
+          <li>Everything in Free</li>
+          <li>Unlimited programs</li>
+          <li>Full training history</li>
+          <li>AI weekly coaching recaps</li>
+          <li>Adaptive programming</li>
+          <li>Data export (CSV)</li>
+        </ul>
+        <button class="btn-primary pricing-cta" onclick="openModal('signup')">Get started</button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="how">
+    <p class="section-eyebrow">How it works</p>
+    <h2 class="section-title" style="margin-bottom: 56px">
+      From zero to training<br />in under a minute.
+    </h2>
+
+    <div class="how-steps">
+      <div class="how-connector"></div>
+
+      <div class="how-step">
+        <div class="how-step-num">1</div>
+        <p class="how-step-title">Create your plan</p>
+        <p class="how-step-desc">
+          Answer a quick question about your goals and schedule.
+          The AI builds you a personalized training split instantly,
+          or you can build your own from scratch.
+        </p>
+      </div>
+
+      <div class="how-step">
+        <div class="how-step-num">2</div>
+        <p class="how-step-title">Log your workouts</p>
+        <p class="how-step-desc">
+          Open the app, start your session, and tap through your sets.
+          Weights auto-fill from last time and rest timers run automatically —
+          it stays out of your way.
+        </p>
+      </div>
+
+      <div class="how-step">
+        <div class="how-step-num">3</div>
+        <p class="how-step-title">Watch yourself improve</p>
+        <p class="how-step-desc">
+          After every session, see your PRs, volume trends, and AI coaching.
+          Weekly insights tell you exactly where to push harder and where to back off.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <div class="cta-wrap">
+    <div class="cta-box">
+      <h2 class="cta-title">Ready to train smarter?</h2>
+      <p class="cta-sub">
+        Start free. Upgrade to Pro when you're ready to go deeper.
+      </p>
+      <div class="cta-actions">
+        <button class="btn-primary" onclick="openModal('signup')">Start for free</button>
+        <button class="btn-ghost" onclick="openModal('signin')">Sign in →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <img src="/session.png" alt="session" class="footer-logo" />
+    <a href="https://ko-fi.com/bingebonge" target="_blank" rel="noopener noreferrer" class="kofi-btn">☕ Support on Ko-fi</a>
+    <p class="footer-copy">© 2026 session. Built for serious training.</p>
+  </footer>
+
+  <!-- Auth Modal -->
+  <div id="modal" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-card" id="modal-card">
+      <button class="modal-close" onclick="closeModal()" aria-label="Close">✕</button>
+      <img src="/session.png" alt="session" class="modal-logo" />
+
+      <!-- sign in / sign up tabs -->
+      <div id="modal-auth">
+        <div class="modal-tabs">
+          <button class="modal-tab" id="tab-signup" onclick="switchTab('signup')">Sign up</button>
+          <button class="modal-tab" id="tab-signin" onclick="switchTab('signin')">Sign in</button>
+        </div>
+
+        <form id="auth-form" onsubmit="handleAuth(event)">
+          <div class="modal-field">
+            <label for="auth-email">Email</label>
+            <input id="auth-email" class="modal-input" type="email" autocomplete="email" required placeholder="you@example.com" />
+          </div>
+          <div class="modal-field" id="password-field">
+            <label for="auth-password">Password</label>
+            <input id="auth-password" class="modal-input" type="password" autocomplete="current-password" required minlength="6" placeholder="••••••••" />
+          </div>
+          <p id="auth-error" class="modal-error" style="display:none"></p>
+          <button id="auth-submit" class="modal-submit" type="submit">Create account</button>
+        </form>
+
+        <div class="modal-footer">
+          <button class="modal-footer-link" id="forgot-btn" onclick="switchTab('forgot')">Forgot password?</button>
+        </div>
+      </div>
+
+      <!-- forgot password -->
+      <div id="modal-forgot" style="display:none">
+        <p style="font-size:20px;font-weight:700;color:var(--text-h);letter-spacing:-0.3px;margin-bottom:8px">Reset password</p>
+        <p style="font-size:14px;color:var(--text);line-height:1.6;margin-bottom:24px">Enter your email and we'll send you a link to reset your password.</p>
+        <form id="forgot-form" onsubmit="handleForgot(event)">
+          <div class="modal-field">
+            <label for="forgot-email">Email</label>
+            <input id="forgot-email" class="modal-input" type="email" autocomplete="email" required placeholder="you@example.com" />
+          </div>
+          <p id="forgot-error" class="modal-error" style="display:none"></p>
+          <button id="forgot-submit" class="modal-submit" type="submit">Send reset link</button>
+        </form>
+        <div class="modal-footer">
+          <button class="modal-footer-link" onclick="switchTab('signin')">Back to sign in</button>
+        </div>
+      </div>
+
+      <!-- email confirmation -->
+      <div id="modal-confirm" style="display:none">
+        <div class="modal-confirm">
+          <div class="modal-confirm-icon">
+            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <h3>Check your email</h3>
+          <p>We sent a confirmation link to <strong id="confirm-email"></strong>.<br />Click it to activate your account, then sign in.</p>
+          <button class="modal-submit" onclick="switchTab('signin')">Sign in</button>
+        </div>
+      </div>
+
+      <!-- reset sent -->
+      <div id="modal-reset-sent" style="display:none">
+        <div class="modal-confirm">
+          <div class="modal-confirm-icon">
+            <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </div>
+          <h3>Email sent</h3>
+          <p>Check your inbox for a link to reset your password.</p>
+          <button class="modal-submit" onclick="switchTab('signin')">Back to sign in</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+
+    const supabase = createClient('%VITE_SUPABASE_URL%', '%VITE_SUPABASE_ANON_KEY%')
+
+    let currentTab = 'signup'
+
+    window.openModal = function(tab) {
+      switchTab(tab)
+      document.getElementById('modal').classList.add('open')
+      document.body.style.overflow = 'hidden'
+      setTimeout(() => document.getElementById('auth-email')?.focus(), 50)
+    }
+
+    window.closeModal = function() {
+      document.getElementById('modal').classList.remove('open')
+      document.body.style.overflow = ''
+    }
+
+    window.switchTab = function(tab) {
+      currentTab = tab
+      const authDiv    = document.getElementById('modal-auth')
+      const forgotDiv  = document.getElementById('modal-forgot')
+      const confirmDiv = document.getElementById('modal-confirm')
+      const resetDiv   = document.getElementById('modal-reset-sent')
+
+      authDiv.style.display    = 'none'
+      forgotDiv.style.display  = 'none'
+      confirmDiv.style.display = 'none'
+      resetDiv.style.display   = 'none'
+
+      if (tab === 'forgot') {
+        forgotDiv.style.display = 'block'
+        setTimeout(() => document.getElementById('forgot-email')?.focus(), 50)
+        return
+      }
+      if (tab === 'confirm') {
+        confirmDiv.style.display = 'block'
+        return
+      }
+      if (tab === 'reset-sent') {
+        resetDiv.style.display = 'block'
+        return
+      }
+
+      authDiv.style.display = 'block'
+      document.getElementById('tab-signup').classList.toggle('active', tab === 'signup')
+      document.getElementById('tab-signin').classList.toggle('active', tab === 'signin')
+      document.getElementById('auth-submit').textContent = tab === 'signup' ? 'Create account' : 'Sign in'
+      document.getElementById('forgot-btn').style.display = tab === 'signin' ? 'inline-block' : 'none'
+
+      const pwInput = document.getElementById('auth-password')
+      pwInput.autocomplete = tab === 'signup' ? 'new-password' : 'current-password'
+
+      clearError()
+    }
+
+    function clearError() {
+      const el = document.getElementById('auth-error')
+      el.style.display = 'none'
+      el.textContent = ''
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('auth-error')
+      el.textContent = msg
+      el.style.display = 'block'
+    }
+
+    window.handleAuth = async function(e) {
+      e.preventDefault()
+      clearError()
+
+      const email    = document.getElementById('auth-email').value.trim()
+      const password = document.getElementById('auth-password').value
+      const submit   = document.getElementById('auth-submit')
+
+      submit.disabled = true
+      submit.textContent = 'Please wait…'
+
+      if (currentTab === 'signup') {
+        const { data, error } = await supabase.auth.signUp({ email, password })
+        submit.disabled = false
+        submit.textContent = 'Create account'
+        if (error) { showError(error.message); return }
+        if (data?.session) {
+          window.location.href = '/'
+        } else {
+          document.getElementById('confirm-email').textContent = email
+          switchTab('confirm')
+        }
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+        submit.disabled = false
+        submit.textContent = 'Sign in'
+        if (error) { showError(error.message); return }
+        if (data?.session) window.location.href = '/'
+      }
+    }
+
+    window.handleForgot = async function(e) {
+      e.preventDefault()
+      const email  = document.getElementById('forgot-email').value.trim()
+      const submit = document.getElementById('forgot-submit')
+      const errEl  = document.getElementById('forgot-error')
+
+      errEl.style.display = 'none'
+      submit.disabled = true
+      submit.textContent = 'Sending…'
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/?reset=1`,
+      })
+
+      submit.disabled = false
+      submit.textContent = 'Send reset link'
+
+      if (error) {
+        errEl.textContent = error.message
+        errEl.style.display = 'block'
+        return
+      }
+      switchTab('reset-sent')
+    }
+
+    // Close on backdrop click
+    document.getElementById('modal').addEventListener('click', e => {
+      if (e.target === document.getElementById('modal')) closeModal()
+    })
+
+    // Close on Escape
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal()
+    })
+
+    // If already signed in, redirect straight to the app (?preview skips this for local dev)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session && !new URLSearchParams(location.search).has('preview')) window.location.href = '/'
+    })
+  </script>
+</body>
+</html>

@@ -80,7 +80,7 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
   }, [])
 
   function handleShare() {
-    const text = `Just finished ${template.name}! 💪 ${fmtVolume(volume)} ${unit} volume${prsHit > 0 ? ` · ${prsHit} new PR${prsHit > 1 ? 's' : ''}` : ''} — tracked with avg`
+    const text = `Just finished ${template.name}! 💪 ${fmtVolume(volume)} ${unit} volume${prsHit > 0 ? ` · ${prsHit} new PR${prsHit > 1 ? 's' : ''}` : ''} — tracked with session`
     if (navigator.share) {
       navigator.share({ title: 'Workout Complete', text }).catch(() => {})
     } else {

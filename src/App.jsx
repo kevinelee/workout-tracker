@@ -6,6 +6,7 @@ import {
   deleteSession, setStorageUser, clearUserCache, getCustomExercises, getCachedCustomExercises, hasCheckedInToday,
   getProfile, saveProfile, getBodyWeightLogs, saveBodyWeightLog, deleteBodyWeightLog,
   getNewFeedbackCount, encodeTheme,
+  getPrograms, createProgram, renameProgram, deleteProgram, setActiveProgram, reassignProgramTemplates, ensureDefaultProgram,
 } from './storage'
 import { supabase, signOut } from './lib/supabase'
 import { createSession } from './data/models'
@@ -27,6 +28,7 @@ import ProfileScreen from './screens/ProfileScreen'
 import AdminScreen from './screens/AdminScreen'
 import GeneratePlanWizard from './screens/GeneratePlanWizard'
 import WhatsNewModal, { hasSeenLatest, LATEST_VERSION } from './components/WhatsNewModal'
+import { ProGateProvider } from './lib/proGate'
 import './App.css'
 
 const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -254,6 +256,16 @@ export default function App() {
     getSessions().then(setSessions).catch(console.error)
     getSettings().then(setSettings).catch(console.error)
     getCustomExercises().catch(console.error)
+    getPrograms().then(async progs => {
+      if (progs.length === 0) {
+        const created = await ensureDefaultProgram()
+        if (created) {
+          progs = [created]
+          getTemplates().then(setTemplates).catch(console.error)
+        }
+      }
+      setPrograms(progs)
+    }).catch(console.error)
     // Only show onboarding for brand-new users (no profile row at all).
     // Existing users whose profiles predate the onboardingComplete field
     // would otherwise be wrongly sent back through the questionnaire.
@@ -271,6 +283,7 @@ export default function App() {
     await signOut()
     clearUserCache()
     setTemplates(null)
+    setPrograms(null)
     setSessions([])
     setSettings({ unit: 'lbs', colorScheme: 'default', themeMode: 'dark', controllerSide: 'right', restTimerDuration: 90, checkInEnabled: true })
     setCheckIns([])
@@ -299,6 +312,8 @@ export default function App() {
       getTemplates().then(setTemplates).catch(console.error)
     }
     setShowOnboarding(false)
+    // Assign any newly created templates to the active program
+    getPrograms().then(setPrograms).catch(console.error)
   }
 
   const exerciseLibraryForAPI = defaultExercises.map(e => ({
@@ -332,8 +347,9 @@ export default function App() {
   }
 
   async function handleGeneratePlanComplete(templates) {
+    const activeProgramId = programs?.find(p => p.isActive)?.id ?? programs?.[0]?.id ?? null
     for (const t of templates) {
-      await saveTemplate(t)
+      await saveTemplate({ ...t, programId: activeProgramId })
     }
     setShowGeneratePlan(false)
     const updated = await getTemplates()
@@ -435,6 +451,7 @@ export default function App() {
 
   const { screen, activeTab, setActiveTab, goHome, goWizard, goBuilder, goSession, goSummary, goSessionDetail, goTab } = useNav()
   const [templates, setTemplates]             = useState(null)
+  const [programs, setPrograms]               = useState(null) // null = loading
   const [sessions, setSessions]               = useState([])
   const [settings, setSettings]               = useState({ unit: 'lbs', colorScheme: 'default', themeMode: 'dark', controllerSide: 'right', restTimerDuration: 90, checkInEnabled: true })
   const [checkIns, setCheckIns]               = useState([])
@@ -688,6 +705,37 @@ export default function App() {
     setSettings(updated)
   }
 
+  async function handleSwitchProgram(id) {
+    await setActiveProgram(id)
+    setPrograms(prev => prev?.map(p => ({ ...p, isActive: p.id === id })) ?? prev)
+  }
+
+  async function handleCreateProgram(name) {
+    const created = await createProgram(name)
+    setPrograms(prev => [...(prev ?? []), created])
+    return created
+  }
+
+  async function handleRenameProgram(id, name) {
+    await renameProgram(id, name)
+    setPrograms(prev => prev?.map(p => p.id === id ? { ...p, name } : p) ?? prev)
+  }
+
+  async function handleDeleteProgram(id) {
+    if ((programs?.length ?? 0) <= 1) return
+    const target = programs.find(p => p.id !== id)
+    await reassignProgramTemplates(id, target.id)
+    await deleteProgram(id)
+    const wasActive = programs.find(p => p.id === id)?.isActive
+    let updated = programs.filter(p => p.id !== id)
+    if (wasActive && updated.length > 0) {
+      await setActiveProgram(updated[0].id)
+      updated = updated.map((p, i) => ({ ...p, isActive: i === 0 }))
+    }
+    setPrograms(updated)
+    getTemplates().then(setTemplates).catch(console.error)
+  }
+
   function templateName(id) {
     return templates?.find(t => t.id === id)?.name ?? 'Workout'
   }
@@ -696,7 +744,7 @@ export default function App() {
   if (!authReady) return (
     <div className="app-loading">
       <div className="app-loading-spinner" />
-      <img src="/avg-logo.png" alt="avg" className="app-loading-logo" />
+      <img src="/session.png" alt="session" className="app-loading-logo" />
     </div>
   )
   if (!authUser) {
@@ -714,7 +762,7 @@ export default function App() {
   if (showOnboarding === null) return (
     <div className="app-loading">
       <div className="app-loading-spinner" />
-      <img src="/avg-logo.png" alt="avg" className="app-loading-logo" />
+      <img src="/session.png" alt="session" className="app-loading-logo" />
     </div>
   )
   if (showOnboarding) return <OnboardingScreen onComplete={handleOnboardingComplete} unit={settings.unit} />
@@ -727,6 +775,7 @@ export default function App() {
   )
 
   const isAdmin = authUser?.id === import.meta.env.VITE_ADMIN_UID
+  const activeProgram = programs?.find(p => p.isActive) ?? programs?.[0] ?? null
 
   const fullscreen = ['wizard', 'builder', 'session', 'summary', 'sessionDetail'].includes(screen.name)
 
@@ -802,7 +851,13 @@ export default function App() {
       case 'home':
         return (
           <HomeScreen
-            templates={templates === null ? null : templates.filter(t => !t.isQuickStart)}
+            templates={templates === null ? null : templates.filter(t => !t.isQuickStart && (!activeProgram || t.programId === activeProgram.id))}
+            programs={programs}
+            activeProgram={activeProgram}
+            onSwitchProgram={handleSwitchProgram}
+            onCreateProgram={handleCreateProgram}
+            onRenameProgram={handleRenameProgram}
+            onDeleteProgram={handleDeleteProgram}
             sessions={sessions}
             checkIns={checkIns}
             checkedIn={checkedIn}
@@ -818,6 +873,7 @@ export default function App() {
             startingQuickStart={startingQuickStart}
             onCheckIn={handleCheckIn}
             onResumeSession={() => { goSession(); setActiveTab('session') }}
+            onAbandon={handleSessionAbandon}
             onNewGenerate={handleGenerateWorkout}
             weeklyInsight={weeklyInsight}
             onDismissInsight={() => {
@@ -848,6 +904,7 @@ export default function App() {
             onBack={goHome}
             onDelete={handleDeleteTemplate}
             unit={settings.unit}
+            programId={activeProgram?.id ?? null}
           />
         )
       case 'session':
@@ -867,7 +924,7 @@ export default function App() {
             session={screen.session}
             template={screen.template}
             prevSession={screen.prevSession}
-            onDone={goHome}
+            onDone={() => { getSessions().then(all => setSessions(all)).catch(() => {}); goHome() }}
             profile={profile}
             settings={settings}
           />
@@ -942,6 +999,7 @@ export default function App() {
   }
 
   return (
+    <ProGateProvider isPro={profile?.isPro ?? true}>
     <div className="app">
       {!fullscreen && (
         <header className="app-header">
@@ -949,7 +1007,7 @@ export default function App() {
             ? <span className="app-streak-badge" key={streak}>🔥 {streak}</span>
             : <span className="app-header-spacer" />
           }
-          <img src="/avg-logo.png" alt="avg" className="app-logo-img" />
+          <img src="/session.png" alt="session" className="app-logo-img" />
           <span className="app-header-spacer" />
         </header>
       )}
@@ -1150,5 +1208,6 @@ export default function App() {
         <WhatsNewModal onClose={() => setShowWhatsNew(false)} />
       )}
     </div>
+    </ProGateProvider>
   )
 }

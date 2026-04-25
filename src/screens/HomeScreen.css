@@ -17,6 +17,224 @@
   color: var(--text-h);
 }
 
+/* Program switcher button in header */
+.home-program-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  cursor: pointer;
+  color: var(--text-h);
+}
+
+.home-program-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.home-program-btn svg {
+  color: var(--text);
+  margin-top: 2px;
+}
+
+/* Program manager sheet */
+.home-program-sheet {
+  max-height: 80dvh;
+  overflow-y: auto;
+}
+
+.home-program-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.home-program-item {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.home-program-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 13px 4px;
+  cursor: pointer;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+}
+
+.home-program-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.home-program-radio--active {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.home-program-row-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-h);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-program-item:has(.home-program-radio--active) .home-program-row-name {
+  font-weight: 600;
+}
+
+/* Row wrapper for name + actions */
+.home-program-item:not(:has(.home-program-delete-confirm)):not(:has(.home-program-edit-row)) {
+  display: flex;
+  align-items: center;
+}
+
+.home-program-row-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.home-program-action-btn {
+  background: none;
+  border: none;
+  padding: 8px;
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover { background: var(--surface-2); color: var(--text-h); }
+}
+
+.home-program-action-btn--danger:hover {
+  color: #f87171;
+}
+
+/* Delete confirmation inline */
+.home-program-delete-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px;
+}
+
+.home-program-delete-msg {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.home-program-delete-cancel,
+.home-program-delete-ok {
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--sans);
+  cursor: pointer;
+}
+
+.home-program-delete-cancel {
+  background: var(--surface-2);
+  color: var(--text-h);
+}
+
+.home-program-delete-ok {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.25);
+}
+
+/* Inline edit/new input row */
+.home-program-edit-row,
+.home-program-new-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.home-program-input {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-family: var(--sans);
+  color: var(--text-h);
+  outline: none;
+}
+
+.home-program-edit-save {
+  background: var(--accent);
+  color: #0a0a0f;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:disabled { opacity: 0.5; cursor: default; }
+}
+
+.home-program-edit-cancel {
+  background: var(--surface-2);
+  color: var(--text);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: var(--sans);
+  cursor: pointer;
+}
+
+/* New Program button */
+.home-program-new-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 13px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--sans);
+  color: var(--text);
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: border-color 0.15s, color 0.15s;
+
+  &:hover { border-color: var(--accent-border); color: var(--accent); }
+}
+
 /* Streak badge — appears in header after check-in */
 .home-streak-badge {
   font-size: 14px;
@@ -287,7 +505,24 @@
   to { transform: rotate(360deg); }
 }
 
+.home-program-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+
 /* Active session resume banner */
+.home-session-banner-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .home-session-banner {
   display: flex;
   align-items: center;
@@ -364,6 +599,62 @@
   font-weight: 600;
   color: #4ade80;
   white-space: nowrap;
+}
+
+.home-session-discard-btn {
+  align-self: flex-end;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  padding: 2px 8px;
+  cursor: pointer;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+  font-family: var(--sans);
+
+  &:hover { opacity: 0.7; }
+}
+
+.home-session-discard-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(248, 113, 113, 0.06);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  border-radius: 10px;
+}
+
+.home-session-discard-msg {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.home-session-discard-keep {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--sans);
+  padding: 6px 12px;
+  cursor: pointer;
+  min-height: 34px;
+}
+
+.home-session-discard-ok {
+  background: none;
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  border-radius: 8px;
+  color: #f87171;
+  font-size: 13px;
+  font-family: var(--sans);
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  min-height: 34px;
 }
 
 /* Quick start section */

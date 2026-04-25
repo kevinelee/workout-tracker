@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getCachedCustomExercises, deleteCustomExercise, clearAll } from '../storage'
+import { getCachedCustomExercises, getCustomExercises, saveCustomExercise, deleteCustomExercise, clearAll } from '../storage'
 import { exportJSON, exportCSV } from '../utils/export'
 import { updatePassword, supabase } from '../lib/supabase'
 import FeedbackModal from '../components/FeedbackModal'
@@ -39,6 +39,11 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
   const [deleteAccountLoading, setDeleteAccountLoading] = useState(false)
   const [deleteAccountError, setDeleteAccountError] = useState(null)
   const [exerciseEditMode, setExerciseEditMode] = useState(false)
+  const [editExercise, setEditExercise] = useState(null) // exercise being edited, or null
+  const [editName, setEditName] = useState('')
+  const [editCategory, setEditCategory] = useState('')
+  const [editMuscleGroup, setEditMuscleGroup] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
   const [feedbackModal, setFeedbackModal] = useState(null) // 'bug' | 'feedback' | null
   const [pwNew, setPwNew]         = useState('')
   const [pwConfirm, setPwConfirm] = useState('')
@@ -50,13 +55,14 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
     function onKeyDown(e) {
       if (e.key !== 'Escape') return
       if (feedbackModal)              { setFeedbackModal(null); return }
+      if (editExercise)               { setEditExercise(null); return }
       if (confirmDeleteExercise !== null) { setConfirmDeleteExercise(null); return }
       if (confirmSignOut)             { setConfirmSignOut(false); return }
       if (confirmDeleteAccount)       { setConfirmDeleteAccount(false); return }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [feedbackModal, confirmDeleteExercise, confirmSignOut, confirmDeleteAccount])
+  }, [feedbackModal, editExercise, confirmDeleteExercise, confirmSignOut, confirmDeleteAccount])
 
   async function handleChangePassword(e) {
     e.preventDefault()
@@ -92,6 +98,28 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
     await deleteCustomExercise(id)
     setCustomExercises(getCachedCustomExercises())
     setConfirmDeleteExercise(null)
+  }
+
+  function openEditExercise(exercise) {
+    setEditExercise(exercise)
+    setEditName(exercise.name)
+    setEditCategory(exercise.category)
+    setEditMuscleGroup(exercise.muscleGroup ?? '')
+  }
+
+  async function handleSaveEditExercise() {
+    if (!editExercise || !editName.trim()) return
+    setEditSaving(true)
+    await saveCustomExercise({
+      id:          editExercise.id,
+      name:        editName.trim(),
+      category:    editCategory,
+      muscleGroup: editMuscleGroup.trim(),
+    })
+    await getCustomExercises()
+    setCustomExercises(getCachedCustomExercises())
+    setEditExercise(null)
+    setEditSaving(false)
   }
 
   function update(key, value) {
@@ -201,7 +229,10 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
                 <span>{e.name}</span>
                 <span className="settings-exercise-cat">{e.category}</span>
                 {exerciseEditMode && (
-                  <button className="settings-exercise-delete" onClick={() => setConfirmDeleteExercise(e.id)} aria-label="Delete">✕</button>
+                  <>
+                    <button className="settings-exercise-edit" onClick={() => openEditExercise(e)} aria-label="Edit">✎</button>
+                    <button className="settings-exercise-delete" onClick={() => setConfirmDeleteExercise(e.id)} aria-label="Delete">✕</button>
+                  </>
                 )}
               </li>
             ))}
@@ -229,6 +260,52 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
             <div className="sheet-confirm-actions">
               <button className="sheet-confirm-cancel" onClick={() => setConfirmDeleteExercise(null)}>Cancel</button>
               <button className="sheet-confirm-ok" onClick={() => handleDeleteExercise(confirmDeleteExercise)}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit exercise modal */}
+      {editExercise && (
+        <div className="sheet-backdrop" onClick={() => !editSaving && setEditExercise(null)}>
+          <div className="sheet" onClick={e => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <p className="sheet-title">Edit Exercise</p>
+            <div className="settings-edit-exercise-form">
+              <label className="settings-edit-exercise-label">Name</label>
+              <input
+                className="settings-edit-exercise-input"
+                type="text"
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                placeholder="Exercise name"
+                autoFocus
+              />
+              <label className="settings-edit-exercise-label">Category</label>
+              <div className="settings-edit-exercise-cats">
+                {['Push', 'Pull', 'Legs', 'Core', 'Cardio', 'Stretch'].map(cat => (
+                  <button
+                    key={cat}
+                    className={`settings-edit-exercise-cat-btn${editCategory === cat ? ' settings-edit-exercise-cat-btn--active' : ''}`}
+                    onClick={() => setEditCategory(cat)}
+                    type="button"
+                  >{cat}</button>
+                ))}
+              </div>
+              <label className="settings-edit-exercise-label">Muscle Group</label>
+              <input
+                className="settings-edit-exercise-input"
+                type="text"
+                value={editMuscleGroup}
+                onChange={e => setEditMuscleGroup(e.target.value)}
+                placeholder="e.g. Chest, Biceps, Quads"
+              />
+            </div>
+            <div className="sheet-confirm-actions">
+              <button className="sheet-confirm-cancel" onClick={() => setEditExercise(null)} disabled={editSaving}>Cancel</button>
+              <button className="sheet-confirm-ok" onClick={handleSaveEditExercise} disabled={editSaving || !editName.trim()}>
+                {editSaving ? 'Saving…' : 'Save'}
+              </button>
             </div>
           </div>
         </div>

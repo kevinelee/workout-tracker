@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { streakMilestone } from '../utils/streaks'
 import { starterTemplates } from '../data/starterTemplates'
 import { getTemplateOrder, saveTemplateOrder } from '../storage'
+import { useProGate } from '../lib/proGate'
 import './HomeScreen.css'
 
 function fmtLastDone(isoDate) {
@@ -33,6 +34,14 @@ function ChevronLeftIcon() {
   )
 }
 
+function ChevronDownIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
+      <polyline points="4 7 10 13 16 7" />
+    </svg>
+  )
+}
+
 function DragHandleIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" style={{ width: 18, height: 18 }}>
@@ -54,11 +63,23 @@ function fmtElapsed(seconds) {
 export default function HomeScreen({
   templates, sessions, checkIns, checkedIn, dataLoaded, streak, settings,
   activeSession, startingTemplateId, startingQuickStart,
-  onNew, onEdit, onStart, onQuickStart, onCheckIn, onResumeSession,
+  onNew, onEdit, onStart, onQuickStart, onCheckIn, onResumeSession, onAbandon,
   onNewGenerate, weeklyInsight, onDismissInsight, onRefreshInsight,
+  programs, activeProgram, onSwitchProgram, onCreateProgram, onRenameProgram, onDeleteProgram,
 }) {
+  const { requirePro } = useProGate()
   const milestone = streakMilestone(streak)
   const [showNewSheet, setShowNewSheet] = useState(false)
+  const [showAbandonConfirm, setShowAbandonConfirm] = useState(false)
+
+  // Program sheet state
+  const [showProgramSheet, setShowProgramSheet] = useState(false)
+  const [editingProgramId, setEditingProgramId] = useState(null)
+  const [editingName, setEditingName] = useState('')
+  const [deletingProgramId, setDeletingProgramId] = useState(null)
+  const [showNewProgram, setShowNewProgram] = useState(false)
+  const [newProgramName, setNewProgramName] = useState('')
+  const [programSaving, setProgramSaving] = useState(false)
 
   // ── Drag-to-reorder ────────────────────────────────────────
   const [templateOrder, setTemplateOrder] = useState(null)
@@ -193,22 +214,39 @@ export default function HomeScreen({
   return (
     <div className={`home ${settings.controllerSide === 'left' ? 'home--left' : ''}`}>
       <div className="home-header">
-        <h2 className="home-title">My Workouts</h2>
+        <button className="home-program-btn" onClick={() => setShowProgramSheet(true)}>
+          <span className="home-program-name">{activeProgram?.name ?? 'My Workouts'}</span>
+          <ChevronDownIcon />
+        </button>
         <button className="home-new-btn" onClick={() => setShowNewSheet(true)}>+</button>
       </div>
 
       {/* Active session resume banner */}
       {activeSession && (
-        <button className="home-session-banner" onClick={onResumeSession}>
-          <div className="home-session-banner-left">
-            <span className="home-session-banner-dot" />
-            <div>
-              <p className="home-session-banner-name">{activeSession.template?.name}</p>
-              <p className="home-session-banner-meta">{completedSets}/{totalSets} sets · {fmtElapsed(sessionElapsed)}</p>
+        <div className="home-session-banner-wrap">
+          <button className="home-session-banner" onClick={onResumeSession}>
+            <div className="home-session-banner-left">
+              <span className="home-session-banner-dot" />
+              <div>
+                <p className="home-session-banner-name">{activeSession.template?.name}</p>
+                <p className="home-session-banner-meta">{completedSets}/{totalSets} sets · {fmtElapsed(sessionElapsed)}</p>
+              </div>
             </div>
-          </div>
-          <span className="home-session-banner-cta">Resume →</span>
-        </button>
+            <span className="home-session-banner-cta">Resume →</span>
+          </button>
+          <button
+            className="home-session-discard-btn"
+            onClick={() => setShowAbandonConfirm(true)}
+            aria-label="Discard session"
+          >✕</button>
+          {showAbandonConfirm && (
+            <div className="home-session-discard-confirm">
+              <span className="home-session-discard-msg">Discard workout?</span>
+              <button className="home-session-discard-keep" onClick={() => setShowAbandonConfirm(false)}>Keep</button>
+              <button className="home-session-discard-ok" onClick={onAbandon}>Discard</button>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Weekly insight card */}
@@ -327,6 +365,132 @@ export default function HomeScreen({
           })}
         </div>
       </div>
+
+      {/* Program manager sheet */}
+      {showProgramSheet && (
+        <div className="home-sheet-overlay" onClick={() => { setShowProgramSheet(false); setEditingProgramId(null); setDeletingProgramId(null); setShowNewProgram(false); setNewProgramName('') }}>
+          <div className="home-sheet home-program-sheet" onClick={e => e.stopPropagation()}>
+            <p className="home-sheet-title">Programs</p>
+
+            <ul className="home-program-list">
+              {(programs ?? []).map(p => {
+                const isEditing  = editingProgramId === p.id
+                const isDeleting = deletingProgramId === p.id
+                return (
+                  <li key={p.id} className="home-program-item">
+                    {isDeleting ? (
+                      <div className="home-program-delete-confirm">
+                        <span className="home-program-delete-msg">Delete "{p.name}"?</span>
+                        <button className="home-program-delete-cancel" onClick={() => setDeletingProgramId(null)}>Cancel</button>
+                        <button className="home-program-delete-ok" onClick={async () => {
+                          setDeletingProgramId(null)
+                          await onDeleteProgram(p.id)
+                          if ((programs?.length ?? 0) <= 1) setShowProgramSheet(false)
+                        }}>Delete</button>
+                      </div>
+                    ) : isEditing ? (
+                      <div className="home-program-edit-row">
+                        <input
+                          className="home-program-input"
+                          value={editingName}
+                          onChange={e => setEditingName(e.target.value)}
+                          onKeyDown={async e => {
+                            if (e.key === 'Enter' && editingName.trim()) {
+                              await onRenameProgram(p.id, editingName.trim())
+                              setEditingProgramId(null)
+                            }
+                            if (e.key === 'Escape') setEditingProgramId(null)
+                          }}
+                          autoFocus
+                        />
+                        <button className="home-program-edit-save" onClick={async () => {
+                          if (!editingName.trim()) return
+                          await onRenameProgram(p.id, editingName.trim())
+                          setEditingProgramId(null)
+                        }}>Save</button>
+                        <button className="home-program-edit-cancel" onClick={() => setEditingProgramId(null)}>✕</button>
+                      </div>
+                    ) : (
+                      <>
+                        <button className="home-program-row" onClick={async () => {
+                          if (!p.isActive) await onSwitchProgram(p.id)
+                          setShowProgramSheet(false)
+                        }}>
+                          <span className={`home-program-radio${p.isActive ? ' home-program-radio--active' : ''}`} />
+                          <span className="home-program-row-name">{p.name}</span>
+                        </button>
+                        <div className="home-program-row-actions">
+                          <button className="home-program-action-btn" aria-label="Rename" onClick={() => { setEditingProgramId(p.id); setEditingName(p.name) }}>
+                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
+                              <path d="M14.5 2.5a2.121 2.121 0 013 3L6 17l-4 1 1-4L14.5 2.5z" />
+                            </svg>
+                          </button>
+                          {(programs?.length ?? 0) > 1 && (
+                            <button className="home-program-action-btn home-program-action-btn--danger" aria-label="Delete" onClick={() => setDeletingProgramId(p.id)}>
+                              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
+                                <polyline points="5 7 15 7" />
+                                <path d="M8 7V5a1 1 0 011-1h2a1 1 0 011 1v2" />
+                                <rect x="4" y="7" width="12" height="10" rx="1.5" />
+                                <line x1="8" y1="11" x2="8" y2="14" />
+                                <line x1="12" y1="11" x2="12" y2="14" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+
+            {showNewProgram ? (
+              <div className="home-program-new-row">
+                <input
+                  className="home-program-input"
+                  placeholder="Program name"
+                  value={newProgramName}
+                  onChange={e => setNewProgramName(e.target.value)}
+                  onKeyDown={async e => {
+                    if (e.key === 'Enter' && newProgramName.trim() && !programSaving) {
+                      setProgramSaving(true)
+                      try { await onCreateProgram(newProgramName.trim()) } finally {
+                        setNewProgramName(''); setShowNewProgram(false); setProgramSaving(false)
+                      }
+                    }
+                    if (e.key === 'Escape') { setShowNewProgram(false); setNewProgramName('') }
+                  }}
+                  autoFocus
+                />
+                <button className="home-program-edit-save" disabled={!newProgramName.trim() || programSaving} onClick={async () => {
+                  if (!newProgramName.trim() || programSaving) return
+                  setProgramSaving(true)
+                  try { await onCreateProgram(newProgramName.trim()) } finally {
+                    setNewProgramName(''); setShowNewProgram(false); setProgramSaving(false)
+                  }
+                }}>
+                  {programSaving ? <span className="home-program-spinner" /> : 'Add'}
+                </button>
+                <button className="home-program-edit-cancel" onClick={() => { setShowNewProgram(false); setNewProgramName('') }}>✕</button>
+              </div>
+            ) : (
+              <button className="home-program-new-btn" onClick={() => {
+                if (!requirePro()) return
+                setShowNewProgram(true)
+              }}>
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ width: 16, height: 16 }}>
+                  <line x1="10" y1="4" x2="10" y2="16" /><line x1="4" y1="10" x2="16" y2="10" />
+                </svg>
+                New Program
+              </button>
+            )}
+
+            <button className="home-sheet-cancel" onClick={() => { setShowProgramSheet(false); setEditingProgramId(null); setDeletingProgramId(null); setShowNewProgram(false); setNewProgramName('') }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* New workout choice sheet */}
       {showNewSheet && (

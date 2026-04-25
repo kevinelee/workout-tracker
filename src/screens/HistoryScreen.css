@@ -44,6 +44,27 @@
   color: var(--text);
 }
 
+.history-section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.history-back-to-prs {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-family: var(--sans);
+  font-weight: 500;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+
+  &:hover { opacity: 1; }
+}
+
 .history-empty {
   color: var(--text);
   font-size: 14px;

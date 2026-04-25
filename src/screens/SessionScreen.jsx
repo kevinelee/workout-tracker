@@ -57,6 +57,8 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   const autoCollapseTimerRef = useRef(null)
 
   const [showAddExercise, setShowAddExercise] = useState(false)
+  const [substituteIndex, setSubstituteIndex] = useState(null)
+  const [confirmSubstituteIndex, setConfirmSubstituteIndex] = useState(null)
   const [confirmRemoveIndex, setConfirmRemoveIndex] = useState(null)
   const [pendingFinish, setPendingFinish] = useState(null)
   const [pendingQuickStart, setPendingQuickStart] = useState(null)
@@ -72,13 +74,15 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   useEffect(() => {
     function onKeyDown(e) {
       if (e.key !== 'Escape') return
-      if (confirmRemoveIndex !== null) { setConfirmRemoveIndex(null); return }
-      if (showAbandon)                 { setShowAbandon(false); return }
-      if (showAddExercise)             { setShowAddExercise(false); return }
+      if (confirmRemoveIndex !== null)    { setConfirmRemoveIndex(null); return }
+      if (confirmSubstituteIndex !== null){ setConfirmSubstituteIndex(null); return }
+      if (substituteIndex !== null)       { setSubstituteIndex(null); return }
+      if (showAbandon)                    { setShowAbandon(false); return }
+      if (showAddExercise)                { setShowAddExercise(false); return }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [confirmRemoveIndex, showAbandon, showAddExercise])
+  }, [confirmRemoveIndex, confirmSubstituteIndex, substituteIndex, showAbandon, showAddExercise])
 
   // Elapsed timer + 3-hour time limit check
   useEffect(() => {
@@ -242,6 +246,25 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     const hasCompleted = logs[logIndex].sets.some(s => s.completed)
     if (hasCompleted) setConfirmRemoveIndex(logIndex)
     else doRemoveExercise(logIndex)
+  }
+
+  function handleSubstituteExercise(logIndex) {
+    const hasCompleted = logs[logIndex].sets.some(s => s.completed)
+    if (hasCompleted) setConfirmSubstituteIndex(logIndex)
+    else setSubstituteIndex(logIndex)
+  }
+
+  function doSubstituteExercise(newExercise) {
+    const oldLog = logs[substituteIndex]
+    const setCount = oldLog.targetCount ?? oldLog.sets.length
+    const newLog = {
+      exerciseId:  newExercise.id,
+      targetCount: setCount,
+      sets: Array.from({ length: setCount }, () => ({ reps: 0, weight: 0, completed: false, isPR: false })),
+      notes: '',
+    }
+    updateLogsAndSync(logs.map((l, i) => i === substituteIndex ? newLog : l), null)
+    setSubstituteIndex(null)
   }
 
   function doRemoveExercise(logIndex) {
@@ -426,6 +449,17 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                 ? `${Math.round(exPR / 2.2046)} kg`
                 : `${exPR} lbs`
             : null
+          const lastLog = lastSession?.logs?.find(l => l.exerciseId === log.exerciseId)
+          const lastHint = (() => {
+            if (!lastLog || isCardio || isStretch) return null
+            const s = lastLog.sets?.[0]
+            if (!s) return null
+            if (s.weight > 0) {
+              const w = settings.unit === 'kg' ? Math.round(s.weight / 2.2046) : s.weight
+              return `${w} × ${s.reps}`
+            }
+            return s.reps > 0 ? `${s.reps} reps` : null
+          })()
           const isCollapsed = collapsedExercises.has(log.exerciseId)
           const isNextActiveExercise = !editMode && logs.findIndex(l => l.sets.some(s => !s.completed)) === li
           const nextActiveIndex = isNextActiveExercise ? log.sets.findIndex(s => !s.completed) : -1
@@ -439,9 +473,19 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                   <p className="session-ex-name">{exercise.name}</p>
                   <p className={`session-ex-meta${allSetsDone ? ' session-ex-meta--done' : ''}`}>
                     {allSetsDone ? '✓ ' : ''}{doneCount}/{target} sets{doneCount > target ? ` +${doneCount - target}` : ''}
+                    {lastHint && <span className="session-ex-pr-label"> · {lastHint}</span>}
                     {prLabel && <span className="session-ex-pr-label"> · 🏆 {prLabel}</span>}
                   </p>
                 </div>
+                {editMode && (
+                  <button
+                    className="session-ex-swap"
+                    onClick={e => { e.stopPropagation(); handleSubstituteExercise(li) }}
+                    aria-label="Substitute exercise"
+                  >
+                    ⇄
+                  </button>
+                )}
                 {editMode && (
                   <button
                     className={`session-notes-toggle ${openNotes.has(log.exerciseId) ? 'session-notes-toggle--open' : ''} ${log.notes ? 'session-notes-toggle--has-note' : ''}`}
@@ -643,6 +687,43 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
           </div>
           <div className="session-add-ex-body">
             <ExerciseSearch onSelect={addExerciseToSession} placeholder="Search exercises…" />
+          </div>
+        </div>
+      )}
+
+      {/* Substitute exercise overlay */}
+      {substituteIndex !== null && (
+        <div className="session-add-ex-overlay">
+          <div className="session-add-ex-header">
+            <button className="session-add-ex-close" onClick={() => setSubstituteIndex(null)}>Cancel</button>
+            <p className="session-add-ex-title">Substitute Exercise</p>
+            <div style={{ width: 64 }} />
+          </div>
+          <div className="session-add-ex-body">
+            <ExerciseSearch
+              onSelect={doSubstituteExercise}
+              placeholder="Search exercises…"
+              excludeIds={logs.filter((_, i) => i !== substituteIndex).map(l => l.exerciseId)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Substitute confirm (has completed sets) */}
+      {confirmSubstituteIndex !== null && (
+        <div className="session-modal-overlay" onClick={() => setConfirmSubstituteIndex(null)}>
+          <div className="session-modal" onClick={e => e.stopPropagation()}>
+            <p className="session-modal-title">Replace exercise?</p>
+            <p className="session-modal-body">
+              {findExercise(logs[confirmSubstituteIndex]?.exerciseId)?.name} has completed sets — they'll be discarded.
+            </p>
+            <div className="session-modal-actions">
+              <button className="session-modal-cancel" onClick={() => setConfirmSubstituteIndex(null)}>Keep it</button>
+              <button className="session-modal-confirm" onClick={() => {
+                setSubstituteIndex(confirmSubstituteIndex)
+                setConfirmSubstituteIndex(null)
+              }}>Replace</button>
+            </div>
           </div>
         </div>
       )}

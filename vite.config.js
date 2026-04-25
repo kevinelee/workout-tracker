@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { resolve } from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
 export default defineConfig({
   plugins: [
@@ -9,8 +13,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'Workout Tracker',
-        short_name: 'Workouts',
+        name: 'session',
+        short_name: 'session',
         description: 'Fast, mobile-first workout tracking',
         theme_color: '#16171d',
         background_color: '#16171d',
@@ -37,4 +41,12 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      input: {
+        main:    resolve(__dirname, 'index.html'),
+        landing: resolve(__dirname, 'landing.html'),
+      },
+    },
+  },
 })

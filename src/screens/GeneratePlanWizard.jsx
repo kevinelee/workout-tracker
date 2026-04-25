@@ -21,6 +21,7 @@ export default function GeneratePlanWizard({ onComplete, onBack, onGenerate }) {
   const [days, setDays]     = useState(null)
   const [focus, setFocus]   = useState([])
   const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [error, setError]   = useState(null)
   const [plan, setPlan]     = useState(null)
 
@@ -91,10 +92,23 @@ export default function GeneratePlanWizard({ onComplete, onBack, onGenerate }) {
         {error && <p className="gpw-error">{error}</p>}
 
         <div className="gpw-footer">
-          <button className="gpw-primary" onClick={() => onComplete(plan)}>
-            Add all to my workouts
+          <button
+            className="gpw-primary"
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true)
+              setError(null)
+              try {
+                await onComplete(plan)
+              } catch {
+                setError('Failed to save workouts. Please try again.')
+                setSaving(false)
+              }
+            }}
+          >
+            {saving ? 'Saving…' : 'Add all to my workouts'}
           </button>
-          <button className="gpw-ghost" onClick={() => { setPlan(null); setStep(0); setDays(null); setFocus([]) }}>
+          <button className="gpw-ghost" disabled={saving} onClick={() => { setPlan(null); setStep(0); setDays(null); setFocus([]) }}>
             Start over
           </button>
         </div>
