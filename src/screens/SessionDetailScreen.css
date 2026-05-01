@@ -109,6 +109,21 @@
   &:hover { opacity: 1; }
 }
 
+.detail-date-input {
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--text-h);
+  font-size: 14px;
+  font-family: var(--sans);
+  font-weight: 600;
+  padding: 4px 8px;
+  cursor: pointer;
+
+  &:focus { outline: none; }
+  &::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
+}
+
 .detail-duration-edit {
   display: flex;
   align-items: center;

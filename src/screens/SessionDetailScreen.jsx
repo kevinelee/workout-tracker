@@ -14,6 +14,11 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 }
 
+function toLocalDateStr(iso) {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function secsToParts(secs) {
   return { h: Math.floor((secs ?? 0) / 3600), m: Math.floor(((secs ?? 0) % 3600) / 60) }
 }
@@ -80,6 +85,18 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
     setEditedSession(prev => ({ ...prev, duration: h * 3600 + m * 60 }))
   }
 
+  function setEditDate(dateStr) {
+    setEditedSession(prev => {
+      function shiftDate(iso) {
+        if (!iso) return iso
+        const old = new Date(iso)
+        const [y, mo, d] = dateStr.split('-').map(Number)
+        return new Date(y, mo - 1, d, old.getHours(), old.getMinutes(), old.getSeconds(), old.getMilliseconds()).toISOString()
+      }
+      return { ...prev, startedAt: shiftDate(prev.startedAt), finishedAt: shiftDate(prev.finishedAt) }
+    })
+  }
+
   function setEditSet(logIndex, setIndex, field, value) {
     setEditedSession(prev => ({
       ...prev,
@@ -139,7 +156,10 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
       <div className="detail-body">
         {saveError && <p className="detail-save-error">{saveError}</p>}
         <div className="detail-meta-row">
-          <span>{fmtDate(active.finishedAt)}</span>
+          {editing
+            ? <input className="detail-date-input" type="date" value={toLocalDateStr(active.finishedAt)} onChange={e => setEditDate(e.target.value)} />
+            : <span>{fmtDate(active.finishedAt)}</span>
+          }
           {editing
             ? (
               <div className="detail-duration-edit">
@@ -173,12 +193,14 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
           const exercise = findExercise(log.exerciseId)
           if (!exercise) return null
           const completed = log.sets.filter(s => s.completed)
-          const isCardio    = exercise.category === 'Cardio'
-          const isStretch   = exercise.category === 'Stretch'
-          const cardioUnit  = exercise.cardioUnit ?? 'time'
-          const isDistance  = isCardio && cardioUnit === 'distance'
-          const isBoth      = isCardio && cardioUnit === 'both'
-          const isTimeBased = isCardio && !isDistance
+          const isCardio       = exercise.category === 'Cardio'
+          const isStretch      = exercise.category === 'Stretch' || exercise.isTimed
+          const cardioUnit     = exercise.cardioUnit ?? 'time'
+          const isDistance     = isCardio && cardioUnit === 'distance'
+          const isBoth         = isCardio && cardioUnit === 'both'
+          const isTimeBased    = isCardio && !isDistance
+          const difficultyLabel    = exercise.difficultyLabel
+          const difficultyDecimal  = exercise.difficultyDecimal
           return (
             <div key={log.exerciseId} className="detail-exercise">
               <div className="detail-ex-header">
@@ -192,11 +214,11 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
                     {isStretch ? (
                       <th>Sec</th>
                     ) : isDistance ? (
-                      <th>Dist</th>
+                      <><th>Dist</th>{difficultyLabel && <th>{difficultyLabel}</th>}</>
                     ) : isBoth ? (
-                      <><th>Dist</th><th>Min</th><th>Sec</th></>
+                      <><th>Dist</th><th>Min</th><th>Sec</th>{difficultyLabel && <th>{difficultyLabel}</th>}</>
                     ) : isTimeBased ? (
-                      <><th>Min</th><th>Sec</th></>
+                      <><th>Min</th><th>Sec</th>{difficultyLabel && <th>{difficultyLabel}</th>}</>
                     ) : (
                       <><th>Reps</th><th>Weight</th></>
                     )}
@@ -215,12 +237,22 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
                           }
                         </td>
                       ) : isDistance ? (
-                        <td>
-                          {editing
-                            ? <input className="detail-set-input" type="number" min="0" step="0.1" value={set.weight} onChange={e => setEditSet(logIndex, i, 'weight', e.target.value)} />
-                            : set.weight
-                          }
-                        </td>
+                        <>
+                          <td>
+                            {editing
+                              ? <input className="detail-set-input" type="number" min="0" step="0.1" value={set.weight} onChange={e => setEditSet(logIndex, i, 'weight', e.target.value)} />
+                              : set.weight
+                            }
+                          </td>
+                          {difficultyLabel && (
+                            <td>
+                              {editing
+                                ? <input className="detail-set-input" type="number" min="0" step={difficultyDecimal ? '0.5' : '1'} value={set.difficulty ?? 0} onChange={e => setEditSet(logIndex, i, 'difficulty', e.target.value)} />
+                                : set.difficulty ?? 0
+                              }
+                            </td>
+                          )}
+                        </>
                       ) : isBoth ? (
                         <>
                           <td>
@@ -241,6 +273,14 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
                               : set.secs ?? 0
                             }
                           </td>
+                          {difficultyLabel && (
+                            <td>
+                              {editing
+                                ? <input className="detail-set-input" type="number" min="0" step={difficultyDecimal ? '0.5' : '1'} value={set.difficulty ?? 0} onChange={e => setEditSet(logIndex, i, 'difficulty', e.target.value)} />
+                                : set.difficulty ?? 0
+                              }
+                            </td>
+                          )}
                         </>
                       ) : isTimeBased ? (
                         <>
@@ -256,6 +296,14 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
                               : set.secs ?? 0
                             }
                           </td>
+                          {difficultyLabel && (
+                            <td>
+                              {editing
+                                ? <input className="detail-set-input" type="number" min="0" step={difficultyDecimal ? '0.5' : '1'} value={set.difficulty ?? 0} onChange={e => setEditSet(logIndex, i, 'difficulty', e.target.value)} />
+                                : set.difficulty ?? 0
+                              }
+                            </td>
+                          )}
                         </>
                       ) : (
                         <>
@@ -273,7 +321,7 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
                           </td>
                         </>
                       )}
-                      <td>{set.isPR ? '🏆' : set.completed ? '✓' : '—'}</td>
+                      <td>{set.isPR ? 'PR' : set.completed ? '✓' : '—'}</td>
                     </tr>
                   ))}
                 </tbody>

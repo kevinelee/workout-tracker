@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, Component } from 'react'
 import {
-  getTemplates, saveTemplate, getCachedTemplates, getSessions, getCachedSessions, getSettings, getCachedSettings, saveSettings, getCheckIns, saveCheckIn,
+  getTemplates, saveTemplate, getCachedTemplates, getSessions, getCachedSessions, getSettings, getCachedSettings, saveSettings,
   getLastSessionForTemplate, getPRMap,
   getActiveSession, saveActiveSession, clearActiveSession, abandonSession,
-  deleteSession, setStorageUser, clearUserCache, getCustomExercises, getCachedCustomExercises, hasCheckedInToday,
+  deleteSession, setStorageUser, clearUserCache, getCustomExercises, getCachedCustomExercises,
   getProfile, saveProfile, getBodyWeightLogs, saveBodyWeightLog, deleteBodyWeightLog,
   getNewFeedbackCount, encodeTheme,
   getPrograms, createProgram, renameProgram, deleteProgram, setActiveProgram, reassignProgramTemplates, ensureDefaultProgram,
@@ -12,7 +12,6 @@ import { supabase, signOut } from './lib/supabase'
 import { createSession } from './data/models'
 import { starterTemplates } from './data/starterTemplates'
 import { defaultExercises } from './data/exerciseLibrary'
-import { calcStreak } from './utils/streaks'
 import HomeScreen from './screens/HomeScreen'
 import WorkoutBuilderScreen from './screens/WorkoutBuilderScreen'
 import NewWorkoutWizard from './screens/NewWorkoutWizard'
@@ -27,6 +26,7 @@ import OnboardingScreen from './screens/OnboardingScreen'
 import ProfileScreen from './screens/ProfileScreen'
 import AdminScreen from './screens/AdminScreen'
 import GeneratePlanWizard from './screens/GeneratePlanWizard'
+import GenerateWorkoutWizard from './screens/GenerateWorkoutWizard'
 import WhatsNewModal, { hasSeenLatest, LATEST_VERSION } from './components/WhatsNewModal'
 import { ProGateProvider } from './lib/proGate'
 import './App.css'
@@ -169,8 +169,9 @@ function useNav() {
   function goSummary(session, template, prevSession) { setScreen({ name: 'summary', session, template, prevSession }) }
   function goSessionDetail(session)  { setScreen({ name: 'sessionDetail', session }) }
   function goTab(id)                 { setActiveTab(id); setScreen({ name: id }) }
+  function goSettings()              { setScreen({ name: 'settings' }) }
 
-  return { screen, activeTab, setActiveTab, goHome, goWizard, goBuilder, goSession, goSummary, goSessionDetail, goTab }
+  return { screen, activeTab, setActiveTab, goHome, goWizard, goBuilder, goSession, goSummary, goSessionDetail, goTab, goSettings }
 }
 
 export default function App() {
@@ -273,9 +274,7 @@ export default function App() {
     getBodyWeightLogs().then(setBodyWeightLogs).catch(console.error)
     if (isAdminUser) getNewFeedbackCount().then(setFeedbackCount).catch(console.error)
 
-    Promise.all([getCheckIns(), hasCheckedInToday()])
-      .then(([ci, chk]) => { setCheckIns(ci); setCheckedIn(chk); setDataLoaded(true) })
-      .catch(err => { console.error('bootstrapUser check-in load failed:', err); setDataLoaded(true) })
+    setDataLoaded(true)
   }
 
   async function handleSignOut() {
@@ -285,9 +284,7 @@ export default function App() {
     setTemplates(null)
     setPrograms(null)
     setSessions([])
-    setSettings({ unit: 'lbs', colorScheme: 'default', themeMode: 'dark', controllerSide: 'right', restTimerDuration: 90, checkInEnabled: true })
-    setCheckIns([])
-    setCheckedIn(false)
+    setSettings({ unit: 'lbs', colorScheme: 'default', themeMode: 'dark', controllerSide: 'right', restTimerDuration: 90 })
     setDataLoaded(false)
     setFeedbackCount(0)
     setProfile(null)
@@ -320,10 +317,15 @@ export default function App() {
     id: e.id, name: e.name, category: e.category, muscleGroup: e.muscleGroup,
   }))
 
-  const [showGeneratePlan, setShowGeneratePlan] = useState(false)
+  const [showGeneratePlan,   setShowGeneratePlan]   = useState(false)
+  const [showGenerateSingle, setShowGenerateSingle] = useState(false)
 
   function handleGenerateWorkout() {
     setShowGeneratePlan(true)
+  }
+
+  function handleGenerateSingleWorkout() {
+    setShowGenerateSingle(true)
   }
 
   async function handleGeneratePlan({ days, focus }) {
@@ -344,6 +346,31 @@ export default function App() {
     })
     if (error || !data?.templates?.length) throw new Error('No templates returned')
     return data.templates
+  }
+
+  async function handleGenerateSingle({ focus }) {
+    const { data, error } = await supabase.functions.invoke('generate-workout-plan', {
+      body: {
+        mode: 'single',
+        answers: {
+          days: 1,
+          focus,
+          goal: profile?.fitnessProfileSummary ?? '',
+          experience: '',
+          equipment: [],
+          frequency: '1 day per week',
+        },
+        exerciseLibrary: exerciseLibraryForAPI,
+        unit: settings.unit,
+      },
+    })
+    if (error || !data?.templates?.length) throw new Error('No template returned')
+    return data.templates[0]
+  }
+
+  function handleGenerateSingleComplete(template) {
+    setShowGenerateSingle(false)
+    goBuilder(template)
   }
 
   async function handleGeneratePlanComplete(templates) {
@@ -448,21 +475,76 @@ export default function App() {
     }
   }
 
+  async function generateTodaySuggestion(currentSessions) {
+    if (!currentSessions.length) return
+    const allExercises = [...defaultExercises, ...getCachedCustomExercises()]
+    const twoWeeksAgo  = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
 
-  const { screen, activeTab, setActiveTab, goHome, goWizard, goBuilder, goSession, goSummary, goSessionDetail, goTab } = useNav()
+    const recentSessions = currentSessions
+      .filter(s => s.finishedAt && new Date(s.finishedAt) >= twoWeeksAgo)
+      .sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))
+      .map(s => ({
+        date: s.finishedAt?.slice(0, 10),
+        templateName: templates?.find(t => t.id === s.templateId)?.name ?? 'Workout',
+        exercises: (s.logs ?? []).flatMap(l => {
+          const ex = allExercises.find(e => e.id === l.exerciseId)
+          if (!ex) return []
+          const done = (l.sets ?? []).filter(set => set.completed && set.weight > 0)
+          const last = done[done.length - 1]
+          return [{ exerciseId: l.exerciseId, name: ex.name, muscleGroup: ex.muscleGroup, lastWeight: last?.weight ?? 0, lastReps: last?.reps ?? 0 }]
+        }),
+      }))
+      .filter(s => s.exercises.length > 0)
+
+    // Build frequent exercise map from last 90 days
+    const exMap = {}
+    for (const s of currentSessions.filter(s => s.finishedAt && new Date(s.finishedAt) >= ninetyDaysAgo)) {
+      for (const l of s.logs ?? []) {
+        const ex = allExercises.find(e => e.id === l.exerciseId)
+        if (!ex || ex.category === 'Cardio') continue
+        const done = (l.sets ?? []).filter(set => set.completed && set.weight > 0)
+        const last = done[done.length - 1]
+        if (!exMap[l.exerciseId]) {
+          exMap[l.exerciseId] = { exerciseId: l.exerciseId, name: ex.name, muscleGroup: ex.muscleGroup, category: ex.category, usageCount: 0, lastWeight: 0, lastReps: 0, lastDate: '' }
+        }
+        exMap[l.exerciseId].usageCount++
+        if (last && s.finishedAt > (exMap[l.exerciseId].lastDate ?? '')) {
+          exMap[l.exerciseId].lastWeight = last.weight
+          exMap[l.exerciseId].lastReps   = last.reps
+          exMap[l.exerciseId].lastDate   = s.finishedAt
+        }
+      }
+    }
+    const frequentExercises = Object.values(exMap).sort((a, b) => b.usageCount - a.usageCount).slice(0, 25)
+    if (!frequentExercises.length) return
+
+    setTodaySuggestion({ loading: true, template: null, rationale: null })
+    try {
+      const { data, error } = await supabase.functions.invoke('suggest-today-workout', {
+        body: { recentSessions, frequentExercises, goal: profile?.goal ?? '', unit: settings.unit },
+      })
+      if (error || !data?.template) throw new Error('empty')
+      const today  = new Date().toISOString().slice(0, 10)
+      const result = { template: data.template, rationale: data.rationale, date: today }
+      localStorage.setItem('today-suggestion', JSON.stringify(result))
+      setTodaySuggestion({ loading: false, ...result })
+    } catch {
+      setTodaySuggestion(null)
+    }
+  }
+
+
+  const { screen, activeTab, setActiveTab, goHome, goWizard, goBuilder, goSession, goSummary, goSessionDetail, goTab, goSettings } = useNav()
   const [templates, setTemplates]             = useState(null)
   const [programs, setPrograms]               = useState(null) // null = loading
   const [sessions, setSessions]               = useState([])
-  const [settings, setSettings]               = useState({ unit: 'lbs', colorScheme: 'default', themeMode: 'dark', controllerSide: 'right', restTimerDuration: 90, checkInEnabled: true })
-  const [checkIns, setCheckIns]               = useState([])
-  const [checkedIn, setCheckedIn]             = useState(false)
+  const [settings, setSettings]               = useState({ unit: 'lbs', colorScheme: 'default', themeMode: 'dark', controllerSide: 'right', restTimerDuration: 90 })
   const [dataLoaded, setDataLoaded]           = useState(false)
   const [feedbackCount, setFeedbackCount]     = useState(0)
   const [profile, setProfile]                 = useState(null)
   const [bodyWeightLogs, setBodyWeightLogs]   = useState(null) // null = loading, [] = loaded empty
   const [showOnboarding, setShowOnboarding]   = useState(null) // null = profile not yet loaded
-  const streak = calcStreak(sessions, checkIns)
-
   // Apply theme to document root
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', encodeTheme(settings.colorScheme ?? 'default', settings.themeMode ?? 'dark'))
@@ -483,6 +565,21 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataLoaded])
 
+  // Today suggestion — generate once per calendar day when sessions load
+  useEffect(() => {
+    if (!dataLoaded || todaySuggestionFiredRef.current) return
+    const today  = new Date().toISOString().slice(0, 10)
+    const cached = (() => { try { return JSON.parse(localStorage.getItem('today-suggestion') ?? '') } catch { return null } })()
+    if (cached?.date === today && cached?.template) {
+      setTodaySuggestion({ loading: false, template: cached.template, rationale: cached.rationale, date: today })
+      todaySuggestionFiredRef.current = true
+      return
+    }
+    todaySuggestionFiredRef.current = true
+    generateTodaySuggestion(sessions)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataLoaded])
+
   // Active session — persisted to localStorage so it survives navigation & sleep
   const [activeSession, setActiveSession] = useState(() => getActiveSession())
 
@@ -495,15 +592,26 @@ export default function App() {
 
   // Workout review sheet — shown before starting, lets user preview exercises
   const [reviewSheet, setReviewSheet] = useState(null)
+  const [reviewSheetLastSession, setReviewSheetLastSession] = useState(null)
 
   // Progressive overload pre-session sheet
   // null | { template, loading, headline, suggestions: [{ exerciseId, note }] }
   const [overloadSheet, setOverloadSheet] = useState(null)
   const overloadTimeoutRef = useRef(null)
+  const mainRef = useRef(null)
+
+  useEffect(() => {
+    mainRef.current?.scrollTo(0, 0)
+  }, [screen.name])
+
 
   // Weekly insight
   // null | { insight, loading }
   const [weeklyInsight, setWeeklyInsight] = useState(null)
+
+  // Today suggestion
+  // null | { loading, template, rationale }
+  const [todaySuggestion, setTodaySuggestion] = useState(null)
 
   // What's New modal
   const [showWhatsNew, setShowWhatsNew] = useState(false)
@@ -514,6 +622,7 @@ export default function App() {
     if (!hasSeenLatest()) setShowWhatsNew(true)
   }, [authUser])
   const weeklyInsightFiredRef = useRef(false)
+  const todaySuggestionFiredRef = useRef(false)
 
 
   // Drag-to-dismiss state
@@ -577,13 +686,6 @@ export default function App() {
     setSessions(sess)
   }
 
-  async function handleCheckIn() {
-    await saveCheckIn()
-    const today = new Date().toISOString().slice(0, 10)
-    setCheckIns(prev => prev.includes(today) ? prev : [...prev, today])
-    setCheckedIn(true)
-  }
-
   async function handleSaveTemplate(template) { await refreshData(); goHome() }
 
   async function handleDeleteTemplate() { await refreshData(); goHome() }
@@ -596,9 +698,9 @@ export default function App() {
     const prTypes = Object.fromEntries(
       exerciseIds.map(id => [id, allExercises.find(e => e.id === id)?.prType ?? 'weight'])
     )
-    const prMap = await getPRMap(exerciseIds, prTypes)
+    const { prMap, prRepsMap } = await getPRMap(exerciseIds, prTypes)
     const logs = initLogsFromTemplate(template)
-    const data = { template, sessionId: session.id, startedAt: session.startedAt, logs, prMap }
+    const data = { template, sessionId: session.id, startedAt: session.startedAt, logs, prMap, prRepsMap }
     saveActiveSession(data)
     setActiveSession(data)
     setStartingTemplateId(null)
@@ -632,7 +734,16 @@ export default function App() {
     doStartSession(template)
   }
 
-  function handleStartSession(template) {
+  function handleStartTodaySuggestion(template) {
+    attemptStart({ ...template, id: crypto.randomUUID(), isQuickStart: true })
+  }
+
+  async function handleStartSession(template) {
+    let lastSession = null
+    if (!template.isQuickStart) {
+      lastSession = await getLastSessionForTemplate(template.id)
+    }
+    setReviewSheetLastSession(lastSession)
     setReviewSheet(template)
   }
 
@@ -666,9 +777,9 @@ export default function App() {
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [pendingStart, startSheetOpen])
 
-  function handleSessionUpdate(logs, prMap) {
+  function handleSessionUpdate(logs, prMap, prRepsMap) {
     if (!activeSession) return
-    const updated = { ...activeSession, logs, prMap }
+    const updated = { ...activeSession, logs, prMap, prRepsMap }
     saveActiveSession(updated)
     setActiveSession(updated)
   }
@@ -773,6 +884,13 @@ export default function App() {
       onComplete={handleGeneratePlanComplete}
     />
   )
+  if (showGenerateSingle) return (
+    <GenerateWorkoutWizard
+      onBack={() => setShowGenerateSingle(false)}
+      onGenerate={handleGenerateSingle}
+      onComplete={handleGenerateSingleComplete}
+    />
+  )
 
   const isAdmin = authUser?.id === import.meta.env.VITE_ADMIN_UID
   const activeProgram = programs?.find(p => p.isActive) ?? programs?.[0] ?? null
@@ -815,17 +933,7 @@ export default function App() {
       <path d="M3.5 19.5c0-4 3.4-7 7.5-7s7.5 3 7.5 7" />
     </svg>
   )
-  const NavSliders = () => (
-    <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
-      <line x1="3" y1="6"  x2="19" y2="6"  />
-      <line x1="3" y1="11" x2="19" y2="11" />
-      <line x1="3" y1="16" x2="19" y2="16" />
-      <circle cx="7"  cy="6"  r="2" fill="var(--bg)" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="14" cy="11" r="2" fill="var(--bg)" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="9"  cy="16" r="2" fill="var(--bg)" stroke="currentColor" strokeWidth="1.7" />
-    </svg>
-  )
-  const NavShield = () => (
+const NavShield = () => (
     <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <path d="M11 2l7.5 3v5c0 4.5-3.2 8-7.5 10C6.7 18 3.5 14.5 3.5 10V5L11 2z" />
     </svg>
@@ -842,7 +950,6 @@ export default function App() {
     },
     { id: 'history',  label: 'History',  icon: <NavChart /> },
     { id: 'profile',  label: 'Profile',  icon: <NavPerson />, avatarUrl: profile?.avatarUrl || null },
-    { id: 'settings', label: 'Settings', icon: <NavSliders /> },
     ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: <NavShield />, badge: feedbackCount > 0 ? feedbackCount : null }] : []),
   ]
 
@@ -859,10 +966,7 @@ export default function App() {
             onRenameProgram={handleRenameProgram}
             onDeleteProgram={handleDeleteProgram}
             sessions={sessions}
-            checkIns={checkIns}
-            checkedIn={checkedIn}
             dataLoaded={dataLoaded}
-            streak={streak}
             settings={settings}
             activeSession={activeSession}
             onNew={() => goWizard()}
@@ -871,10 +975,10 @@ export default function App() {
             startingTemplateId={startingTemplateId}
             onQuickStart={handleQuickStartStarter}
             startingQuickStart={startingQuickStart}
-            onCheckIn={handleCheckIn}
             onResumeSession={() => { goSession(); setActiveTab('session') }}
             onAbandon={handleSessionAbandon}
             onNewGenerate={handleGenerateWorkout}
+            onNewGenerateSingle={handleGenerateSingleWorkout}
             weeklyInsight={weeklyInsight}
             onDismissInsight={() => {
               localStorage.setItem('weekly-insight', JSON.stringify({ week: getWeekKey(), insight: weeklyInsight?.insight ?? '', dismissed: true }))
@@ -886,6 +990,8 @@ export default function App() {
               setWeeklyInsight(null)
               generateWeeklyInsight(sessions)
             }}
+            todaySuggestion={todaySuggestion}
+            onStartTodaySuggestion={handleStartTodaySuggestion}
           />
         )
       case 'wizard':
@@ -934,7 +1040,7 @@ export default function App() {
           <HistoryScreen
             sessions={sessions}
             templates={templates}
-            checkIns={checkIns}
+            checkIns={[]}
             settings={settings}
             profile={profile}
             onViewSession={s => goSessionDetail(s)}
@@ -957,12 +1063,12 @@ export default function App() {
           <ProfileScreen
             profile={profile}
             sessions={sessions}
-            checkIns={checkIns}
+            checkIns={[]}
             settings={settings}
             authUser={authUser}
             onSaveProfile={async data => {
               await saveProfile(data)
-              setProfile(data)
+              setProfile(p => ({ ...p, ...data }))
             }}
             bodyWeightLogs={bodyWeightLogs}
             onLogWeight={async kg => {
@@ -975,6 +1081,7 @@ export default function App() {
             }}
             onAvatarUpdate={url => setProfile(p => ({ ...p, avatarUrl: url }))}
             onRecalibrate={() => setShowOnboarding(true)}
+            onOpenSettings={goSettings}
           />
         )
       case 'settings':
@@ -989,6 +1096,7 @@ export default function App() {
             onRecalibrate={() => setShowOnboarding(true)}
             onShowWhatsNew={() => setShowWhatsNew(true)}
             appVersion={LATEST_VERSION}
+            onBack={() => goTab('profile')}
           />
         )
       case 'admin':
@@ -1003,16 +1111,13 @@ export default function App() {
     <div className="app">
       {!fullscreen && (
         <header className="app-header">
-          {settings.checkInEnabled && checkedIn && dataLoaded && streak > 0
-            ? <span className="app-streak-badge" key={streak}>🔥 {streak}</span>
-            : <span className="app-header-spacer" />
-          }
+          <span className="app-header-spacer" />
           <img src="/session.png" alt="session" className="app-logo-img" />
           <span className="app-header-spacer" />
         </header>
       )}
 
-      <main className="app-main">
+      <main className="app-main" ref={mainRef}>
         <ErrorBoundary key={screen.name}>
           <div className="screen-enter">
             {renderScreen()}
@@ -1068,7 +1173,7 @@ export default function App() {
 
       {/* Workout review sheet — preview before starting */}
       {reviewSheet && (
-        <div className="sheet-backdrop" onClick={() => setReviewSheet(null)}>
+        <div className="sheet-backdrop" onClick={() => { setReviewSheet(null); setReviewSheetLastSession(null) }}>
           <div className="sheet review-sheet" onClick={e => e.stopPropagation()}>
             <div className="sheet-handle" />
             <div className="review-header">
@@ -1082,13 +1187,17 @@ export default function App() {
             <div className="review-exercises">
               {reviewSheet.exercises.map((ex, i) => {
                 const def = [...defaultExercises, ...getCachedCustomExercises()].find(e => e.id === ex.exerciseId)
-                const sets = ex.sets ?? []
-                const first = sets[0]
-                const setsLabel = sets.length === 0
+                const lastLog = reviewSheetLastSession?.logs?.find(l => l.exerciseId === ex.exerciseId)
+                const sourceSets = lastLog?.sets?.length > 0 ? lastLog.sets : (ex.sets ?? [])
+                const first = sourceSets[0]
+                const dispW = first?.weight > 0
+                  ? (settings.unit === 'kg' ? Math.round(first.weight / 2.2046) : first.weight)
+                  : 0
+                const setsLabel = sourceSets.length === 0
                   ? ''
-                  : first?.weight > 0
-                    ? `${sets.length} × ${first.reps} reps @ ${first.weight} ${settings.unit}`
-                    : `${sets.length} × ${first?.reps ?? 0} reps`
+                  : dispW > 0
+                    ? `${sourceSets.length} × ${first.reps} reps @ ${dispW} ${settings.unit}`
+                    : `${sourceSets.length} × ${first?.reps ?? 0} reps`
                 return (
                   <div key={i} className="review-exercise">
                     <p className="review-ex-name">{def?.name ?? ex.exerciseId}</p>
@@ -1099,7 +1208,7 @@ export default function App() {
             </div>
             <button
               className="review-start-btn"
-              onClick={() => { setReviewSheet(null); attemptStart(reviewSheet) }}
+              onClick={() => { setReviewSheet(null); setReviewSheetLastSession(null); attemptStart(reviewSheet) }}
               disabled={!!startingTemplateId}
             >
               {startingTemplateId

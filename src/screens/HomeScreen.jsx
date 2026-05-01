@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { streakMilestone } from '../utils/streaks'
 import { starterTemplates } from '../data/starterTemplates'
 import { getTemplateOrder, saveTemplateOrder } from '../storage'
 import { useProGate } from '../lib/proGate'
@@ -52,6 +51,14 @@ function DragHandleIcon() {
   )
 }
 
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
+      <path d="M14.5 2.5a2.121 2.121 0 013 3L6 17l-4 1 1-4L14.5 2.5z" />
+    </svg>
+  )
+}
+
 function fmtElapsed(seconds) {
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
@@ -61,14 +68,14 @@ function fmtElapsed(seconds) {
 }
 
 export default function HomeScreen({
-  templates, sessions, checkIns, checkedIn, dataLoaded, streak, settings,
+  templates, sessions, dataLoaded, settings,
   activeSession, startingTemplateId, startingQuickStart,
-  onNew, onEdit, onStart, onQuickStart, onCheckIn, onResumeSession, onAbandon,
-  onNewGenerate, weeklyInsight, onDismissInsight, onRefreshInsight,
+  onNew, onEdit, onStart, onQuickStart, onResumeSession, onAbandon,
+  onNewGenerate, onNewGenerateSingle, weeklyInsight, onDismissInsight, onRefreshInsight,
+  todaySuggestion, onStartTodaySuggestion,
   programs, activeProgram, onSwitchProgram, onCreateProgram, onRenameProgram, onDeleteProgram,
 }) {
   const { requirePro } = useProGate()
-  const milestone = streakMilestone(streak)
   const [showNewSheet, setShowNewSheet] = useState(false)
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false)
 
@@ -76,8 +83,10 @@ export default function HomeScreen({
   const [showProgramSheet, setShowProgramSheet] = useState(false)
   const [editingProgramId, setEditingProgramId] = useState(null)
   const [editingName, setEditingName] = useState('')
-  const [deletingProgramId, setDeletingProgramId] = useState(null)
-  const [showNewProgram, setShowNewProgram] = useState(false)
+  const [deletingProgramId,      setDeletingProgramId]      = useState(null)
+  const [programDeleteInProgress, setProgramDeleteInProgress] = useState(null)
+  // 'options' = show build/generate choices; 'name' = show name input
+  const [newProgramStep, setNewProgramStep] = useState(null)
   const [newProgramName, setNewProgramName] = useState('')
   const [programSaving, setProgramSaving] = useState(false)
 
@@ -211,6 +220,11 @@ export default function HomeScreen({
     onNewGenerate()
   }
 
+  function handleNewGenerateSingle() {
+    setShowNewSheet(false)
+    onNewGenerateSingle()
+  }
+
   return (
     <div className={`home ${settings.controllerSide === 'left' ? 'home--left' : ''}`}>
       <div className="home-header">
@@ -234,40 +248,58 @@ export default function HomeScreen({
             </div>
             <span className="home-session-banner-cta">Resume →</span>
           </button>
-          <button
-            className="home-session-discard-btn"
-            onClick={() => setShowAbandonConfirm(true)}
-            aria-label="Discard session"
-          >✕</button>
-          {showAbandonConfirm && (
-            <div className="home-session-discard-confirm">
-              <span className="home-session-discard-msg">Discard workout?</span>
-              <button className="home-session-discard-keep" onClick={() => setShowAbandonConfirm(false)}>Keep</button>
-              <button className="home-session-discard-ok" onClick={onAbandon}>Discard</button>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Weekly insight card */}
-      {weeklyInsight && (
+      {/* AI insight card — weekly recap + today suggestion */}
+      {(weeklyInsight || todaySuggestion) && (
         <div className="home-insight-card">
-          {weeklyInsight.loading ? (
-            <div className="home-insight-loading">
-              <div className="home-insight-spinner" />
-              <span>Analyzing your week…</span>
-            </div>
-          ) : (
-            <>
-              <div className="home-insight-body">
-                <p className="home-insight-label">Weekly recap</p>
-                <p className="home-insight-text">{weeklyInsight.insight}</p>
+          {/* Weekly recap */}
+          {weeklyInsight && (
+            weeklyInsight.loading ? (
+              <div className="home-insight-loading">
+                <div className="home-insight-spinner" />
+                <span>Analyzing your week…</span>
               </div>
-              <div className="home-insight-actions">
-                <button className="home-insight-refresh" onClick={onRefreshInsight} aria-label="Refresh">↻</button>
-                <button className="home-insight-dismiss" onClick={onDismissInsight} aria-label="Dismiss">✕</button>
+            ) : (
+              <div className="home-insight-row">
+                <div className="home-insight-body">
+                  <p className="home-insight-label">Weekly recap</p>
+                  <p className="home-insight-text">{weeklyInsight.insight}</p>
+                </div>
+                <div className="home-insight-actions">
+                  <button className="home-insight-refresh" onClick={onRefreshInsight} aria-label="Refresh">↻</button>
+                  <button className="home-insight-dismiss" onClick={onDismissInsight} aria-label="Dismiss">✕</button>
+                </div>
               </div>
-            </>
+            )
+          )}
+
+          {/* Today suggestion */}
+          {todaySuggestion && weeklyInsight && !weeklyInsight.loading && (
+            <div className="home-today-divider" />
+          )}
+          {todaySuggestion && (
+            todaySuggestion.loading ? (
+              <div className="home-insight-loading">
+                <div className="home-insight-spinner" />
+                <span>Finding today's workout…</span>
+              </div>
+            ) : (
+              <div className="home-today-section">
+                <div className="home-today-body">
+                  <p className="home-insight-label">Train today</p>
+                  <p className="home-insight-text">{todaySuggestion.rationale}</p>
+                  <p className="home-today-name">{todaySuggestion.template?.name}</p>
+                </div>
+                <button
+                  className="home-today-btn"
+                  onClick={() => onStartTodaySuggestion(todaySuggestion.template)}
+                >
+                  Start →
+                </button>
+              </div>
+            )
           )}
         </div>
       )}
@@ -288,7 +320,6 @@ export default function HomeScreen({
         </ul>
       ) : templates.length === 0 ? (
         <div className="home-empty">
-          <p className="home-empty-icon">🏋️</p>
           <p className="home-empty-text">No workouts yet.</p>
           <p className="home-empty-sub">Pick a Quick Start below or tap <strong>+ New</strong> to build your own.</p>
         </div>
@@ -319,7 +350,7 @@ export default function HomeScreen({
                     </p>
                   </div>
                   <div className="home-card-actions">
-                    <button className="home-edit-btn" onClick={() => onEdit(t)} aria-label="Edit workout">✏️</button>
+                    <button className="home-edit-btn" onClick={() => onEdit(t)} aria-label="Edit workout"><PencilIcon /></button>
                     <button
                       className={`home-start-btn ${startingTemplateId === t.id ? 'home-start-btn--loading' : ''}`}
                       onClick={() => onStart(t)}
@@ -368,7 +399,7 @@ export default function HomeScreen({
 
       {/* Program manager sheet */}
       {showProgramSheet && (
-        <div className="home-sheet-overlay" onClick={() => { setShowProgramSheet(false); setEditingProgramId(null); setDeletingProgramId(null); setShowNewProgram(false); setNewProgramName('') }}>
+        <div className="home-sheet-overlay" onClick={() => { setShowProgramSheet(false); setEditingProgramId(null); setDeletingProgramId(null); setNewProgramStep(null); setNewProgramName('') }}>
           <div className="home-sheet home-program-sheet" onClick={e => e.stopPropagation()}>
             <p className="home-sheet-title">Programs</p>
 
@@ -377,16 +408,40 @@ export default function HomeScreen({
                 const isEditing  = editingProgramId === p.id
                 const isDeleting = deletingProgramId === p.id
                 return (
-                  <li key={p.id} className="home-program-item">
+                  <li
+                key={p.id}
+                className={`home-program-item${programDeleteInProgress === p.id ? ' home-program-item--removing' : ''}`}
+              >
                     {isDeleting ? (
                       <div className="home-program-delete-confirm">
                         <span className="home-program-delete-msg">Delete "{p.name}"?</span>
-                        <button className="home-program-delete-cancel" onClick={() => setDeletingProgramId(null)}>Cancel</button>
-                        <button className="home-program-delete-ok" onClick={async () => {
-                          setDeletingProgramId(null)
-                          await onDeleteProgram(p.id)
-                          if ((programs?.length ?? 0) <= 1) setShowProgramSheet(false)
-                        }}>Delete</button>
+                        <button
+                          className="home-program-delete-cancel"
+                          disabled={programDeleteInProgress === p.id}
+                          onClick={() => setDeletingProgramId(null)}
+                        >Cancel</button>
+                        <button
+                          className="home-program-delete-ok"
+                          disabled={programDeleteInProgress === p.id}
+                          onClick={async () => {
+                            setProgramDeleteInProgress(p.id)
+                            try {
+                              await Promise.all([
+                                onDeleteProgram(p.id),
+                                new Promise(r => setTimeout(r, 360)),
+                              ])
+                            } finally {
+                              setProgramDeleteInProgress(null)
+                              setDeletingProgramId(null)
+                            }
+                            if ((programs?.length ?? 0) <= 1) setShowProgramSheet(false)
+                          }}
+                        >
+                          {programDeleteInProgress === p.id
+                            ? <span className="home-program-delete-spinner" />
+                            : 'Delete'
+                          }
+                        </button>
                       </div>
                     ) : isEditing ? (
                       <div className="home-program-edit-row">
@@ -444,7 +499,7 @@ export default function HomeScreen({
               })}
             </ul>
 
-            {showNewProgram ? (
+            {newProgramStep === 'name' ? (
               <div className="home-program-new-row">
                 <input
                   className="home-program-input"
@@ -455,10 +510,10 @@ export default function HomeScreen({
                     if (e.key === 'Enter' && newProgramName.trim() && !programSaving) {
                       setProgramSaving(true)
                       try { await onCreateProgram(newProgramName.trim()) } finally {
-                        setNewProgramName(''); setShowNewProgram(false); setProgramSaving(false)
+                        setNewProgramName(''); setNewProgramStep(null); setProgramSaving(false)
                       }
                     }
-                    if (e.key === 'Escape') { setShowNewProgram(false); setNewProgramName('') }
+                    if (e.key === 'Escape') { setNewProgramStep('options'); setNewProgramName('') }
                   }}
                   autoFocus
                 />
@@ -466,17 +521,60 @@ export default function HomeScreen({
                   if (!newProgramName.trim() || programSaving) return
                   setProgramSaving(true)
                   try { await onCreateProgram(newProgramName.trim()) } finally {
-                    setNewProgramName(''); setShowNewProgram(false); setProgramSaving(false)
+                    setNewProgramName(''); setNewProgramStep(null); setProgramSaving(false)
                   }
                 }}>
                   {programSaving ? <span className="home-program-spinner" /> : 'Add'}
                 </button>
-                <button className="home-program-edit-cancel" onClick={() => { setShowNewProgram(false); setNewProgramName('') }}>✕</button>
+                <button className="home-program-edit-cancel" onClick={() => { setNewProgramStep('options'); setNewProgramName('') }}>✕</button>
+              </div>
+            ) : newProgramStep === 'options' ? (
+              <div className="home-program-new-options">
+                <button className="home-sheet-option home-sheet-option--sm" onClick={() => setNewProgramStep('name')}>
+                  <div className="home-sheet-option-icon">
+                    <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="11" y1="5" x2="11" y2="17" />
+                      <line x1="5" y1="11" x2="17" y2="11" />
+                    </svg>
+                  </div>
+                  <div className="home-sheet-option-text">
+                    <span className="home-sheet-option-label">Build it myself</span>
+                    <span className="home-sheet-option-sub">Pick exercises and set your defaults</span>
+                  </div>
+                </button>
+                <button className="home-sheet-option home-sheet-option--sm" onClick={() => {
+                  setShowProgramSheet(false); setNewProgramStep(null); setNewProgramName('')
+                  onNewGenerateSingle()
+                }}>
+                  <div className="home-sheet-option-icon home-sheet-option-icon--accent">
+                    <svg viewBox="0 0 22 22" fill="currentColor" stroke="none">
+                      <path d="M12 2L4.5 12.5H10L8.5 21L19.5 10H14L12 2z" />
+                    </svg>
+                  </div>
+                  <div className="home-sheet-option-text">
+                    <span className="home-sheet-option-label">Generate a workout</span>
+                    <span className="home-sheet-option-sub">AI builds one workout for you instantly</span>
+                  </div>
+                </button>
+                <button className="home-sheet-option home-sheet-option--sm" onClick={() => {
+                  setShowProgramSheet(false); setNewProgramStep(null); setNewProgramName('')
+                  onNewGenerate()
+                }}>
+                  <div className="home-sheet-option-icon home-sheet-option-icon--accent">
+                    <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 2l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" />
+                    </svg>
+                  </div>
+                  <div className="home-sheet-option-text">
+                    <span className="home-sheet-option-label">Generate a plan</span>
+                    <span className="home-sheet-option-sub">Answer 2 quick questions, get a full split</span>
+                  </div>
+                </button>
               </div>
             ) : (
               <button className="home-program-new-btn" onClick={() => {
                 if (!requirePro()) return
-                setShowNewProgram(true)
+                setNewProgramStep('options')
               }}>
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ width: 16, height: 16 }}>
                   <line x1="10" y1="4" x2="10" y2="16" /><line x1="4" y1="10" x2="16" y2="10" />
@@ -485,7 +583,7 @@ export default function HomeScreen({
               </button>
             )}
 
-            <button className="home-sheet-cancel" onClick={() => { setShowProgramSheet(false); setEditingProgramId(null); setDeletingProgramId(null); setShowNewProgram(false); setNewProgramName('') }}>
+            <button className="home-sheet-cancel" onClick={() => { setShowProgramSheet(false); setEditingProgramId(null); setDeletingProgramId(null); setNewProgramStep(null); setNewProgramName('') }}>
               Cancel
             </button>
           </div>
@@ -508,6 +606,21 @@ export default function HomeScreen({
               <div className="home-sheet-option-text">
                 <span className="home-sheet-option-label">Build it myself</span>
                 <span className="home-sheet-option-sub">Pick exercises and set your defaults</span>
+              </div>
+            </button>
+
+            <button
+              className="home-sheet-option"
+              onClick={handleNewGenerateSingle}
+            >
+              <div className="home-sheet-option-icon home-sheet-option-icon--accent">
+                <svg viewBox="0 0 22 22" fill="currentColor" stroke="none">
+                  <path d="M12 2L4.5 12.5H10L8.5 21L19.5 10H14L12 2z" />
+                </svg>
+              </div>
+              <div className="home-sheet-option-text">
+                <span className="home-sheet-option-label">Generate a workout</span>
+                <span className="home-sheet-option-sub">AI builds one workout for you instantly</span>
               </div>
             </button>
 

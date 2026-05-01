@@ -137,6 +137,12 @@
   align-items: center;
   gap: 8px;
   padding: 10px 4px;
+  animation: delete-confirm-in 0.2s ease;
+}
+
+@keyframes delete-confirm-in {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 
 .home-program-delete-msg {
@@ -154,6 +160,13 @@
   font-weight: 600;
   font-family: var(--sans);
   cursor: pointer;
+  min-width: 58px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s;
+
+  &:disabled { opacity: 0.4; cursor: default; }
 }
 
 .home-program-delete-cancel {
@@ -167,6 +180,34 @@
   border: 1px solid rgba(248, 113, 113, 0.25);
 }
 
+.home-program-delete-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(248, 113, 113, 0.35);
+  border-top-color: #f87171;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* Exit animation when a program is being deleted */
+.home-program-item--removing {
+  animation: program-item-exit 360ms ease-out forwards;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+@keyframes program-item-exit {
+  0%   { opacity: 1; transform: translateX(0);     max-height: 80px; }
+  55%  { opacity: 0; transform: translateX(-12px); max-height: 80px; }
+  100% { opacity: 0; transform: translateX(-12px); max-height: 0; }
+}
+
+@keyframes program-step-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* Inline edit/new input row */
 .home-program-edit-row,
 .home-program-new-row {
@@ -174,6 +215,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 0;
+  animation: program-step-in 0.18s ease both;
 }
 
 .home-program-input {
@@ -216,6 +258,7 @@
 
 /* New Program button */
 .home-program-new-btn {
+  animation: program-step-in 0.18s ease both;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -233,6 +276,30 @@
   transition: border-color 0.15s, color 0.15s;
 
   &:hover { border-color: var(--accent-border); color: var(--accent); }
+}
+
+.home-program-new-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  animation: program-step-in 0.18s ease both;
+}
+
+.home-sheet-option--sm {
+  padding: 10px 12px;
+  gap: 10px;
+  border-radius: 12px;
+
+  .home-sheet-option-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    svg { width: 17px; height: 17px; }
+  }
+
+  .home-sheet-option-label { font-size: 14px; }
+  .home-sheet-option-sub   { font-size: 12px; }
 }
 
 /* Streak badge — appears in header after check-in */
@@ -412,7 +479,7 @@
 .home-card-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
@@ -421,7 +488,7 @@
   border: none;
   color: var(--text-dim, var(--text));
   opacity: 0.35;
-  padding: 8px 6px 8px 0;
+  padding: 8px 10px 8px 0;
   cursor: grab;
   display: flex;
   align-items: center;
@@ -577,15 +644,15 @@
   flex-direction: row-reverse;
 }
 
-/* Keep drag handle visually at the correct end in LH mode */
+/* In row-reverse, first DOM child (drag handle) naturally sits at the far right */
 .home--left .home-drag-handle {
   padding: 8px 0 8px 6px;
-  order: 99; /* Push to the far right (which is the "leading" side in row-reverse) */
 }
 
 /* Start is now on the far left — reverse actions order so Start leads */
 .home--left .home-card-actions {
   flex-direction: row-reverse;
+  gap: 12px;
 }
 
 .home--left .home-session-banner {
@@ -908,8 +975,8 @@
   border-radius: 14px;
   padding: 14px 16px;
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  flex-direction: column;
+  gap: 0;
 }
 
 .home-insight-loading {
@@ -976,4 +1043,55 @@
   transition: color 0.15s;
 
   &:active { color: var(--text-h); }
+}
+
+.home-insight-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+
+.home-today-divider {
+  width: 100%;
+  height: 1px;
+  background: var(--border);
+  margin: 10px 0 2px;
+}
+
+.home-today-section {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  width: 100%;
+}
+
+.home-today-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.home-today-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 2px 0 0;
+}
+
+.home-today-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+
+  &:active { opacity: 0.8; }
 }
