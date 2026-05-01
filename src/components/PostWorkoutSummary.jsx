@@ -35,17 +35,13 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
   const totalSets     = (session.logs ?? []).reduce((sum, l) => sum + l.sets.length, 0)
   const isFirstSession = !prevSession
   const [showDurationEdit, setShowDurationEdit] = useState(false)
-  const [durationEditH, setDurationEditH] = useState(Math.floor((session.duration ?? 0) / 3600))
-  const [durationEditM, setDurationEditM] = useState(Math.floor(((session.duration ?? 0) % 3600) / 60))
-  const [durationEditS, setDurationEditS] = useState((session.duration ?? 0) % 60)
+  const [durationEditH, setDurationEditH] = useState(String(Math.floor((session.duration ?? 0) / 3600)))
+  const [durationEditM, setDurationEditM] = useState(String(Math.floor(((session.duration ?? 0) % 3600) / 60)))
+  const [durationEditS, setDurationEditS] = useState(String((session.duration ?? 0) % 60))
 
-  useEffect(() => {
-    if (prsHit > 0) {
-      confetti({ particleCount: 120, spread: 80, origin: { y: 0.55 } })
-      setTimeout(() => confetti({ particleCount: 60, spread: 60, origin: { x: 0.2, y: 0.6 } }), 300)
-      setTimeout(() => confetti({ particleCount: 60, spread: 60, origin: { x: 0.8, y: 0.6 } }), 500)
-    }
-
+  function fetchAiSummary() {
+    setAiSummary(null)
+    setAiError(false)
     const exercises = (session.logs ?? []).map(log => {
       const ex = findEx(log.exerciseId)
       return {
@@ -54,7 +50,6 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
         sets:        log.sets,
       }
     })
-
     supabase.functions.invoke('generate-workout-summary', {
       body: {
         workoutName:       template.name,
@@ -77,6 +72,17 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
         setAiSummary(data.summary)
       })
       .catch(() => setAiError(true))
+  }
+
+  useEffect(() => {
+    if (prsHit > 0) {
+      confetti({ particleCount: 120, spread: 80, origin: { y: 0.55 } })
+      setTimeout(() => confetti({ particleCount: 60, spread: 60, origin: { x: 0.2, y: 0.6 } }), 300)
+      setTimeout(() => confetti({ particleCount: 60, spread: 60, origin: { x: 0.8, y: 0.6 } }), 500)
+    } else if (completedSets > 0) {
+      confetti({ particleCount: 40, spread: 55, origin: { y: 0.6 }, scalar: 0.85 })
+    }
+    fetchAiSummary()
   }, [])
 
   function handleShare() {
@@ -88,7 +94,8 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
     }
   }
 
-  const hasPRs = prsHit > 0
+  const hasPRs    = prsHit > 0
+  const isPartial = totalSets > 0 && completedSets < totalSets && completedSets > 0
 
   return (
     <div className="pws">
@@ -101,6 +108,9 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
           }
         </div>
         <h1 className="pws-hero-name">{template.name}</h1>
+        {isPartial && !hasPRs && (
+          <p className="pws-hero-tagline">Solid effort — every rep counts.</p>
+        )}
         <p className="pws-hero-meta">
           {fmtDate(session.finishedAt)} · {fmtTime(session.startedAt)} – {fmtTime(session.finishedAt)}
         </p>
@@ -113,7 +123,7 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
           <span className="pws-pill">{fmtVolume(volume)} {unit}</span>
           <span className="pws-pill">{completedSets}/{totalSets} sets</span>
           {prsHit > 0 && (
-            <span className="pws-pill pws-pill--pr">🏆 {prsHit} PR{prsHit > 1 ? 's' : ''}</span>
+            <span className="pws-pill pws-pill--pr"><TrophyIcon />{prsHit} PR{prsHit > 1 ? 's' : ''}</span>
           )}
         </div>
       </div>
@@ -122,23 +132,25 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
       <div className="pws-body">
 
         {/* AI Summary */}
-        {!aiError && (
-          <div className="pws-ai-card">
-            <span className="pws-ai-label">
-              <SparkleIcon /> AI Summary
-            </span>
-            {aiSummary === null
-              ? (
-                <div className="pws-ai-skeleton">
-                  <div className="pws-ai-skeleton-line" style={{ width: '92%' }} />
-                  <div className="pws-ai-skeleton-line" style={{ width: '78%' }} />
-                  <div className="pws-ai-skeleton-line" style={{ width: '55%' }} />
-                </div>
-              )
-              : <p className="pws-ai-text">{aiSummary}</p>
-            }
-          </div>
-        )}
+        <div className="pws-ai-card">
+          <span className="pws-ai-label">
+            <SparkleIcon /> AI Summary
+          </span>
+          {aiError ? (
+            <div className="pws-ai-error">
+              <span className="pws-ai-error-text">Couldn't generate summary</span>
+              <button className="pws-ai-retry" onClick={fetchAiSummary}>Retry</button>
+            </div>
+          ) : aiSummary === null ? (
+            <div className="pws-ai-skeleton">
+              <div className="pws-ai-skeleton-line" style={{ width: '92%' }} />
+              <div className="pws-ai-skeleton-line" style={{ width: '78%' }} />
+              <div className="pws-ai-skeleton-line" style={{ width: '55%' }} />
+            </div>
+          ) : (
+            <p className="pws-ai-text">{aiSummary}</p>
+          )}
+        </div>
 
         {/* Stats */}
         <div className="pws-stats">
@@ -204,7 +216,8 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
                   min="0"
                   max="23"
                   value={durationEditH}
-                  onChange={e => setDurationEditH(Math.max(0, parseInt(e.target.value) || 0))}
+                  onChange={e => setDurationEditH(e.target.value)}
+                  onBlur={e => setDurationEditH(String(Math.max(0, parseInt(e.target.value) || 0)))}
                 />
                 <span>h</span>
               </label>
@@ -215,7 +228,8 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
                   min="0"
                   max="59"
                   value={durationEditM}
-                  onChange={e => setDurationEditM(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                  onChange={e => setDurationEditM(e.target.value)}
+                  onBlur={e => setDurationEditM(String(Math.max(0, Math.min(59, parseInt(e.target.value) || 0))))}
                 />
                 <span>m</span>
               </label>
@@ -226,7 +240,8 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
                   min="0"
                   max="59"
                   value={durationEditS}
-                  onChange={e => setDurationEditS(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                  onChange={e => setDurationEditS(e.target.value)}
+                  onBlur={e => setDurationEditS(String(Math.max(0, Math.min(59, parseInt(e.target.value) || 0))))}
                 />
                 <span>s</span>
               </label>
@@ -236,7 +251,7 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
               <button
                 className="pws-modal-confirm"
                 onClick={async () => {
-                  const secs = durationEditH * 3600 + durationEditM * 60 + durationEditS
+                  const secs = (parseInt(durationEditH) || 0) * 3600 + (parseInt(durationEditM) || 0) * 60 + (parseInt(durationEditS) || 0)
                   setDurationSecs(secs)
                   setShowDurationEdit(false)
                   if (session.id) await updateSessionDuration(session.id, secs)
