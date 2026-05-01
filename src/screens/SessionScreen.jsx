@@ -10,6 +10,17 @@ import ExerciseSearch from '../components/ExerciseSearch'
 import RestTimer from '../components/RestTimer'
 import './SessionScreen.css'
 
+function NotesIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
+      <rect x="4" y="2" width="12" height="16" rx="2" />
+      <line x1="7" y1="7" x2="13" y2="7" />
+      <line x1="7" y1="10" x2="13" y2="10" />
+      <line x1="7" y1="13" x2="11" y2="13" />
+    </svg>
+  )
+}
+
 function findExercise(id) {
   return defaultExercises.find(e => e.id === id) ?? getCachedCustomExercises().find(e => e.id === id) ?? null
 }
@@ -27,11 +38,13 @@ function elapsedFromStart(startedAt) {
 }
 
 export default function SessionScreen({ activeSession, settings, onUpdate, onFinish, onMinimize, onAbandon }) {
-  const { template, sessionId, startedAt, logs: initialLogs, prMap: initialPrMap } = activeSession
+  const { template, sessionId, startedAt, logs: initialLogs, prMap: initialPrMap, prRepsMap: initialPrRepsMap } = activeSession
 
-  const [logs, setLogs]       = useState(initialLogs)
-  const [prMap, setPRMap]     = useState(initialPrMap)
-  const basePrMapRef          = useRef(initialPrMap)
+  const [logs, setLogs]           = useState(initialLogs)
+  const [prMap, setPRMap]         = useState(initialPrMap)
+  const [prRepsMap, setPRRepsMap] = useState(initialPrRepsMap ?? {})
+  const basePrMapRef              = useRef(initialPrMap)
+  const basePrRepsMapRef          = useRef(initialPrRepsMap ?? {})
   const [elapsed, setElapsed] = useState(() => elapsedFromStart(startedAt))
   const [restDuration, setRestDuration] = useState(null)
   const [timerFlash, setTimerFlash] = useState(false)
@@ -39,6 +52,8 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   const [showAbandon, setShowAbandon]       = useState(false)
   const [showTimeLimit, setShowTimeLimit]   = useState(false)
   const timeLimitDismissedAt                = useRef(null)
+  const lastActivityAt                      = useRef(Date.now())
+  const [timerFrozen, setTimerFrozen]       = useState(false)
   const [finishing, setFinishing] = useState(false)
   const [manualDuration, setManualDuration] = useState(null)
   const [showTimerEdit, setShowTimerEdit] = useState(false)
@@ -48,18 +63,20 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   const [openNotes, setOpenNotes] = useState(new Set())
   const [collapsedExercises, setCollapsedExercises] = useState(new Set())
   const [editMode, setEditMode] = useState(false)
+  const [editVisible, setEditVisible] = useState(false)
+  const editExitRef = useRef(null)
   const [warnPending, setWarnPending] = useState(false)
   const warnTimerRef = useRef(null)
   const noteRefs = useRef({})
 
   const [celebratingExercise, setCelebratingExercise] = useState(null)
   const celebrateTimerRef    = useRef(null)
-  const autoCollapseTimerRef = useRef(null)
 
   const [showAddExercise, setShowAddExercise] = useState(false)
   const [substituteIndex, setSubstituteIndex] = useState(null)
   const [confirmSubstituteIndex, setConfirmSubstituteIndex] = useState(null)
   const [confirmRemoveIndex, setConfirmRemoveIndex] = useState(null)
+  const [confirmRemoveSet, setConfirmRemoveSet]     = useState(null) // { logIndex, setIndex }
   const [pendingFinish, setPendingFinish] = useState(null)
   const [pendingQuickStart, setPendingQuickStart] = useState(null)
   const [newWorkoutName, setNewWorkoutName] = useState('')
@@ -74,6 +91,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   useEffect(() => {
     function onKeyDown(e) {
       if (e.key !== 'Escape') return
+      if (confirmRemoveSet !== null)      { setConfirmRemoveSet(null); return }
       if (confirmRemoveIndex !== null)    { setConfirmRemoveIndex(null); return }
       if (confirmSubstituteIndex !== null){ setConfirmSubstituteIndex(null); return }
       if (substituteIndex !== null)       { setSubstituteIndex(null); return }
@@ -82,18 +100,26 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [confirmRemoveIndex, confirmSubstituteIndex, substituteIndex, showAbandon, showAddExercise])
+  }, [confirmRemoveSet, confirmRemoveIndex, confirmSubstituteIndex, substituteIndex, showAbandon, showAddExercise])
 
-  // Elapsed timer + 3-hour time limit check
+  // Elapsed timer + stasis freeze + 3-hour time limit check
   useEffect(() => {
     const THREE_HOURS = 3 * 60 * 60
-    const ONE_HOUR    = 60 * 60
+    const ONE_HOUR_MS = 60 * 60 * 1000
     function tick() {
+      const idleMs = Date.now() - lastActivityAt.current
+      if (idleMs >= ONE_HOUR_MS) {
+        const frozenSecs = Math.floor((lastActivityAt.current - new Date(startedAt).getTime()) / 1000)
+        setElapsed(frozenSecs)
+        setTimerFrozen(true)
+        return
+      }
+      setTimerFrozen(false)
       const secs = elapsedFromStart(startedAt)
       setElapsed(secs)
       if (secs >= THREE_HOURS && !showTimeLimit) {
         const lastDismissed = timeLimitDismissedAt.current
-        if (!lastDismissed || (Date.now() - lastDismissed) >= ONE_HOUR * 1000) {
+        if (!lastDismissed || (Date.now() - lastDismissed) >= ONE_HOUR_MS) {
           setShowTimeLimit(true)
         }
       }
@@ -106,17 +132,31 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible) }
   }, [startedAt, showTimeLimit])
 
-  // Clear warn + celebrate + auto-collapse timers when navigating away
+  // Clear warn + celebrate timers when navigating away
   useEffect(() => () => {
     clearTimeout(warnTimerRef.current)
     clearTimeout(celebrateTimerRef.current)
-    clearTimeout(autoCollapseTimerRef.current)
+    clearTimeout(editExitRef.current)
   }, [])
 
-  function updateLogsAndSync(newLogs, newPrMap) {
+
+  function updateLogsAndSync(newLogs, newPrMap, newPrRepsMap) {
     setLogs(newLogs)
     if (newPrMap) setPRMap(newPrMap)
-    onUpdate(newLogs, newPrMap ?? prMap)
+    if (newPrRepsMap) setPRRepsMap(newPrRepsMap)
+    onUpdate(newLogs, newPrMap ?? prMap, newPrRepsMap ?? prRepsMap)
+  }
+
+  function recalcPrRepsMapForExercise(newPrMap, newLogs, exerciseId) {
+    const baseline     = basePrMapRef.current[exerciseId] ?? 0
+    const baselineReps = basePrRepsMapRef.current[exerciseId] ?? 0
+    const newMaxWeight = newPrMap[exerciseId] ?? 0
+    if (newMaxWeight <= baseline) return { ...prRepsMap, [exerciseId]: baselineReps }
+    const bestSet = newLogs
+      .filter(l => l.exerciseId === exerciseId)
+      .flatMap(l => l.sets.filter(s => s.completed && s.weight === newMaxWeight))
+      .reduce((best, s) => (!best || s.reps > best.reps) ? s : best, null)
+    return { ...prRepsMap, [exerciseId]: bestSet?.reps ?? baselineReps }
   }
 
   function copyLastSession() {
@@ -161,26 +201,24 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
       ? set.reps > 0 && set.reps > currentPR
       : set.weight > 0 && set.weight > currentPR
     const newPrMap = isPR ? { ...prMap, [exerciseId]: prType === 'reps' ? set.reps : set.weight } : prMap
+    const newPrRepsMap = (isPR && prType !== 'reps') ? { ...prRepsMap, [exerciseId]: set.reps } : null
     const newLogs = logs.map((l, li) =>
       li !== logIndex ? l : {
         ...l,
         sets: l.sets.map((s, si) => si === setIndex ? { ...set, completed: true, isPR } : s),
       }
     )
-    updateLogsAndSync(newLogs, newPrMap)
+    lastActivityAt.current = Date.now()
+    updateLogsAndSync(newLogs, newPrMap, newPrRepsMap)
     if (settings.restTimerDuration > 0) setRestDuration(settings.restTimerDuration)
 
-    // Celebrate + auto-collapse when all sets (including any added extras) are done
+    // Celebrate when all sets (including any added extras) are done
     const target = log.sets.length
     const nowDone = log.sets.filter(s => s.completed).length + 1
     if (nowDone >= target) {
       clearTimeout(celebrateTimerRef.current)
-      clearTimeout(autoCollapseTimerRef.current)
       setCelebratingExercise(exerciseId)
       celebrateTimerRef.current = setTimeout(() => setCelebratingExercise(null), 1200)
-      autoCollapseTimerRef.current = setTimeout(() => {
-        setCollapsedExercises(prev => new Set([...prev, exerciseId]))
-      }, 1600)
     }
   }
 
@@ -206,8 +244,35 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     updateLogsAndSync(newLogs, null)
   }
 
+  function removeSet(logIndex, setIndex) {
+    const log = logs[logIndex]
+    if (log.sets.length <= 1) return
+    const removedSet = log.sets[setIndex]
+    const newSets = log.sets.filter((_, i) => i !== setIndex)
+    const newTargetCount = removedSet.isBonus
+      ? log.targetCount
+      : Math.max(1, (log.targetCount ?? log.sets.length) - 1)
+    const newLogs = logs.map((l, li) =>
+      li !== logIndex ? l : { ...l, sets: newSets, targetCount: newTargetCount }
+    )
+    let newPrMap = prMap
+    let newPrRepsMap = null
+    if (removedSet.isPR) {
+      const exerciseId = log.exerciseId
+      const exercise = findExercise(exerciseId)
+      const prType = exercise?.prType ?? 'weight'
+      const baseline = basePrMapRef.current[exerciseId] ?? 0
+      const sessionMax = newLogs
+        .filter(l => l.exerciseId === exerciseId)
+        .flatMap(l => l.sets.filter(s => s.completed && (prType === 'reps' ? s.reps > 0 : s.weight > 0)))
+        .reduce((max, s) => Math.max(max, prType === 'reps' ? s.reps : s.weight), 0)
+      newPrMap = { ...prMap, [exerciseId]: Math.max(baseline, sessionMax) }
+      if (prType !== 'reps') newPrRepsMap = recalcPrRepsMapForExercise(newPrMap, newLogs, exerciseId)
+    }
+    updateLogsAndSync(newLogs, newPrMap, newPrRepsMap)
+  }
+
   function rescindSet(logIndex, setIndex) {
-    clearTimeout(autoCollapseTimerRef.current)
     const rescindedSet = logs[logIndex].sets[setIndex]
     const newLogs = logs.map((log, li) =>
       li !== logIndex ? log : {
@@ -216,6 +281,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
       }
     )
     let newPrMap = prMap
+    let newPrRepsMap = null
     if (rescindedSet.isPR) {
       const exerciseId = logs[logIndex].exerciseId
       const exercise = findExercise(exerciseId)
@@ -226,8 +292,9 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
         .flatMap(l => l.sets.filter(s => s.completed && (prType === 'reps' ? s.reps > 0 : s.weight > 0)))
         .reduce((max, s) => Math.max(max, prType === 'reps' ? s.reps : s.weight), 0)
       newPrMap = { ...prMap, [exerciseId]: Math.max(baseline, sessionMax) }
+      if (prType !== 'reps') newPrRepsMap = recalcPrRepsMapForExercise(newPrMap, newLogs, exerciseId)
     }
-    updateLogsAndSync(newLogs, newPrMap)
+    updateLogsAndSync(newLogs, newPrMap, newPrRepsMap)
   }
 
   function addExerciseToSession(exercise) {
@@ -243,9 +310,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
   }
 
   function handleRemoveExercise(logIndex) {
-    const hasCompleted = logs[logIndex].sets.some(s => s.completed)
-    if (hasCompleted) setConfirmRemoveIndex(logIndex)
-    else doRemoveExercise(logIndex)
+    setConfirmRemoveIndex(logIndex)
   }
 
   function handleSubstituteExercise(logIndex) {
@@ -311,7 +376,11 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
 
       const templateIds = template.exercises.map(e => e.exerciseId).sort().join()
       const logIds = logs.map(l => l.exerciseId).sort().join()
-      if (templateIds !== logIds) {
+      const setCountChanged = logs.some(log => {
+        const tmplEx = template.exercises.find(e => e.exerciseId === log.exerciseId)
+        return tmplEx && log.sets.length !== tmplEx.sets.length
+      })
+      if (templateIds !== logIds || setCountChanged) {
         setPendingFinish({ session })
         setFinishing(false)
       } else {
@@ -356,7 +425,14 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     setModalSaving(true)
     const updatedExercises = logs.map(log => {
       const existing = template.exercises.find(e => e.exerciseId === log.exerciseId)
-      if (existing) return existing
+      if (existing) {
+        if (log.sets.length === existing.sets.length) return existing
+        const last = existing.sets[existing.sets.length - 1] ?? { reps: 0, weight: 0 }
+        const newSets = Array.from({ length: log.sets.length }, (_, i) =>
+          i < existing.sets.length ? existing.sets[i] : { reps: last.reps, weight: last.weight }
+        )
+        return { ...existing, sets: newSets }
+      }
       const targetSets = log.sets.slice(0, log.targetCount ?? log.sets.length)
       return createTemplateExercise({
         exerciseId: log.exerciseId,
@@ -366,6 +442,20 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
     const updatedTemplate = { ...template, exercises: updatedExercises }
     try { await saveTemplate(updatedTemplate) } catch (err) { console.error(err); setModalSaving(false); return }
     onFinish(session, updatedTemplate)
+  }
+
+  const editExiting = editVisible && !editMode
+
+  function toggleEdit() {
+    if (editMode) {
+      setEditMode(false)
+      clearTimeout(editExitRef.current)
+      editExitRef.current = setTimeout(() => setEditVisible(false), 160)
+    } else {
+      clearTimeout(editExitRef.current)
+      setEditVisible(true)
+      setEditMode(true)
+    }
   }
 
   const totalSets     = logs.reduce((sum, log) => sum + (log.targetCount ?? log.sets.length), 0)
@@ -397,11 +487,12 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
             >
               {fmtElapsed(manualDuration ?? elapsed)}
               {manualDuration != null && <span className="session-timer-edited">✎</span>}
+              {timerFrozen && manualDuration == null && <span className="session-timer-frozen">❄</span>}
             </button>
           </div>
           <button
             className={`session-edit-btn ${editMode ? 'session-edit-btn--active' : ''}`}
-            onClick={() => setEditMode(m => !m)}
+            onClick={toggleEdit}
           >
             {editMode ? 'Done' : 'Edit'}
           </button>
@@ -439,15 +530,16 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
           const allSetsDone = doneCount >= target
           const isCardio    = exercise.category === 'Cardio'
           const cardioUnit  = exercise.cardioUnit ?? 'time'
-          const isStretch   = exercise.category === 'Stretch'
+          const isStretch   = exercise.category === 'Stretch' || exercise.isTimed
           const exPrType    = exercise?.prType ?? 'weight'
           const exPR        = prMap[log.exerciseId] ?? 0
+          const exPRReps    = prRepsMap[log.exerciseId] ?? 0
           const prLabel     = exPR > 0 && !isCardio && !isStretch
             ? exPrType === 'reps'
               ? `${exPR} reps`
               : settings.unit === 'kg'
-                ? `${Math.round(exPR / 2.2046)} kg`
-                : `${exPR} lbs`
+                ? `${Math.round(exPR / 2.2046)} kg${exPRReps > 0 ? ` × ${exPRReps}` : ''}`
+                : `${exPR} lbs${exPRReps > 0 ? ` × ${exPRReps}` : ''}`
             : null
           const lastLog = lastSession?.logs?.find(l => l.exerciseId === log.exerciseId)
           const lastHint = (() => {
@@ -474,32 +566,35 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                   <p className={`session-ex-meta${allSetsDone ? ' session-ex-meta--done' : ''}`}>
                     {allSetsDone ? '✓ ' : ''}{doneCount}/{target} sets{doneCount > target ? ` +${doneCount - target}` : ''}
                     {lastHint && <span className="session-ex-pr-label"> · {lastHint}</span>}
-                    {prLabel && <span className="session-ex-pr-label"> · 🏆 {prLabel}</span>}
+                    {prLabel && <span className="session-ex-pr-label"> · {prLabel}</span>}
                   </p>
                 </div>
-                {editMode && (
+                {editVisible && (
                   <button
-                    className="session-ex-swap"
+                    className={`session-ex-swap${editExiting ? ' session-edit-exiting' : ''}`}
                     onClick={e => { e.stopPropagation(); handleSubstituteExercise(li) }}
                     aria-label="Substitute exercise"
+                    disabled={editExiting}
                   >
                     ⇄
                   </button>
                 )}
-                {editMode && (
+                {editVisible && (
                   <button
-                    className={`session-notes-toggle ${openNotes.has(log.exerciseId) ? 'session-notes-toggle--open' : ''} ${log.notes ? 'session-notes-toggle--has-note' : ''}`}
+                    className={`session-notes-toggle ${openNotes.has(log.exerciseId) ? 'session-notes-toggle--open' : ''} ${log.notes ? 'session-notes-toggle--has-note' : ''}${editExiting ? ' session-edit-exiting' : ''}`}
                     onClick={e => { e.stopPropagation(); toggleNotes(log.exerciseId) }}
                     aria-label="Toggle notes"
+                    disabled={editExiting}
                   >
-                    📝
+                    <NotesIcon />
                   </button>
                 )}
-                {editMode && (
+                {editVisible && (
                   <button
-                    className="session-ex-remove"
+                    className={`session-ex-remove${editExiting ? ' session-edit-exiting' : ''}`}
                     onClick={e => { e.stopPropagation(); handleRemoveExercise(li) }}
                     aria-label="Remove exercise"
+                    disabled={editExiting}
                   >
                     ✕
                   </button>
@@ -515,7 +610,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
 
               <div className={`session-ex-body ${isCollapsed ? 'session-ex-body--collapsed' : ''}`}>
               <div className="session-ex-body-inner">
-                {editMode && (
+                {editVisible && (
                   <div
                     className={`session-notes-wrap ${openNotes.has(log.exerciseId) ? 'session-notes-wrap--open' : ''}`}
                     ref={el => { noteRefs.current[log.exerciseId] = el }}
@@ -539,21 +634,29 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
                       onChange={updated => updateSet(li, si, updated)}
                       onComplete={s => completeSet(li, si, s)}
                       onRescind={() => rescindSet(li, si)}
+                      onRemove={log.sets.length > 1 ? () => setConfirmRemoveSet({ logIndex: li, setIndex: si }) : undefined}
                       controllerSide={settings.controllerSide}
                       isCardio={isCardio}
                       cardioUnit={cardioUnit}
                       isStretch={isStretch}
                       unit={settings.unit}
                       editMode={editMode}
+                      editExiting={editExiting}
                       isActive={si === nextActiveIndex}
                       currentPR={prMap[log.exerciseId] ?? 0}
                       prType={exercise?.prType ?? 'weight'}
+                      difficultyLabel={exercise.difficultyLabel}
+                      difficultyDecimal={exercise.difficultyDecimal}
                     />
                   ))}
                 </div>
 
-                {editMode && (
-                  <button className="session-add-set-btn" onClick={() => addSet(li)}>
+                {editVisible && (
+                  <button
+                    className={`session-add-set-btn${editExiting ? ' session-edit-exiting' : ''}`}
+                    onClick={() => addSet(li)}
+                    disabled={editExiting}
+                  >
                     + Add set
                   </button>
                 )}
@@ -564,8 +667,12 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
         })}
 
         {/* Add exercise — only in edit mode */}
-        {editMode && (
-          <button className="session-add-ex-btn" onClick={() => setShowAddExercise(true)}>
+        {editVisible && (
+          <button
+            className={`session-add-ex-btn${editExiting ? ' session-edit-exiting' : ''}`}
+            onClick={() => setShowAddExercise(true)}
+            disabled={editExiting}
+          >
             + Add exercise
           </button>
         )}
@@ -573,7 +680,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
         {/* Finish + Abandon */}
         <div className="session-finish-inline">
           {allDone && (
-            <p className="session-finish-all-done">💪 All sets complete!</p>
+            <p className="session-finish-all-done">All sets complete!</p>
           )}
           {!allDone && warnPending && (
             <p className="session-finish-warning">
@@ -654,6 +761,12 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
         const logExIds = new Set(logs.map(l => l.exerciseId))
         const added   = logs.filter(l => !templateExIds.has(l.exerciseId)).map(l => findExercise(l.exerciseId)?.name).filter(Boolean)
         const removed = template.exercises.filter(e => !logExIds.has(e.exerciseId)).map(e => findExercise(e.exerciseId)?.name).filter(Boolean)
+        const setChanges = logs.flatMap(log => {
+          const tmplEx = template.exercises.find(e => e.exerciseId === log.exerciseId)
+          if (!tmplEx || log.sets.length === tmplEx.sets.length) return []
+          const name = findExercise(log.exerciseId)?.name ?? log.exerciseId
+          return [`${name} (${tmplEx.sets.length} → ${log.sets.length} sets)`]
+        })
         return (
           <div className="session-modal-overlay">
             <div className="session-modal session-modal--update">
@@ -661,6 +774,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
               <p className="session-modal-body">We noticed you made changes to <strong>{template.name}</strong>:</p>
               {added.length > 0 && <p className="session-modal-diff session-modal-diff--added">+ {added.join(', ')}</p>}
               {removed.length > 0 && <p className="session-modal-diff session-modal-diff--removed">− {removed.join(', ')}</p>}
+              {setChanges.length > 0 && <p className="session-modal-diff session-modal-diff--added">{setChanges.join(', ')}</p>}
               <p className="session-modal-body">Save these changes to your workout template?</p>
               <div className="session-modal-actions">
                 <button className="session-modal-cancel" disabled={modalSaving} onClick={() => onFinish(pendingFinish.session, template)}>Keep original</button>
@@ -728,12 +842,33 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
         </div>
       )}
 
+      {/* Remove set confirm */}
+      {confirmRemoveSet !== null && (
+        <div className="session-modal-overlay" onClick={() => setConfirmRemoveSet(null)}>
+          <div className="session-modal" onClick={e => e.stopPropagation()}>
+            <p className="session-modal-title">Remove set?</p>
+            <p className="session-modal-body">
+              {logs[confirmRemoveSet.logIndex]?.sets[confirmRemoveSet.setIndex]?.completed
+                ? 'This set has been logged. Removing it will discard that data.'
+                : 'This set will be removed.'}
+            </p>
+            <div className="session-modal-actions">
+              <button className="session-modal-cancel" onClick={() => setConfirmRemoveSet(null)}>Keep it</button>
+              <button className="session-modal-confirm" onClick={() => {
+                removeSet(confirmRemoveSet.logIndex, confirmRemoveSet.setIndex)
+                setConfirmRemoveSet(null)
+              }}>Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Remove exercise confirm */}
       {confirmRemoveIndex !== null && (
         <div className="session-modal-overlay" onClick={() => setConfirmRemoveIndex(null)}>
           <div className="session-modal" onClick={e => e.stopPropagation()}>
             <p className="session-modal-title">Remove exercise?</p>
-            <p className="session-modal-body">This exercise has completed sets. Removing it will discard that data.</p>
+            <p className="session-modal-body">{logs[confirmRemoveIndex]?.sets.some(s => s.completed) ? 'This exercise has completed sets. Removing it will discard that data.' : 'This exercise will be removed from the session.'}</p>
             <div className="session-modal-actions">
               <button className="session-modal-cancel" onClick={() => setConfirmRemoveIndex(null)}>Keep it</button>
               <button className="session-modal-confirm" onClick={() => doRemoveExercise(confirmRemoveIndex)}>Remove</button>

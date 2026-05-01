@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import HoldButton from './HoldButton'
 import './SessionSetRow.css'
 
@@ -43,9 +43,8 @@ function EditableValue({ value, onSet, disabled, decimal = false }) {
   )
 }
 
-export default function SessionSetRow({ set, index, onChange, onComplete, onRescind, controllerSide, isCardio, cardioUnit, isStretch, unit, editMode, isActive, currentPR, prType = 'weight' }) {
+export default function SessionSetRow({ set, index, onChange, onComplete, onRescind, onRemove, controllerSide, isCardio, cardioUnit, isStretch, unit, editMode, editExiting, isActive, currentPR, prType = 'weight', difficultyLabel, difficultyDecimal }) {
   const [burst, setBurst] = useState(false)
-  const rowRef = useRef(null)
   const leftHand  = controllerSide === 'left'
   const distUnit  = unit === 'kg' ? 'km' : 'mi'
   const isDistance = isCardio && cardioUnit === 'distance'
@@ -64,6 +63,12 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
     if (set.completed) return
     onChange({ ...set, secs: Math.max(0, Math.min(59, Math.round(v))) })
   }
+  function updateDifficulty(v) {
+    if (set.completed) return
+    const step = difficultyDecimal ? 0.5 : 1
+    const clamped = difficultyDecimal ? Math.round(Math.max(0, v) / step) * step : Math.max(0, Math.round(v))
+    onChange({ ...set, difficulty: clamped })
+  }
 
   function handleComplete() {
     if (set.completed) {
@@ -76,7 +81,19 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
     onComplete(set)
   }
 
-  const locked = !editMode
+  const locked = !editMode && !editExiting
+
+  const diffStepper = difficultyLabel ? (
+    <div className="ssr-stepper">
+      <span className="ssr-stepper-label">{difficultyLabel}</span>
+      <div className="ssr-stepper-controls">
+        <button className="ssr-step-btn" onClick={() => updateDifficulty((set.difficulty ?? 0) - (difficultyDecimal ? 0.5 : 1))} disabled={set.completed}>−</button>
+        <EditableValue value={set.difficulty ?? 0} onSet={updateDifficulty} disabled={set.completed || locked} decimal={difficultyDecimal} />
+        <button className="ssr-step-btn" onClick={() => updateDifficulty((set.difficulty ?? 0) + (difficultyDecimal ? 0.5 : 1))} disabled={set.completed}>+</button>
+      </div>
+    </div>
+  ) : null
+
   const isPRPending = !set.completed && (
     prType === 'reps'
       ? set.reps > 0 && set.reps > currentPR
@@ -104,8 +121,8 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
   )
 
   return (
+    <div className="ssr-wrapper">
     <div
-      ref={rowRef}
       className={`ssr ${set.completed ? 'ssr--done' : ''} ${set.isPR ? 'ssr--pr' : ''} ${set.isBonus ? 'ssr--bonus' : ''} ${burst ? 'ssr--burst' : ''} ${locked ? 'ssr--locked' : ''} ${isActive && !set.completed ? 'ssr--active' : ''}`}
       onClick={locked ? handleComplete : undefined}
     >
@@ -122,15 +139,7 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
           </div>
         </div>
       ) : isBoth ? (
-        <>
-          <div className="ssr-stepper">
-            <span className="ssr-stepper-label">{distUnit}</span>
-            <div className="ssr-stepper-controls">
-              <button className="ssr-step-btn" onClick={() => storeDist(Math.round((dispDist - 0.1) * 10) / 10)} disabled={set.completed}>−</button>
-              <EditableValue value={dispDist} onSet={v => storeDist(v)} disabled={set.completed || locked} decimal />
-              <button className="ssr-step-btn" onClick={() => storeDist(Math.round((dispDist + 0.1) * 10) / 10)} disabled={set.completed}>+</button>
-            </div>
-          </div>
+        <div className={`ssr-stepper-group${difficultyLabel ? ' ssr-stepper-group--grid' : ''}`}>
           <div className="ssr-stepper">
             <span className="ssr-stepper-label">min</span>
             <div className="ssr-stepper-controls">
@@ -147,9 +156,6 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
               <button className="ssr-step-btn" onClick={() => updateSecs((set.secs ?? 0) + 5)} disabled={set.completed}>+</button>
             </div>
           </div>
-        </>
-      ) : isCardio ? (
-        isDistance ? (
           <div className="ssr-stepper">
             <span className="ssr-stepper-label">{distUnit}</span>
             <div className="ssr-stepper-controls">
@@ -158,6 +164,21 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
               <button className="ssr-step-btn" onClick={() => storeDist(Math.round((dispDist + 0.1) * 10) / 10)} disabled={set.completed}>+</button>
             </div>
           </div>
+          {diffStepper}
+        </div>
+      ) : isCardio ? (
+        isDistance ? (
+          <>
+            <div className="ssr-stepper">
+              <span className="ssr-stepper-label">{distUnit}</span>
+              <div className="ssr-stepper-controls">
+                <button className="ssr-step-btn" onClick={() => storeDist(Math.round((dispDist - 0.1) * 10) / 10)} disabled={set.completed}>−</button>
+                <EditableValue value={dispDist} onSet={v => storeDist(v)} disabled={set.completed || locked} decimal />
+                <button className="ssr-step-btn" onClick={() => storeDist(Math.round((dispDist + 0.1) * 10) / 10)} disabled={set.completed}>+</button>
+              </div>
+            </div>
+            {diffStepper}
+          </>
         ) : (
           <>
             <div className="ssr-stepper">
@@ -176,6 +197,7 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
                 <button className="ssr-step-btn" onClick={() => updateSecs((set.secs ?? 0) + 5)} disabled={set.completed}>+</button>
               </div>
             </div>
+            {diffStepper}
           </>
         )
       ) : (
@@ -200,7 +222,16 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
       )}
 
       {!leftHand && completeIndicator}
-      {set.isPR && <span className="ssr-pr-badge">PR 🏆</span>}
+      {set.isPR && <span className="ssr-pr-badge">PR</span>}
+      {(editMode || editExiting) && onRemove && (
+        <button
+          className={`ssr-delete-btn${editExiting ? ' session-edit-exiting' : ''}`}
+          onClick={onRemove}
+          aria-label="Remove set"
+          disabled={editExiting}
+        >✕</button>
+      )}
+    </div>
     </div>
   )
 }

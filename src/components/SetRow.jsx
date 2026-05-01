@@ -60,7 +60,7 @@ function Stepper({ label, value, onDec, onInc, onSet, useHold = false, min = 0, 
   )
 }
 
-export default function SetRow({ set, index, onChange, onRemove, isCardio, cardioUnit, isStretch, unit }) {
+export default function SetRow({ set, index, onChange, onRemove, isCardio, cardioUnit, isStretch, unit, difficultyLabel, difficultyDecimal }) {
   const isDistance = isCardio && cardioUnit === 'distance'
   const isBoth     = isCardio && cardioUnit === 'both'
   const distLabel  = unit === 'kg' ? 'km' : 'mi'
@@ -72,13 +72,20 @@ export default function SetRow({ set, index, onChange, onRemove, isCardio, cardi
   function storeWeight(v) { update('weight', unit === 'kg' ? Math.round(v * 2.2046) : v) }
   function storeDist(v)   { update('weight', unit === 'kg' ? parseFloat((v / 1.60934).toFixed(3)) : v) }
   function updateSecs(v)  { update('secs', Math.max(0, Math.min(59, Math.round(v)))) }
+  function updateDifficulty(v) {
+    const step = difficultyDecimal ? 0.5 : 1
+    const clamped = difficultyDecimal ? Math.round(Math.max(0, v) / step) * step : Math.max(0, Math.round(v))
+    update('difficulty', clamped)
+  }
 
   function update(field, value) {
     onChange({ ...set, [field]: Math.max(0, value) })
   }
 
+  const is4Col = isBoth && !!difficultyLabel
+
   return (
-    <div className={`set-row${isBoth ? ' set-row--compact' : ''}`}>
+    <div className={`set-row${isBoth && !is4Col ? ' set-row--compact' : ''}`}>
       <span className="set-index">{index + 1}</span>
 
       {isStretch ? (
@@ -91,15 +98,7 @@ export default function SetRow({ set, index, onChange, onRemove, isCardio, cardi
           min={5}
         />
       ) : isBoth ? (
-        <>
-          <Stepper
-            label={distLabel}
-            value={dispDist}
-            onDec={() => storeDist(Math.round((dispDist - 0.1) * 10) / 10)}
-            onInc={() => storeDist(Math.round((dispDist + 0.1) * 10) / 10)}
-            onSet={v => storeDist(v)}
-            decimal
-          />
+        <div className={`stepper-group${is4Col ? ' stepper-group--grid' : ''}`}>
           <Stepper
             label="min"
             value={set.reps}
@@ -115,9 +114,6 @@ export default function SetRow({ set, index, onChange, onRemove, isCardio, cardi
             onSet={updateSecs}
             max={59}
           />
-        </>
-      ) : isCardio ? (
-        isDistance ? (
           <Stepper
             label={distLabel}
             value={dispDist}
@@ -126,6 +122,39 @@ export default function SetRow({ set, index, onChange, onRemove, isCardio, cardi
             onSet={v => storeDist(v)}
             decimal
           />
+          {difficultyLabel && (
+            <Stepper
+              label={difficultyLabel}
+              value={set.difficulty ?? 0}
+              onDec={() => updateDifficulty((set.difficulty ?? 0) - (difficultyDecimal ? 0.5 : 1))}
+              onInc={() => updateDifficulty((set.difficulty ?? 0) + (difficultyDecimal ? 0.5 : 1))}
+              onSet={updateDifficulty}
+              decimal={difficultyDecimal}
+            />
+          )}
+        </div>
+      ) : isCardio ? (
+        isDistance ? (
+          <>
+            <Stepper
+              label={distLabel}
+              value={dispDist}
+              onDec={() => storeDist(Math.round((dispDist - 0.1) * 10) / 10)}
+              onInc={() => storeDist(Math.round((dispDist + 0.1) * 10) / 10)}
+              onSet={v => storeDist(v)}
+              decimal
+            />
+            {difficultyLabel && (
+              <Stepper
+                label={difficultyLabel}
+                value={set.difficulty ?? 0}
+                onDec={() => updateDifficulty((set.difficulty ?? 0) - (difficultyDecimal ? 0.5 : 1))}
+                onInc={() => updateDifficulty((set.difficulty ?? 0) + (difficultyDecimal ? 0.5 : 1))}
+                onSet={updateDifficulty}
+                decimal={difficultyDecimal}
+              />
+            )}
+          </>
         ) : (
           <>
             <Stepper
@@ -143,6 +172,16 @@ export default function SetRow({ set, index, onChange, onRemove, isCardio, cardi
               onSet={updateSecs}
               max={59}
             />
+            {difficultyLabel && (
+              <Stepper
+                label={difficultyLabel}
+                value={set.difficulty ?? 0}
+                onDec={() => updateDifficulty((set.difficulty ?? 0) - (difficultyDecimal ? 0.5 : 1))}
+                onInc={() => updateDifficulty((set.difficulty ?? 0) + (difficultyDecimal ? 0.5 : 1))}
+                onSet={updateDifficulty}
+                decimal={difficultyDecimal}
+              />
+            )}
           </>
         )
       ) : (

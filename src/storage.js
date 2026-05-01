@@ -71,14 +71,26 @@ function dbSessionToApp(s) {
   }
 }
 
+function computeAge(birthdate) {
+  if (!birthdate) return null
+  const today = new Date()
+  const dob = new Date(birthdate)
+  let age = today.getFullYear() - dob.getFullYear()
+  const m = today.getMonth() - dob.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
+  return age
+}
+
 function dbProfileToApp(p) {
   if (!p) return defaultProfile()
+  const birthdate = p.birth_date ?? null
   return {
     displayName:        p.display_name ?? '',
     avatarUrl:          p.avatar_url ?? '',
     heightCm:           p.height_cm          != null ? Number(p.height_cm)          : null,
     weightKg:           p.weight_kg          != null ? Number(p.weight_kg)          : null,
-    age:                p.age                != null ? Number(p.age)                : null,
+    birthdate,
+    age:                birthdate ? computeAge(birthdate) : (p.age != null ? Number(p.age) : null),
     gender:             p.gender             ?? null,
     activityLevel:      p.activity_level     ?? null,
     trackWeight:           p.track_weight       ?? null,
@@ -96,6 +108,7 @@ function defaultProfile() {
     avatarUrl:             '',
     heightCm:              null,
     weightKg:              null,
+    birthdate:             null,
     age:                   null,
     gender:                null,
     activityLevel:         null,
@@ -131,7 +144,6 @@ function dbSettingsToApp(s) {
     themeMode,
     controllerSide:     s.controller_side,
     restTimerDuration:  s.rest_timer_duration,
-    checkInEnabled:     s.check_in_enabled,
   }
 }
 
@@ -142,7 +154,6 @@ function defaultSettings() {
     themeMode:          'dark',
     controllerSide:     'right',
     restTimerDuration:  90,
-    checkInEnabled:     true,
   }
 }
 
@@ -518,7 +529,6 @@ export async function saveSettings(settings) {
     theme:               encodeTheme(settings.colorScheme, settings.themeMode),
     controller_side:     settings.controllerSide,
     rest_timer_duration: settings.restTimerDuration,
-    check_in_enabled:    settings.checkInEnabled,
   })
 }
 
@@ -568,7 +578,7 @@ export async function saveProfile(profile) {
     display_name:          profile.displayName        ?? null,
     height_cm:             profile.heightCm           ?? null,
     weight_kg:             profile.weightKg           ?? null,
-    age:                   profile.age                ?? null,
+    birth_date:            profile.birthdate          ?? null,
     gender:                profile.gender             ?? null,
     activity_level:        profile.activityLevel      ?? null,
     track_weight:             profile.trackWeight           ?? null,
@@ -643,22 +653,27 @@ export async function hasCheckedInToday() {
 // ── PR Tracking ──────────────────────────────────────────────
 
 // prTypes: { [exerciseId]: 'weight' | 'reps' } — controls which column is used per exercise
+// Returns { prMap, prRepsMap } where prRepsMap tracks reps at PR weight for weight-based exercises
 export async function getPRMap(exerciseIds, prTypes = {}) {
-  if (!exerciseIds.length) return {}
+  if (!exerciseIds.length) return { prMap: {}, prRepsMap: {} }
   const { data } = await supabase
     .from('personal_records')
     .select('exercise_id, max_weight, max_reps')
     .eq('user_id', _uid)
     .in('exercise_id', exerciseIds)
 
-  const map = Object.fromEntries(exerciseIds.map(id => [id, 0]))
+  const prMap = Object.fromEntries(exerciseIds.map(id => [id, 0]))
+  const prRepsMap = {}
   for (const row of data ?? []) {
     const isRepsBased = prTypes[row.exercise_id] === 'reps'
-    map[row.exercise_id] = isRepsBased
+    prMap[row.exercise_id] = isRepsBased
       ? Number(row.max_reps ?? 0)
       : Number(row.max_weight ?? 0)
+    if (!isRepsBased && Number(row.max_reps ?? 0) > 0) {
+      prRepsMap[row.exercise_id] = Number(row.max_reps)
+    }
   }
-  return map
+  return { prMap, prRepsMap }
 }
 
 
