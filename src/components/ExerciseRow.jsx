@@ -6,6 +6,17 @@ import MuscleIcon from './MuscleIcon'
 import SetRow from './SetRow'
 import './ExerciseRow.css'
 
+function NotesIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
+      <rect x="4" y="2" width="12" height="16" rx="2" />
+      <line x1="7" y1="7" x2="13" y2="7" />
+      <line x1="7" y1="10" x2="13" y2="10" />
+      <line x1="7" y1="13" x2="11" y2="13" />
+    </svg>
+  )
+}
+
 function findExercise(id) {
   return defaultExercises.find(e => e.id === id) ?? getCachedCustomExercises().find(e => e.id === id) ?? null
 }
@@ -17,7 +28,7 @@ export default function ExerciseRow({ templateExercise, onChange, onRemove, drag
   const exercise = findExercise(templateExercise.exerciseId)
   const { sets } = templateExercise
   const isCardio  = exercise?.category === 'Cardio'
-  const isStretch = exercise?.category === 'Stretch'
+  const isStretch = exercise?.category === 'Stretch' || exercise?.isTimed
 
   function updateSet(index, updatedSet) {
     const newSets = sets.map((s, i) => (i === index ? updatedSet : s))
@@ -75,7 +86,7 @@ export default function ExerciseRow({ templateExercise, onChange, onRemove, drag
             }}
             aria-label="Toggle notes"
           >
-            📝
+            <NotesIcon />
           </button>
           <button className="ex-remove-btn" onClick={onRemove} aria-label="Remove exercise">
             ✕
@@ -97,6 +108,8 @@ export default function ExerciseRow({ templateExercise, onChange, onRemove, drag
               cardioUnit={exercise.cardioUnit ?? 'time'}
               isStretch={isStretch}
               unit={unit}
+              difficultyLabel={exercise.difficultyLabel}
+              difficultyDecimal={exercise.difficultyDecimal}
             />
           ))}
           <button className="ex-add-set-btn" onClick={addSet}>
