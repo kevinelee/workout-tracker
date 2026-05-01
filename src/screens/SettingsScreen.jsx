@@ -29,7 +29,7 @@ const MODE_OPTIONS = [
 
 const notifSupported = typeof Notification !== 'undefined'
 
-export default function SettingsScreen({ settings, onSave, sessions, templates, onSignOut, authUser, onRecalibrate, onShowWhatsNew, appVersion }) {
+export default function SettingsScreen({ settings, onSave, sessions, templates, onSignOut, authUser, onRecalibrate, onShowWhatsNew, appVersion, onBack }) {
   const [s, setS] = useState(settings)
   const [notifStatus, setNotifStatus] = useState(notifSupported ? Notification.permission : 'unsupported')
   const [customExercises, setCustomExercises] = useState(() => getCachedCustomExercises())
@@ -139,20 +139,31 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
 
   return (
     <div className="settings">
-      <h2 className="settings-page-title">Settings</h2>
+      <div className="settings-header">
+        {onBack && (
+          <button className="settings-back-btn" onClick={onBack}>‹ Back</button>
+        )}
+        <h2 className="settings-page-title">Settings</h2>
+      </div>
 
       {/* Theme */}
       <Section title="Appearance">
-        <SegmentedControl
-          options={SCHEME_OPTIONS}
-          value={s.colorScheme ?? 'default'}
-          onChange={v => update('colorScheme', v)}
-        />
-        <SegmentedControl
-          options={MODE_OPTIONS}
-          value={s.themeMode ?? 'dark'}
-          onChange={v => update('themeMode', v)}
-        />
+        <div className="seg-group">
+          <span className="seg-group-label">Color</span>
+          <SegmentedControl
+            options={SCHEME_OPTIONS}
+            value={s.colorScheme ?? 'default'}
+            onChange={v => update('colorScheme', v)}
+          />
+        </div>
+        <div className="seg-group">
+          <span className="seg-group-label">Mode</span>
+          <SegmentedControl
+            options={MODE_OPTIONS}
+            value={s.themeMode ?? 'dark'}
+            onChange={v => update('themeMode', v)}
+          />
+        </div>
       </Section>
 
       {/* Units */}
@@ -179,15 +190,6 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
           options={[{ label: 'Left', value: 'left' }, { label: 'Right', value: 'right' }]}
           value={s.controllerSide}
           onChange={v => update('controllerSide', v)}
-        />
-      </Section>
-
-      {/* Check-in */}
-      <Section title="Check-In">
-        <Toggle
-          label="Show check-in on Home"
-          value={s.checkInEnabled}
-          onChange={v => update('checkInEnabled', v)}
         />
       </Section>
 

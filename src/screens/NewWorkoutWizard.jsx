@@ -186,7 +186,7 @@ export default function NewWorkoutWizard({ onComplete, onBack, unit }) {
           const ex       = allExercises.find(e => e.id === id)
           const cfg      = configs[id] ?? { sets: DEFAULT_SETS, reps: DEFAULT_REPS, weight: DEFAULT_WEIGHT }
           const isCardio  = ex?.category === 'Cardio'
-          const isStretch = ex?.category === 'Stretch'
+          const isStretch = ex?.category === 'Stretch' || ex?.isTimed
 
           return (
             <div className="wiz-config-row" key={id}>

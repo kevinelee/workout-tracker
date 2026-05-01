@@ -260,6 +260,47 @@
   &:focus { border-color: var(--accent); }
 }
 
+.es-create-tracking {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.es-create-tracking-label {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.es-create-seg {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.es-create-seg-btn {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--sans);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &:hover { border-color: var(--accent); }
+}
+
+.es-create-seg-btn--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 .es-create-actions {
   display: flex;
   gap: 8px;

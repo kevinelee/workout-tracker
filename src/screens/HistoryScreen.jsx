@@ -12,6 +12,15 @@ import './HistoryScreen.css'
 
 const PAGE_SIZE = 10
 
+function FlameIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 28, height: 28 }}>
+      <path d="M10 2c0 3-4 6-4 9a4 4 0 008 0c0-3-4-6-4-9z" />
+      <path d="M10 11a1.5 1.5 0 000 3" />
+    </svg>
+  )
+}
+
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 }
@@ -48,7 +57,7 @@ function buildPRList(sessions) {
     for (const log of session.logs ?? []) {
       const ex = findExercise(log.exerciseId)
       // Skip cardio and stretch — their weight field stores distance/time, not lbs
-      if (!ex || ex.category === 'Cardio' || ex.category === 'Stretch') continue
+      if (!ex || ex.category === 'Cardio' || ex.category === 'Stretch' || ex.isTimed) continue
       for (const set of log.sets) {
         if (!set.completed || !set.weight || set.weight <= 0) continue
         const prev = prMap[log.exerciseId]
@@ -140,6 +149,7 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
   const [swipedId,           setSwipedId]           = useState(null)
   const [deleteConfirm,      setDeleteConfirm]      = useState(null)
   const [isDeleting,         setIsDeleting]         = useState(false)
+  const [deletingId,         setDeletingId]         = useState(null)
   const [showAllPRs,         setShowAllPRs]         = useState(false)
   const [progressExerciseId, setProgressExerciseId] = useState(null)
   const touchStartRef  = useRef(null)
@@ -202,14 +212,17 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
 
   async function handleDeleteConfirmed() {
     if (!deleteConfirm) return
-    setIsDeleting(true)
+    const id = deleteConfirm.id
+    setDeleteConfirm(null)
+    setSwipedId(null)
+    setDeletingId(id)
+    await new Promise(r => setTimeout(r, 380))
+    setSwipedId(null)
     try {
-      await onDeleteSession(deleteConfirm.id)
-      setDeleteConfirm(null)
+      await onDeleteSession(id)
     } catch (err) {
       console.error('Failed to delete session:', err)
-    } finally {
-      setIsDeleting(false)
+      setDeletingId(null)
     }
   }
 
@@ -226,7 +239,7 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
     <div className="history">
       {/* Streak banner */}
       <div className="history-streak-banner">
-        <span className="history-streak-fire">🔥</span>
+        <span className="history-streak-fire"><FlameIcon /></span>
         <div>
           <p className="history-streak-count">{streak} day streak</p>
           <p className="history-streak-sub">{streak === 0 ? 'Start a session to begin your streak' : 'Keep it going!'}</p>
@@ -395,7 +408,7 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
                 return (
                   <li
                     key={s.id}
-                    className={`history-swipe-item${isOpen ? ' history-swipe-item--open' : ''}`}
+                    className={`history-swipe-item${isOpen ? ' history-swipe-item--open' : ''}${deletingId === s.id ? ' history-swipe-item--deleting' : ''}`}
                     onTouchStart={e => handleTouchStart(e, s.id)}
                     onTouchEnd={e => handleTouchEnd(e, s.id)}
                   >
@@ -416,8 +429,8 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
                         <p className="history-card-meta">
                           {fmtDate(s.finishedAt)} · {fmtDuration(s.duration)}
                           {vol > 0 && ` · ${fmtVolume(vol)} ${unit}`}
-                          {prs > 0 && <span className="history-pr-tag"> · 🏆 {prs} PR</span>}
-                          {cals != null && <span className="history-cal-tag"> · 🔥 {cals} kcal</span>}
+                          {prs > 0 && <span className="history-pr-tag"> · {prs} PR</span>}
+                          {cals != null && <span className="history-cal-tag"> · {cals} kcal</span>}
                         </p>
                         {topEx.length > 0 && (
                           <p className="history-card-exercises">{topEx.join(' · ')}</p>

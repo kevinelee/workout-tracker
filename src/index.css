@@ -124,6 +124,11 @@
   box-sizing: border-box;
 }
 
+/* Prevent iOS Safari (and Capacitor WKWebView) from auto-zooming on input focus */
+input, textarea, select {
+  font-size: max(16px, 1em);
+}
+
 body {
   margin: 0;
 }

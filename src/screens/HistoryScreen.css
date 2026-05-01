@@ -15,7 +15,11 @@
   padding: 16px;
 }
 
-.history-streak-fire { font-size: 32px; }
+.history-streak-fire {
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+}
 
 .history-streak-count {
   font-size: 18px;
@@ -79,7 +83,6 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .history-card {
@@ -356,6 +359,17 @@
   position: relative;
   overflow: hidden;
   border-radius: 12px;
+  margin-bottom: 8px;
+  max-height: 300px;
+  transition: transform 0.2s ease, opacity 0.18s ease, max-height 0.22s ease 0.16s, margin-bottom 0.22s ease 0.16s;
+}
+
+.history-swipe-item--deleting {
+  transform: translateX(-110%);
+  opacity: 0;
+  max-height: 0 !important;
+  margin-bottom: 0 !important;
+  pointer-events: none;
 }
 
 .history-swipe-actions {

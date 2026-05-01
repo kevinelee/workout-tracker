@@ -5,11 +5,33 @@
   gap: 8px;
 }
 
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.settings-back-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 17px;
+  font-weight: 600;
+  font-family: var(--sans);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+
+  &:active { opacity: 0.6; }
+}
+
 .settings-page-title {
   font-size: 22px;
   font-weight: 700;
   color: var(--text-h);
-  margin: 0 0 8px;
+  margin: 0;
 }
 
 .settings-section {
@@ -92,10 +114,26 @@
   margin: 0;
 }
 
+/* Segmented control group with label */
+.seg-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.seg-group-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  opacity: 0.5;
+}
+
 /* Segmented control */
 .seg-control {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(52px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -103,6 +141,7 @@
 }
 
 .seg-btn {
+  flex: 1;
   background: none;
   border: none;
   color: var(--text);

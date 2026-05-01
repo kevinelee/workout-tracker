@@ -39,12 +39,12 @@ export function fmtDuration(seconds) {
 }
 
 export function motivationalCopy({ prsHit, volumePct, allDone }) {
-  if (prsHit > 0) return `🏆 ${prsHit} new PR${prsHit > 1 ? 's' : ''}! You're unstoppable.`
-  if (!allDone) return "Still showed up. That's what counts. 💪"
-  if (volumePct !== null && volumePct > 10) return `🔥 Up ${Math.round(volumePct)}% from last time!`
-  if (volumePct !== null && volumePct > 0) return `📈 Up ${Math.round(volumePct)}% from last session.`
-  if (volumePct !== null && volumePct < -10) return "Everyone has an off day. Back stronger next time. 💪"
-  return "Solid session. Keep showing up. 💪"
+  if (prsHit > 0) return `${prsHit} new PR${prsHit > 1 ? 's' : ''}! You're unstoppable.`
+  if (!allDone) return "Still showed up. That's what counts."
+  if (volumePct !== null && volumePct > 10) return `Up ${Math.round(volumePct)}% from last time!`
+  if (volumePct !== null && volumePct > 0) return `Up ${Math.round(volumePct)}% from last session.`
+  if (volumePct !== null && volumePct < -10) return "Everyone has an off day. Back stronger next time."
+  return "Solid session. Keep showing up."
 }
 
 // Build chart data for a single exercise across sessions

@@ -12,8 +12,9 @@ function isAccessGranted() {
 
 export default function AuthScreen({ onAuth, initialMode = 'signin' }) {
   const [mode, setMode]         = useState(isAccessGranted() ? initialMode : 'access')
-  const [email, setEmail]       = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail]               = useState('')
+  const [password, setPassword]         = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [accessCode, setAccessCode] = useState('')
   const [error, setError]       = useState(null)
   const [loading, setLoading]   = useState(false)
@@ -21,6 +22,7 @@ export default function AuthScreen({ onAuth, initialMode = 'signin' }) {
   function switchMode(next) {
     setMode(next)
     setError(null)
+    setConfirmPassword('')
   }
 
   function handleAccessSubmit(e) {
@@ -38,6 +40,12 @@ export default function AuthScreen({ onAuth, initialMode = 'signin' }) {
     e.preventDefault()
     setError(null)
     setLoading(true)
+
+    if (mode === 'signup' && password !== confirmPassword) {
+      setError('Passwords do not match')
+      setLoading(false)
+      return
+    }
 
     if (mode === 'forgot') {
       const { error: err } = await resetPassword(email)
@@ -159,6 +167,22 @@ export default function AuthScreen({ onAuth, initialMode = 'signin' }) {
                 minLength={6}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </label>
+          )}
+
+          {mode === 'signup' && (
+            <label className="auth-label">
+              Confirm password
+              <input
+                className="auth-input"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={6}
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
               />
             </label>

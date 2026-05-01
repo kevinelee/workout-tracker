@@ -33,7 +33,6 @@ export default function WhatsNewModal({ onClose }) {
         <div className="wn-header">
           <p className="wn-eyebrow">What's New</p>
           <p className="wn-version">{latest.version}</p>
-          <p className="wn-date">{latest.date}</p>
         </div>
 
         <ul className="wn-list">
