@@ -754,14 +754,37 @@ export async function archiveFeedback(id) {
 //   CREATE POLICY "admin_read_all_profiles" ON profiles FOR SELECT
 //     USING (auth.uid() = '<ADMIN_UID>');
 
+export async function getAdminStats() {
+  const todayStr  = new Date().toISOString().split('T')[0]
+  const weekAgo   = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  const [
+    { count: totalUsers },
+    { count: sessionsToday },
+    { count: sessionsThisWeek },
+  ] = await Promise.all([
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('sessions').select('*', { count: 'exact', head: true })
+      .gte('started_at', todayStr).not('finished_at', 'is', null),
+    supabase.from('sessions').select('*', { count: 'exact', head: true })
+      .gte('started_at', weekAgo).not('finished_at', 'is', null),
+  ])
+
+  return {
+    totalUsers:       totalUsers  ?? 0,
+    sessionsToday:    sessionsToday  ?? 0,
+    sessionsThisWeek: sessionsThisWeek ?? 0,
+  }
+}
+
 export async function getAdminActivity() {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
   const [{ data: sessions }, { data: profiles }, { data: feedbackEmails }, { data: authUsers }] = await Promise.all([
     supabase
       .from('sessions')
       .select('id, user_id, started_at, finished_at, status')
-      .gte('started_at', sevenDaysAgo)
+      .gte('started_at', thirtyDaysAgo)
       .order('started_at', { ascending: false }),
     supabase
       .from('profiles')
@@ -774,11 +797,8 @@ export async function getAdminActivity() {
   ])
 
   const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]))
-
-  // Auth email map from admin RPC (most authoritative source)
   const authEmailMap = Object.fromEntries((authUsers ?? []).map(u => [u.id, u.email]))
 
-  // Build email fallback map: most recent email per user_id from feedback
   const emailMap = {}
   for (const f of (feedbackEmails ?? [])) {
     if (f.user_id && f.user_email && !emailMap[f.user_id]) {
@@ -786,52 +806,100 @@ export async function getAdminActivity() {
     }
   }
 
-  // Group sessions by user, track today's activity
   const todayStr = new Date().toISOString().split('T')[0]
   const userMap = {}
 
-  for (const s of (sessions ?? [])) {
-    if (!userMap[s.user_id]) {
-      const displayName = profileMap[s.user_id]?.display_name
-        || authEmailMap[s.user_id]
-        || emailMap[s.user_id]
-        || s.user_id.slice(0, 8)
-      const { data: avatarData } = supabase.storage
-        .from('Avatars')
-        .getPublicUrl(`${s.user_id}/avatar.jpg`)
-      userMap[s.user_id] = {
-        userId:          s.user_id,
-        displayName,
-        avatarUrl:       avatarData?.publicUrl ?? null,
-        lastActive:      s.started_at,
-        hasActiveNow:    false,
-        activeSessionId: null,
-        workedOutToday:  false,
-        todaySessions:   0,
-        recentSessions:  [],
-      }
+  function buildUser(userId) {
+    const displayName = profileMap[userId]?.display_name
+      || authEmailMap[userId]
+      || emailMap[userId]
+      || userId.slice(0, 8)
+    const { data: avatarData } = supabase.storage
+      .from('Avatars')
+      .getPublicUrl(`${userId}/avatar.jpg`)
+    return {
+      userId,
+      displayName,
+      avatarUrl:         avatarData?.publicUrl ?? null,
+      lastActive:        null,
+      hasActiveNow:      false,
+      activeSessionId:   null,
+      workedOutToday:    false,
+      todaySessions:     0,
+      abandonedSessions: 0,
+      recentSessions:    [],
     }
+  }
+
+  for (const s of (sessions ?? [])) {
+    if (!userMap[s.user_id]) userMap[s.user_id] = buildUser(s.user_id)
     const u = userMap[s.user_id]
-    const isRecentlyActive = s.status === 'active' &&
-      (Date.now() - new Date(s.started_at).getTime()) < 3 * 60 * 60 * 1000
-    if (isRecentlyActive) { u.hasActiveNow = true; u.activeSessionId = s.id }
+    if (!u.lastActive) u.lastActive = s.started_at
+
+    const age = Date.now() - new Date(s.started_at).getTime()
+    const isLive      = s.status === 'active' && age < 3 * 60 * 60 * 1000
+    const isAbandoned = s.status === 'active' && !s.finished_at && age >= 3 * 60 * 60 * 1000
+
+    if (isLive)      { u.hasActiveNow = true; u.activeSessionId = s.id }
+    if (isAbandoned) { u.abandonedSessions++ }
+
     const sessionDay = s.started_at?.split('T')[0]
-    if (sessionDay === todayStr) {
+    if (sessionDay === todayStr && s.finished_at) {
       u.workedOutToday = true
       u.todaySessions++
     }
     if (u.recentSessions.length < 5) u.recentSessions.push(s)
   }
 
-  return Object.values(userMap).sort((a, b) =>
-    new Date(b.lastActive) - new Date(a.lastActive)
-  )
+  // Include users who have never sessioned (or all sessions predate the window)
+  for (const p of (profiles ?? [])) {
+    if (!userMap[p.id]) userMap[p.id] = buildUser(p.id)
+  }
+
+  return Object.values(userMap).sort((a, b) => {
+    if (a.lastActive && b.lastActive) return new Date(b.lastActive) - new Date(a.lastActive)
+    if (a.lastActive) return -1
+    if (b.lastActive) return 1
+    return (a.displayName ?? '').localeCompare(b.displayName ?? '')
+  })
 }
 
 export async function getAdminUserStats(userId) {
   const { data, error } = await supabase.rpc('admin_get_user_stats', { target_user_id: userId })
   if (error) throw error
   return data?.[0] ?? { total_sessions: 0, total_duration_seconds: 0, current_session_id: null, current_session_started_at: null }
+}
+
+export async function getAdminUserSessions(userId, limit = 5) {
+  const { data, error } = await supabase.rpc('admin_get_user_sessions', {
+    target_user_id: userId,
+    limit_n: limit,
+  })
+  if (error) throw error
+
+  const sessionMap = new Map()
+  for (const row of (data ?? [])) {
+    if (!sessionMap.has(row.session_id)) {
+      sessionMap.set(row.session_id, {
+        id:              row.session_id,
+        templateName:    row.template_name ?? null,
+        startedAt:       row.started_at,
+        finishedAt:      row.finished_at,
+        status:          row.status,
+        durationSeconds: row.duration_seconds,
+        exercises:       [],
+      })
+    }
+    if (row.exercise_id) {
+      sessionMap.get(row.session_id).exercises.push({
+        exerciseId:    row.exercise_id,
+        position:      row.exercise_position,
+        setsTotal:     Number(row.sets_total),
+        setsCompleted: Number(row.sets_completed),
+      })
+    }
+  }
+  return Array.from(sessionMap.values())
 }
 
 export async function adminTerminateSession(sessionId) {
