@@ -99,6 +99,7 @@ function dbProfileToApp(p) {
     onboardingComplete:    p.onboarding_complete  ?? false,
     fitnessProfileSummary: p.fitness_profile_summary ?? null,
     isPro:                 p.is_pro ?? true,
+    role:                  p.role ?? 'user',
   }
 }
 

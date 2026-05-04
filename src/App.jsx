@@ -249,8 +249,6 @@ export default function App() {
     setAuthUser(user)
     setAuthReady(true)
 
-    const isAdminUser = user.id === import.meta.env.VITE_ADMIN_UID
-
     // Fire each query independently — each setState re-renders as data arrives,
     // so a slow query (e.g. avatar storage) never blocks the rest of the UI.
     getTemplates().then(setTemplates).catch(console.error)
@@ -270,9 +268,12 @@ export default function App() {
     // Only show onboarding for brand-new users (no profile row at all).
     // Existing users whose profiles predate the onboardingComplete field
     // would otherwise be wrongly sent back through the questionnaire.
-    getProfile().then(p => { setProfile(p); setShowOnboarding(p === null) }).catch(console.error)
+    getProfile().then(p => {
+      setProfile(p)
+      setShowOnboarding(p === null)
+      if (p?.role === 'admin') getNewFeedbackCount().then(setFeedbackCount).catch(console.error)
+    }).catch(console.error)
     getBodyWeightLogs().then(setBodyWeightLogs).catch(console.error)
-    if (isAdminUser) getNewFeedbackCount().then(setFeedbackCount).catch(console.error)
 
     setDataLoaded(true)
   }
@@ -892,7 +893,7 @@ export default function App() {
     />
   )
 
-  const isAdmin = authUser?.id === import.meta.env.VITE_ADMIN_UID
+  const isAdmin = profile?.role === 'admin'
   const activeProgram = programs?.find(p => p.isActive) ?? programs?.[0] ?? null
 
   const fullscreen = ['wizard', 'builder', 'session', 'summary', 'sessionDetail'].includes(screen.name)

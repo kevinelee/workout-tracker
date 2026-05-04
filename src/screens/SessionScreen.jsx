@@ -500,7 +500,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
 
         <div className="session-progress-bar">
           <div
-            className="session-progress-fill"
+            className={`session-progress-fill${allDone ? ' session-progress-fill--done' : ''}`}
             style={{ width: totalSets > 0 ? `${(completedSets / totalSets) * 100}%` : '0%' }}
           />
         </div>
