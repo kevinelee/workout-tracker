@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { uploadAvatar, getCachedCustomExercises } from "../storage";
 import { sessionVolume, fmtVolume, fmtDuration } from "../utils/volume";
 import { defaultExercises } from "../data/exerciseLibrary";
-import { supabase } from "../lib/supabase";
+import { supabase, callFunction } from "../lib/supabase";
 import WeightChart from "../components/WeightChart";
 import BodyHeatmap from "../components/BodyHeatmap";
 import CropModal from "../components/CropModal";
@@ -150,9 +150,7 @@ export default function ProfileScreen({
     }
 
     try {
-      const { data: { session: authSession } } = await supabase.auth.getSession()
-      if (!authSession) { setSummaryError(true); return }
-      const { data, error } = await supabase.functions.invoke('generate-weekly-insight', { body })
+      const { data, error } = await callFunction('generate-weekly-insight', body)
       if (error || !data?.insight) throw new Error('empty')
       setSummaryText(data.insight)
     } catch {

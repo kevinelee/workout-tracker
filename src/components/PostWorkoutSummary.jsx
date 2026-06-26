@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import confetti from 'canvas-confetti'
-import { supabase } from '../lib/supabase'
+import { supabase, callFunction } from '../lib/supabase'
 import { sessionVolume, sessionPRCount, volumeChangePercent, fmtVolume, fmtDuration } from '../utils/volume'
 import { estimateCalories } from '../utils/calories'
 import { defaultExercises } from '../data/exerciseLibrary'
@@ -45,8 +45,6 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
     // Ensure the access token is fresh — it may have expired during the workout
     // if the phone was asleep, and functions.invoke sends whatever token is in
     // the client's current state without waiting for a background refresh.
-    const { data: { session: authSession } } = await supabase.auth.getSession()
-    if (!authSession) { setAiError(true); return }
     const exercises = (session.logs ?? []).map(log => {
       const ex = findEx(log.exerciseId)
       return {
@@ -55,22 +53,20 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
         sets:        log.sets,
       }
     })
-    supabase.functions.invoke('generate-workout-summary', {
-      body: {
-        workoutName:       template.name,
-        durationFormatted: fmtDuration(durationSecs || session.duration),
-        volume:            fmtVolume(volume),
-        prevVolume:        prevVolume != null ? fmtVolume(prevVolume) : null,
-        volumePct:         volumePct,
-        prsHit,
-        completedSets,
-        totalSets,
-        calories,
-        exercises,
-        fitnessProfile:  profile?.fitnessProfileSummary ?? null,
-        isFirstSession,
-        unit,
-      },
+    callFunction('generate-workout-summary', {
+      workoutName:       template.name,
+      durationFormatted: fmtDuration(durationSecs || session.duration),
+      volume:            fmtVolume(volume),
+      prevVolume:        prevVolume != null ? fmtVolume(prevVolume) : null,
+      volumePct:         volumePct,
+      prsHit,
+      completedSets,
+      totalSets,
+      calories,
+      exercises,
+      fitnessProfile:  profile?.fitnessProfileSummary ?? null,
+      isFirstSession,
+      unit,
     })
       .then(({ data, error }) => {
         if (error || !data?.summary) { setAiError(true); return }

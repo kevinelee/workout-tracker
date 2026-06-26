@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getCachedCustomExercises, getCustomExercises, saveCustomExercise, deleteCustomExercise, clearAll } from '../storage'
 import { exportJSON, exportCSV } from '../utils/export'
-import { updatePassword, supabase } from '../lib/supabase'
+import { updatePassword, supabase, callFunction } from '../lib/supabase'
 import FeedbackModal from '../components/FeedbackModal'
 import './SettingsScreen.css'
 
@@ -83,7 +83,7 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
     setDeleteAccountLoading(true)
     setDeleteAccountError(null)
     try {
-      const { error } = await supabase.functions.invoke('delete-account')
+      const { error } = await callFunction('delete-account', {})
       if (error) throw error
       // Edge function deleted the auth user; sign out client-side
       await clearAll()

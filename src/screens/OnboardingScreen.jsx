@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, callFunction } from '../lib/supabase'
 import { defaultExercises } from '../data/exerciseLibrary'
 import { muscleGroupsForTemplate } from '../utils/workout'
 import './OnboardingScreen.css'
@@ -124,12 +124,8 @@ export default function OnboardingScreen({ onComplete, unit = 'lbs' }) {
       await supabase.auth.refreshSession()
 
       const [profileRes, planRes] = await Promise.all([
-        supabase.functions.invoke('generate-fitness-profile', {
-          body: { answers },
-        }),
-        supabase.functions.invoke('generate-workout-plan', {
-          body: { mode: 'split', answers, exerciseLibrary, unit },
-        }),
+        callFunction('generate-fitness-profile', { answers }),
+        callFunction('generate-workout-plan', { mode: 'split', answers, exerciseLibrary, unit }),
       ])
 
       if (profileRes.error) throw profileRes.error

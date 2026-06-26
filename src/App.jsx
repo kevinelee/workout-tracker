@@ -8,7 +8,7 @@ import {
   getNewFeedbackCount, encodeTheme,
   getPrograms, createProgram, renameProgram, deleteProgram, setActiveProgram, reassignProgramTemplates, ensureDefaultProgram,
 } from './storage'
-import { supabase, signOut } from './lib/supabase'
+import { supabase, signOut, callFunction } from './lib/supabase'
 import { createSession } from './data/models'
 import { starterTemplates } from './data/starterTemplates'
 import { defaultExercises } from './data/exerciseLibrary'
@@ -331,40 +331,36 @@ export default function App() {
   }
 
   async function handleGeneratePlan({ days, focus }) {
-    const { data, error } = await supabase.functions.invoke('generate-workout-plan', {
-      body: {
-        mode: 'split',
-        answers: {
-          days,
-          focus,
-          goal: profile?.fitnessProfileSummary ?? '',
-          experience: '',
-          equipment: [],
-          frequency: `${days} days per week`,
-        },
-        exerciseLibrary: exerciseLibraryForAPI,
-        unit: settings.unit,
+    const { data, error } = await callFunction('generate-workout-plan', {
+      mode: 'split',
+      answers: {
+        days,
+        focus,
+        goal: profile?.fitnessProfileSummary ?? '',
+        experience: '',
+        equipment: [],
+        frequency: `${days} days per week`,
       },
+      exerciseLibrary: exerciseLibraryForAPI,
+      unit: settings.unit,
     })
     if (error || !data?.templates?.length) throw new Error('No templates returned')
     return data.templates
   }
 
   async function handleGenerateSingle({ focus }) {
-    const { data, error } = await supabase.functions.invoke('generate-workout-plan', {
-      body: {
-        mode: 'single',
-        answers: {
-          days: 1,
-          focus,
-          goal: profile?.fitnessProfileSummary ?? '',
-          experience: '',
-          equipment: [],
-          frequency: '1 day per week',
-        },
-        exerciseLibrary: exerciseLibraryForAPI,
-        unit: settings.unit,
+    const { data, error } = await callFunction('generate-workout-plan', {
+      mode: 'single',
+      answers: {
+        days: 1,
+        focus,
+        goal: profile?.fitnessProfileSummary ?? '',
+        experience: '',
+        equipment: [],
+        frequency: '1 day per week',
       },
+      exerciseLibrary: exerciseLibraryForAPI,
+      unit: settings.unit,
     })
     if (error || !data?.templates?.length) throw new Error('No template returned')
     return data.templates[0]
@@ -433,8 +429,8 @@ export default function App() {
     }, 4000)
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-overload-suggestions', {
-        body: { template: { name: template.name }, exercises, recentSessions, unit: settings.unit },
+      const { data, error } = await callFunction('generate-overload-suggestions', {
+        template: { name: template.name }, exercises, recentSessions, unit: settings.unit,
       })
       clearTimeout(overloadTimeoutRef.current)
       if (error || !data) throw new Error('empty')
@@ -465,8 +461,8 @@ export default function App() {
 
     setWeeklyInsight({ insight: null, loading: true })
     try {
-      const { data, error } = await supabase.functions.invoke('generate-weekly-insight', {
-        body: { sessions: sessionData, goal: profile?.goal ?? '', unit: settings.unit },
+      const { data, error } = await callFunction('generate-weekly-insight', {
+        sessions: sessionData, goal: profile?.goal ?? '', unit: settings.unit,
       })
       if (error || !data?.insight) throw new Error('empty')
       const result = { insight: data.insight, week: getWeekKey() }
@@ -523,8 +519,8 @@ export default function App() {
 
     setTodaySuggestion({ loading: true, template: null, rationale: null })
     try {
-      const { data, error } = await supabase.functions.invoke('suggest-today-workout', {
-        body: { recentSessions, frequentExercises, goal: profile?.goal ?? '', unit: settings.unit },
+      const { data, error } = await callFunction('suggest-today-workout', {
+        recentSessions, frequentExercises, goal: profile?.goal ?? '', unit: settings.unit,
       })
       if (error || !data?.template) throw new Error('empty')
       const today  = new Date().toISOString().slice(0, 10)
