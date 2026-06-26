@@ -255,22 +255,6 @@
   background: rgba(74, 222, 128, 0.08);
 }
 
-/* Locked mode: hide +/- controls, show clean values only */
-.ssr--locked .ssr-step-btn {
-  display: none;
-}
-
-.ssr--locked .ssr-stepper-controls {
-  background: none;
-  border-color: transparent;
-  border-radius: 0;
-  justify-content: center;
-}
-
-.ssr--locked .ssr-value {
-  font-size: 15px;
-  padding: 4px 2px;
-}
 
 /* Bonus set (added beyond target) */
 .ssr--bonus {
