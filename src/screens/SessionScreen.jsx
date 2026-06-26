@@ -37,7 +37,7 @@ function elapsedFromStart(startedAt) {
   return Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
 }
 
-export default function SessionScreen({ activeSession, settings, onUpdate, onFinish, onMinimize, onAbandon }) {
+export default function SessionScreen({ activeSession, settings, programId, onUpdate, onFinish, onMinimize, onAbandon }) {
   const { template, sessionId, startedAt, logs: initialLogs, prMap: initialPrMap, prRepsMap: initialPrRepsMap } = activeSession
 
   const [logs, setLogs]           = useState(initialLogs)
@@ -416,7 +416,7 @@ export default function SessionScreen({ activeSession, settings, onUpdate, onFin
         sets: targetSets.map(s => ({ reps: s.reps, weight: s.weight })),
       })
     })
-    const savedTemplate = { ...template, name: name.trim(), isQuickStart: false, exercises: savedExercises }
+    const savedTemplate = { ...template, name: name.trim(), isQuickStart: false, exercises: savedExercises, programId: programId ?? null }
     try { await saveTemplate(savedTemplate) } catch (err) { console.error(err); setModalSaving(false); return }
     onFinish(session, savedTemplate)
   }

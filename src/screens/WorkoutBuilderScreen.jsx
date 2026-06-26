@@ -67,7 +67,7 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
     try {
       const template = isNew
         ? { ...createWorkoutTemplate({ name: name.trim(), exercises }), programId: programId ?? null }
-        : { ...initial, name: name.trim(), exercises }
+        : { ...initial, name: name.trim(), exercises, programId: initial.programId ?? programId ?? null }
       await saveTemplate(template)
       onSave(template)
     } catch (err) {

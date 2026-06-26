@@ -1016,6 +1016,7 @@ const NavShield = () => (
           <SessionScreen
             activeSession={activeSession}
             settings={settings}
+            programId={activeProgram?.id ?? null}
             onUpdate={handleSessionUpdate}
             onFinish={handleSessionFinish}
             onMinimize={handleSessionMinimize}
