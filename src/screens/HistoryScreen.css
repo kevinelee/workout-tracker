@@ -96,7 +96,7 @@
   text-align: left;
   cursor: pointer;
   min-height: 60px;
-  transition: border-color 0.2s ease-in-out;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease, filter 0.25s ease;
 
   &:hover { border-color: var(--accent-border); }
 }
@@ -370,6 +370,17 @@
   max-height: 0 !important;
   margin-bottom: 0 !important;
   pointer-events: none;
+}
+
+.history-swipe-item--dim .history-card {
+  opacity: 0.3;
+  filter: saturate(0.3);
+  transition: opacity 0.25s ease, filter 0.25s ease;
+}
+
+.history-swipe-item--match .history-card {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 1px var(--accent-border);
 }
 
 .history-swipe-actions {

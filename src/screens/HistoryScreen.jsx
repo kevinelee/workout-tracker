@@ -232,8 +232,11 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
   const q = exerciseSearch.trim().toLowerCase()
   if (q) filtered = filtered.filter(s => s.logs?.some(l => exerciseName(l.exerciseId).toLowerCase().includes(q)))
 
-  const visible = filtered.slice(0, visibleCount)
-  const hasMore = visibleCount < filtered.length
+  const isFiltering = filterId !== null || dateRange !== 'all' || q !== ''
+  const filteredIds = new Set(filtered.map(s => s.id))
+
+  const visible = finished.slice(0, visibleCount)
+  const hasMore = visibleCount < finished.length
 
   return (
     <div className="history">
@@ -394,21 +397,20 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
 
         {finished.length === 0 ? (
           <p className="history-empty">No sessions yet. Finish a workout to see it here.</p>
-        ) : filtered.length === 0 ? (
-          <p className="history-empty">No sessions match your filters.</p>
         ) : (
           <>
-            <ul className="history-list" key={`${filterId}-${dateRange}-${exerciseSearch}`}>
+            <ul className="history-list">
               {visible.map(s => {
                 const vol      = sessionVolume(s)
                 const prs      = sessionPRCount(s)
                 const cals     = estimateCalories(s, profile?.weightKg)
                 const topEx    = topExerciseNames(s)
                 const isOpen   = swipedId === s.id
+                const isMatch  = filteredIds.has(s.id)
                 return (
                   <li
                     key={s.id}
-                    className={`history-swipe-item${isOpen ? ' history-swipe-item--open' : ''}${deletingId === s.id ? ' history-swipe-item--deleting' : ''}`}
+                    className={`history-swipe-item${isOpen ? ' history-swipe-item--open' : ''}${deletingId === s.id ? ' history-swipe-item--deleting' : ''}${isFiltering && isMatch ? ' history-swipe-item--match' : ''}${isFiltering && !isMatch ? ' history-swipe-item--dim' : ''}`}
                     onTouchStart={e => handleTouchStart(e, s.id)}
                     onTouchEnd={e => handleTouchEnd(e, s.id)}
                   >
@@ -444,7 +446,7 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
             </ul>
             {hasMore && (
               <button className="history-load-more" onClick={() => setVisibleCount(v => v + PAGE_SIZE)}>
-                Load {Math.min(PAGE_SIZE, filtered.length - visibleCount)} more
+                Load {Math.min(PAGE_SIZE, finished.length - visibleCount)} more
               </button>
             )}
           </>
