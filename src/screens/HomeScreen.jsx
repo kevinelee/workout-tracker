@@ -72,7 +72,6 @@ export default function HomeScreen({
   activeSession, startingTemplateId, startingQuickStart,
   onNew, onEdit, onStart, onQuickStart, onResumeSession, onAbandon,
   onNewGenerate, onNewGenerateSingle, weeklyInsight, onDismissInsight, onRefreshInsight,
-  todaySuggestion, onStartTodaySuggestion,
   programs, activeProgram, onSwitchProgram, onCreateProgram, onRenameProgram, onDeleteProgram,
 }) {
   const { requirePro } = useProGate()
@@ -251,55 +250,25 @@ export default function HomeScreen({
         </div>
       )}
 
-      {/* AI insight card — weekly recap + today suggestion */}
-      {(weeklyInsight || todaySuggestion) && (
+      {/* AI insight card — weekly recap */}
+      {weeklyInsight && (
         <div className="home-insight-card">
-          {/* Weekly recap */}
-          {weeklyInsight && (
-            weeklyInsight.loading ? (
-              <div className="home-insight-loading">
-                <div className="home-insight-spinner" />
-                <span>Analyzing your week…</span>
+          {weeklyInsight.loading ? (
+            <div className="home-insight-loading">
+              <div className="home-insight-spinner" />
+              <span>Analyzing your week…</span>
+            </div>
+          ) : (
+            <div className="home-insight-row">
+              <div className="home-insight-body">
+                <p className="home-insight-label">Weekly recap</p>
+                <p className="home-insight-text">{weeklyInsight.insight}</p>
               </div>
-            ) : (
-              <div className="home-insight-row">
-                <div className="home-insight-body">
-                  <p className="home-insight-label">Weekly recap</p>
-                  <p className="home-insight-text">{weeklyInsight.insight}</p>
-                </div>
-                <div className="home-insight-actions">
-                  <button className="home-insight-refresh" onClick={onRefreshInsight} aria-label="Refresh">↻</button>
-                  <button className="home-insight-dismiss" onClick={onDismissInsight} aria-label="Dismiss">✕</button>
-                </div>
+              <div className="home-insight-actions">
+                <button className="home-insight-refresh" onClick={onRefreshInsight} aria-label="Refresh">↻</button>
+                <button className="home-insight-dismiss" onClick={onDismissInsight} aria-label="Dismiss">✕</button>
               </div>
-            )
-          )}
-
-          {/* Today suggestion */}
-          {todaySuggestion && weeklyInsight && !weeklyInsight.loading && (
-            <div className="home-today-divider" />
-          )}
-          {todaySuggestion && (
-            todaySuggestion.loading ? (
-              <div className="home-insight-loading">
-                <div className="home-insight-spinner" />
-                <span>Finding today's workout…</span>
-              </div>
-            ) : (
-              <div className="home-today-section">
-                <div className="home-today-body">
-                  <p className="home-insight-label">Train today</p>
-                  <p className="home-insight-text">{todaySuggestion.rationale}</p>
-                  <p className="home-today-name">{todaySuggestion.template?.name}</p>
-                </div>
-                <button
-                  className="home-today-btn"
-                  onClick={() => onStartTodaySuggestion(todaySuggestion.template)}
-                >
-                  Start →
-                </button>
-              </div>
-            )
+            </div>
           )}
         </div>
       )}

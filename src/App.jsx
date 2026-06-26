@@ -473,51 +473,6 @@ export default function App() {
     }
   }
 
-  function generateTodaySuggestion(currentSessions) {
-    const activeId = activeProgram?.id ?? null
-    const programTemplates = (templates ?? []).filter(t =>
-      !t.isQuickStart && (!activeId || t.programId === activeId)
-    )
-    if (!programTemplates.length) return
-
-    // Find the most recent session date for each template
-    const lastDoneByTemplate = {}
-    for (const s of currentSessions) {
-      if (!s.templateId || !s.finishedAt) continue
-      const prev = lastDoneByTemplate[s.templateId]
-      if (!prev || new Date(s.finishedAt) > new Date(prev)) {
-        lastDoneByTemplate[s.templateId] = s.finishedAt
-      }
-    }
-
-    // Sort: never done first, then least recently done
-    const sorted = [...programTemplates].sort((a, b) => {
-      const aLast = lastDoneByTemplate[a.id]
-      const bLast = lastDoneByTemplate[b.id]
-      if (!aLast && !bLast) return 0
-      if (!aLast) return -1
-      if (!bLast) return 1
-      return new Date(aLast) - new Date(bLast)
-    })
-
-    const suggested = sorted[0]
-    if (!suggested) return
-
-    const lastDone = lastDoneByTemplate[suggested.id]
-    let rationale
-    if (!lastDone) {
-      rationale = `You haven't done ${suggested.name} yet — a great time to start.`
-    } else {
-      const daysSince = Math.floor((Date.now() - new Date(lastDone).getTime()) / (1000 * 60 * 60 * 24))
-      rationale = daysSince <= 1
-        ? `${suggested.name} was done recently, but it's next in your rotation.`
-        : `${suggested.name} was last done ${daysSince} days ago and is well-rested.`
-    }
-
-    const today = new Date().toISOString().slice(0, 10)
-    localStorage.setItem('today-suggestion', JSON.stringify({ templateId: suggested.id, rationale, date: today }))
-    setTodaySuggestion({ loading: false, template: suggested, rationale })
-  }
 
 
   const { screen, activeTab, setActiveTab, goHome, goWizard, goBuilder, goSession, goSummary, goSessionDetail, goTab, goSettings } = useNav()
@@ -550,23 +505,6 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataLoaded, sessionReady])
 
-  // Today suggestion — compute once per calendar day from user's existing templates
-  useEffect(() => {
-    if (!dataLoaded || !sessionReady || todaySuggestionFiredRef.current) return
-    const today  = new Date().toISOString().slice(0, 10)
-    const cached = (() => { try { return JSON.parse(localStorage.getItem('today-suggestion') ?? '') } catch { return null } })()
-    if (cached?.date === today && cached?.templateId) {
-      const tmpl = (templates ?? []).find(t => t.id === cached.templateId)
-      if (tmpl) {
-        setTodaySuggestion({ loading: false, template: tmpl, rationale: cached.rationale })
-        todaySuggestionFiredRef.current = true
-        return
-      }
-    }
-    todaySuggestionFiredRef.current = true
-    generateTodaySuggestion(sessions)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataLoaded, sessionReady])
 
   // Active session — persisted to localStorage so it survives navigation & sleep
   const [activeSession, setActiveSession] = useState(() => getActiveSession())
@@ -597,10 +535,6 @@ export default function App() {
   // null | { insight, loading }
   const [weeklyInsight, setWeeklyInsight] = useState(null)
 
-  // Today suggestion
-  // null | { loading, template, rationale }
-  const [todaySuggestion, setTodaySuggestion] = useState(null)
-
   // What's New modal
   const [showWhatsNew, setShowWhatsNew] = useState(false)
 
@@ -610,7 +544,6 @@ export default function App() {
     if (!hasSeenLatest()) setShowWhatsNew(true)
   }, [authUser])
   const weeklyInsightFiredRef = useRef(false)
-  const todaySuggestionFiredRef = useRef(false)
 
 
   // Drag-to-dismiss state
@@ -720,10 +653,6 @@ export default function App() {
       return
     }
     doStartSession(template)
-  }
-
-  function handleStartTodaySuggestion(template) {
-    handleStartSession(template)
   }
 
   async function handleStartSession(template) {
@@ -978,8 +907,6 @@ const NavShield = () => (
               setWeeklyInsight(null)
               generateWeeklyInsight(sessions)
             }}
-            todaySuggestion={todaySuggestion}
-            onStartTodaySuggestion={handleStartTodaySuggestion}
           />
         )
       case 'wizard':
