@@ -473,63 +473,50 @@ export default function App() {
     }
   }
 
-  async function generateTodaySuggestion(currentSessions) {
-    if (!currentSessions.length) return
-    const allExercises = [...defaultExercises, ...getCachedCustomExercises()]
-    const twoWeeksAgo  = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
-    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+  function generateTodaySuggestion(currentSessions) {
+    const activeId = activeProgram?.id ?? null
+    const programTemplates = (templates ?? []).filter(t =>
+      !t.isQuickStart && (!activeId || t.programId === activeId)
+    )
+    if (!programTemplates.length) return
 
-    const recentSessions = currentSessions
-      .filter(s => s.finishedAt && new Date(s.finishedAt) >= twoWeeksAgo)
-      .sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))
-      .map(s => ({
-        date: s.finishedAt?.slice(0, 10),
-        templateName: templates?.find(t => t.id === s.templateId)?.name ?? 'Workout',
-        exercises: (s.logs ?? []).flatMap(l => {
-          const ex = allExercises.find(e => e.id === l.exerciseId)
-          if (!ex) return []
-          const done = (l.sets ?? []).filter(set => set.completed && set.weight > 0)
-          const last = done[done.length - 1]
-          return [{ exerciseId: l.exerciseId, name: ex.name, muscleGroup: ex.muscleGroup, lastWeight: last?.weight ?? 0, lastReps: last?.reps ?? 0 }]
-        }),
-      }))
-      .filter(s => s.exercises.length > 0)
-
-    // Build frequent exercise map from last 90 days
-    const exMap = {}
-    for (const s of currentSessions.filter(s => s.finishedAt && new Date(s.finishedAt) >= ninetyDaysAgo)) {
-      for (const l of s.logs ?? []) {
-        const ex = allExercises.find(e => e.id === l.exerciseId)
-        if (!ex || ex.category === 'Cardio') continue
-        const done = (l.sets ?? []).filter(set => set.completed && set.weight > 0)
-        const last = done[done.length - 1]
-        if (!exMap[l.exerciseId]) {
-          exMap[l.exerciseId] = { exerciseId: l.exerciseId, name: ex.name, muscleGroup: ex.muscleGroup, category: ex.category, usageCount: 0, lastWeight: 0, lastReps: 0, lastDate: '' }
-        }
-        exMap[l.exerciseId].usageCount++
-        if (last && s.finishedAt > (exMap[l.exerciseId].lastDate ?? '')) {
-          exMap[l.exerciseId].lastWeight = last.weight
-          exMap[l.exerciseId].lastReps   = last.reps
-          exMap[l.exerciseId].lastDate   = s.finishedAt
-        }
+    // Find the most recent session date for each template
+    const lastDoneByTemplate = {}
+    for (const s of currentSessions) {
+      if (!s.templateId || !s.finishedAt) continue
+      const prev = lastDoneByTemplate[s.templateId]
+      if (!prev || new Date(s.finishedAt) > new Date(prev)) {
+        lastDoneByTemplate[s.templateId] = s.finishedAt
       }
     }
-    const frequentExercises = Object.values(exMap).sort((a, b) => b.usageCount - a.usageCount).slice(0, 25)
-    if (!frequentExercises.length) return
 
-    setTodaySuggestion({ loading: true, template: null, rationale: null })
-    try {
-      const { data, error } = await callFunction('suggest-today-workout', {
-        recentSessions, frequentExercises, goal: profile?.goal ?? '', unit: settings.unit,
-      })
-      if (error || !data?.template) throw new Error('empty')
-      const today  = new Date().toISOString().slice(0, 10)
-      const result = { template: data.template, rationale: data.rationale, date: today }
-      localStorage.setItem('today-suggestion', JSON.stringify(result))
-      setTodaySuggestion({ loading: false, ...result })
-    } catch {
-      setTodaySuggestion(null)
+    // Sort: never done first, then least recently done
+    const sorted = [...programTemplates].sort((a, b) => {
+      const aLast = lastDoneByTemplate[a.id]
+      const bLast = lastDoneByTemplate[b.id]
+      if (!aLast && !bLast) return 0
+      if (!aLast) return -1
+      if (!bLast) return 1
+      return new Date(aLast) - new Date(bLast)
+    })
+
+    const suggested = sorted[0]
+    if (!suggested) return
+
+    const lastDone = lastDoneByTemplate[suggested.id]
+    let rationale
+    if (!lastDone) {
+      rationale = `You haven't done ${suggested.name} yet — a great time to start.`
+    } else {
+      const daysSince = Math.floor((Date.now() - new Date(lastDone).getTime()) / (1000 * 60 * 60 * 24))
+      rationale = daysSince <= 1
+        ? `${suggested.name} was done recently, but it's next in your rotation.`
+        : `${suggested.name} was last done ${daysSince} days ago and is well-rested.`
     }
+
+    const today = new Date().toISOString().slice(0, 10)
+    localStorage.setItem('today-suggestion', JSON.stringify({ templateId: suggested.id, rationale, date: today }))
+    setTodaySuggestion({ loading: false, template: suggested, rationale })
   }
 
 
@@ -563,15 +550,18 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataLoaded, sessionReady])
 
-  // Today suggestion — generate once per calendar day, after session is confirmed fresh
+  // Today suggestion — compute once per calendar day from user's existing templates
   useEffect(() => {
     if (!dataLoaded || !sessionReady || todaySuggestionFiredRef.current) return
     const today  = new Date().toISOString().slice(0, 10)
     const cached = (() => { try { return JSON.parse(localStorage.getItem('today-suggestion') ?? '') } catch { return null } })()
-    if (cached?.date === today && cached?.template) {
-      setTodaySuggestion({ loading: false, template: cached.template, rationale: cached.rationale, date: today })
-      todaySuggestionFiredRef.current = true
-      return
+    if (cached?.date === today && cached?.templateId) {
+      const tmpl = (templates ?? []).find(t => t.id === cached.templateId)
+      if (tmpl) {
+        setTodaySuggestion({ loading: false, template: tmpl, rationale: cached.rationale })
+        todaySuggestionFiredRef.current = true
+        return
+      }
     }
     todaySuggestionFiredRef.current = true
     generateTodaySuggestion(sessions)
@@ -733,7 +723,7 @@ export default function App() {
   }
 
   function handleStartTodaySuggestion(template) {
-    attemptStart({ ...template, id: crypto.randomUUID(), isQuickStart: true })
+    handleStartSession(template)
   }
 
   async function handleStartSession(template) {

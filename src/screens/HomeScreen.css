@@ -1061,8 +1061,8 @@
 
 .home-today-section {
   display: flex;
-  align-items: flex-end;
-  gap: 12px;
+  flex-direction: column;
+  gap: 10px;
   width: 100%;
 }
 
@@ -1085,12 +1085,12 @@
   color: #fff;
   border: none;
   border-radius: 8px;
-  padding: 7px 14px;
+  padding: 8px 18px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  flex-shrink: 0;
+  align-self: flex-start;
   transition: opacity 0.15s;
 
   &:active { opacity: 0.8; }
