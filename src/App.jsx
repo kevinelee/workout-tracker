@@ -177,6 +177,7 @@ function useNav() {
 export default function App() {
   const [authUser, setAuthUser]   = useState(null)
   const [authReady, setAuthReady] = useState(false)
+  const [sessionReady, setSessionReady] = useState(false)
   const [authMode, setAuthMode]   = useState('signin') // passed to AuthScreen after landing
   // Track the user ID we've already bootstrapped so TOKEN_REFRESHED and
   // duplicate INITIAL_SESSION events don't re-run all Supabase queries.
@@ -196,7 +197,7 @@ export default function App() {
         // user tries to write. refreshSession() gets a fresh token without
         // blocking startup; TOKEN_REFRESHED will fire and the supabase client
         // will use the new token for all subsequent requests.
-        supabase.auth.refreshSession().catch(() => {})
+        supabase.auth.refreshSession().then(() => setSessionReady(true)).catch(() => setSessionReady(true))
       } else {
         setAuthReady(true)
       }
@@ -551,9 +552,9 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', encodeTheme(settings.colorScheme ?? 'default', settings.themeMode ?? 'dark'))
   }, [settings.colorScheme, settings.themeMode])
 
-  // Weekly insight — generate once per calendar week when sessions load
+  // Weekly insight — generate once per calendar week, after session is confirmed fresh
   useEffect(() => {
-    if (!dataLoaded || weeklyInsightFiredRef.current) return
+    if (!dataLoaded || !sessionReady || weeklyInsightFiredRef.current) return
     const weekKey = getWeekKey()
     const cached  = (() => { try { return JSON.parse(localStorage.getItem('weekly-insight') ?? '') } catch { return null } })()
     if (cached?.week === weekKey) {
@@ -564,11 +565,11 @@ export default function App() {
     weeklyInsightFiredRef.current = true
     generateWeeklyInsight(sessions)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataLoaded])
+  }, [dataLoaded, sessionReady])
 
-  // Today suggestion — generate once per calendar day when sessions load
+  // Today suggestion — generate once per calendar day, after session is confirmed fresh
   useEffect(() => {
-    if (!dataLoaded || todaySuggestionFiredRef.current) return
+    if (!dataLoaded || !sessionReady || todaySuggestionFiredRef.current) return
     const today  = new Date().toISOString().slice(0, 10)
     const cached = (() => { try { return JSON.parse(localStorage.getItem('today-suggestion') ?? '') } catch { return null } })()
     if (cached?.date === today && cached?.template) {
@@ -579,7 +580,7 @@ export default function App() {
     todaySuggestionFiredRef.current = true
     generateTodaySuggestion(sessions)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataLoaded])
+  }, [dataLoaded, sessionReady])
 
   // Active session — persisted to localStorage so it survives navigation & sleep
   const [activeSession, setActiveSession] = useState(() => getActiveSession())

@@ -126,23 +126,31 @@ export default function ProfileScreen({
     setSummaryError(false)
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     const allEx = [...defaultExercises, ...getCachedCustomExercises()]
-    const recent = (sessions ?? [])
-      .filter(s => s.finishedAt && new Date(s.finishedAt) >= weekAgo)
+    const allFinished = (sessions ?? [])
+      .filter(s => s.finishedAt)
       .sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))
-    const sessionData = recent.map(s => ({
+    const recent = allFinished.filter(s => new Date(s.finishedAt) >= weekAgo)
+
+    const toSessionData = s => ({
       date: s.finishedAt?.slice(0, 10),
       templateName: s.template?.name ?? 'Workout',
       durationMins: s.duration ? Math.round(s.duration / 60) : null,
       exercises: (s.logs ?? []).map(l => allEx.find(e => e.id === l.exerciseId)?.name).filter(Boolean),
-    }))
-    if (!sessionData.length) {
-      setSummaryText('No workouts logged in the last 7 days.')
+    })
+
+    let body
+    if (recent.length > 0) {
+      body = { sessions: recent.map(toSessionData), goal: profile?.goal ?? '', unit, mode: 'weekly' }
+    } else if (allFinished.length > 0) {
+      const daysSince = Math.round((Date.now() - new Date(allFinished[0].finishedAt).getTime()) / 86400000)
+      body = { sessions: allFinished.slice(0, 5).map(toSessionData), goal: profile?.goal ?? '', unit, mode: 'returning', daysSince }
+    } else {
+      setSummaryText("No workout history yet — pick a template and start your first session!")
       return
     }
+
     try {
-      const { data, error } = await supabase.functions.invoke('generate-weekly-insight', {
-        body: { sessions: sessionData, goal: profile?.goal ?? '', unit },
-      })
+      const { data, error } = await supabase.functions.invoke('generate-weekly-insight', { body })
       if (error || !data?.insight) throw new Error('empty')
       setSummaryText(data.insight)
     } catch {

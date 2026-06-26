@@ -28,7 +28,7 @@ serve(async (req) => {
       })
     }
 
-    const { sessions, goal, unit } = await req.json()
+    const { sessions, goal, unit, mode = 'weekly', daysSince } = await req.json()
 
     const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
     if (!ANTHROPIC_API_KEY) {
@@ -43,7 +43,18 @@ serve(async (req) => {
       return `- ${s.date} — ${s.templateName ?? 'Unnamed workout'} (${dur}): ${exList}`
     }).join('\n')
 
-    const prompt = `You are a fitness coach reviewing a client's training week.
+    const prompt = mode === 'returning'
+      ? `You are a fitness coach writing a personal message to a client who hasn't worked out in ${daysSince} day${daysSince === 1 ? '' : 's'}.
+
+Goal: ${goal || 'general fitness'}
+Their last few workouts before the gap:
+${sessionSummary}
+
+Write 2–3 sentences: acknowledge the time away (mention the specific number of days), reference something specific from their history (an exercise, a workout name, or a pattern), and give one concrete nudge to get back on track. Be warm and direct — not preachy or generic. Under 60 words.
+
+Respond with ONLY this JSON:
+{"insight": "..."}`
+      : `You are a fitness coach reviewing a client's training week.
 
 Goal: ${goal || 'general fitness'}
 Sessions this week (${sessions.length} total):
@@ -52,9 +63,7 @@ ${sessionSummary}
 Give 2–3 short, specific observations about this week — what went well, any gaps, one actionable suggestion for next week. Be direct and personal, not generic. Under 60 words total.
 
 Respond with ONLY this JSON:
-{
-  "insight": "..."
-}`
+{"insight": "..."}`
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
