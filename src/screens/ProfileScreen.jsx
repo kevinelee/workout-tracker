@@ -150,6 +150,8 @@ export default function ProfileScreen({
     }
 
     try {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      if (!authSession) { setSummaryError(true); return }
       const { data, error } = await supabase.functions.invoke('generate-weekly-insight', { body })
       if (error || !data?.insight) throw new Error('empty')
       setSummaryText(data.insight)

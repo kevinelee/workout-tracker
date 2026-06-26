@@ -39,9 +39,14 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
   const [durationEditM, setDurationEditM] = useState(String(Math.floor(((session.duration ?? 0) % 3600) / 60)))
   const [durationEditS, setDurationEditS] = useState(String((session.duration ?? 0) % 60))
 
-  function fetchAiSummary() {
+  async function fetchAiSummary() {
     setAiSummary(null)
     setAiError(false)
+    // Ensure the access token is fresh — it may have expired during the workout
+    // if the phone was asleep, and functions.invoke sends whatever token is in
+    // the client's current state without waiting for a background refresh.
+    const { data: { session: authSession } } = await supabase.auth.getSession()
+    if (!authSession) { setAiError(true); return }
     const exercises = (session.logs ?? []).map(log => {
       const ex = findEx(log.exerciseId)
       return {
