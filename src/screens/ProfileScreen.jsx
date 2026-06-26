@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { uploadAvatar } from "../storage";
+import { uploadAvatar, getCachedCustomExercises } from "../storage";
 import { sessionVolume, fmtVolume, fmtDuration } from "../utils/volume";
+import { defaultExercises } from "../data/exerciseLibrary";
+import { supabase } from "../lib/supabase";
 import WeightChart from "../components/WeightChart";
 import BodyHeatmap from "../components/BodyHeatmap";
 import CropModal from "../components/CropModal";
@@ -64,6 +66,14 @@ function GearIcon() {
   );
 }
 
+function SparkleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+      <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
+    </svg>
+  )
+}
+
 function AvatarContent({ avatarUrl, avatarUploading, profile, initials, onError }) {
   if (avatarUploading) return <span className="profile-avatar-spinner" />;
   if (!profile) return <span className="profile-avatar-skeleton" />;
@@ -105,6 +115,40 @@ export default function ProfileScreen({
   const [avatarError, setAvatarError] = useState(null);
   const [cropFile, setCropFile] = useState(null);
   const [view, setView] = useState("main"); // 'main' | 'edit'
+
+  const [summaryOpen, setSummaryOpen] = useState(false)
+  const [summaryText, setSummaryText] = useState(null)
+  const [summaryError, setSummaryError] = useState(false)
+
+  async function handleGenerateSummary() {
+    setSummaryOpen(true)
+    setSummaryText(null)
+    setSummaryError(false)
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const allEx = [...defaultExercises, ...getCachedCustomExercises()]
+    const recent = (sessions ?? [])
+      .filter(s => s.finishedAt && new Date(s.finishedAt) >= weekAgo)
+      .sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))
+    const sessionData = recent.map(s => ({
+      date: s.finishedAt?.slice(0, 10),
+      templateName: s.template?.name ?? 'Workout',
+      durationMins: s.duration ? Math.round(s.duration / 60) : null,
+      exercises: (s.logs ?? []).map(l => allEx.find(e => e.id === l.exerciseId)?.name).filter(Boolean),
+    }))
+    if (!sessionData.length) {
+      setSummaryText('No workouts logged in the last 7 days.')
+      return
+    }
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-weekly-insight', {
+        body: { sessions: sessionData, goal: profile?.goal ?? '', unit },
+      })
+      if (error || !data?.insight) throw new Error('empty')
+      setSummaryText(data.insight)
+    } catch {
+      setSummaryError(true)
+    }
+  }
 
   const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
   const [heightFt, setHeightFt] = useState(
@@ -713,6 +757,12 @@ export default function ProfileScreen({
         )}
       </section>
 
+      {/* Weekly Summary */}
+      <button className="profile-summary-btn" onClick={handleGenerateSummary}>
+        <SparkleIcon />
+        <span>Weekly Summary</span>
+      </button>
+
       {/* Settings */}
       <button className="profile-settings-row" onClick={onOpenSettings}>
         <span className="profile-settings-row-left">
@@ -721,6 +771,32 @@ export default function ProfileScreen({
         </span>
         <span className="profile-settings-row-chevron">›</span>
       </button>
+
+      {/* Summary Modal */}
+      {summaryOpen && (
+        <div className="profile-summary-backdrop" onClick={() => setSummaryOpen(false)}>
+          <div className="profile-summary-modal" onClick={e => e.stopPropagation()}>
+            <div className="profile-summary-modal-header">
+              <span className="profile-summary-modal-title"><SparkleIcon /> Weekly Summary</span>
+              <button className="profile-summary-modal-close" onClick={() => setSummaryOpen(false)}>✕</button>
+            </div>
+            {summaryError ? (
+              <div className="profile-summary-modal-error">
+                <p>Couldn't generate summary.</p>
+                <button className="profile-summary-retry" onClick={handleGenerateSummary}>Retry</button>
+              </div>
+            ) : summaryText === null ? (
+              <div className="profile-summary-skeleton">
+                <div className="profile-summary-skeleton-line" style={{ width: '90%' }} />
+                <div className="profile-summary-skeleton-line" style={{ width: '75%' }} />
+                <div className="profile-summary-skeleton-line" style={{ width: '60%' }} />
+              </div>
+            ) : (
+              <p className="profile-summary-modal-text">{summaryText}</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
