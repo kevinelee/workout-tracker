@@ -89,7 +89,10 @@ function SwipeToArchive({ onArchive, children }) {
 
     if (axis.current === null) {
       if (Math.abs(dx) < AXIS_LOCK_THRESHOLD && Math.abs(dy) < AXIS_LOCK_THRESHOLD) return
-      axis.current = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+      // Bias toward vertical: scrolling is the primary gesture on this list,
+      // so only lock to a horizontal swipe when it's clearly dominant —
+      // otherwise a slightly diagonal scroll-start falsely reveals Archive.
+      axis.current = Math.abs(dx) > Math.abs(dy) * 1.5 ? 'x' : 'y'
     }
     if (axis.current !== 'x') return
 
@@ -108,6 +111,16 @@ function SwipeToArchive({ onArchive, children }) {
     axis.current = null
   }
 
+  function onTouchCancel() {
+    // iOS fires touchcancel instead of touchend when it hands the gesture
+    // off to native scrolling mid-drag. Without resetting here, offsetX
+    // stays stuck non-zero and the red Archive panel is left permanently
+    // exposed behind the card.
+    tracking.current = false
+    axis.current = null
+    setOffsetX(0)
+  }
+
   return (
     <div className="swipe-wrap">
       <div className="swipe-reveal"><span>Archive</span></div>
@@ -117,6 +130,7 @@ function SwipeToArchive({ onArchive, children }) {
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchCancel}
       >
         {children}
       </div>
