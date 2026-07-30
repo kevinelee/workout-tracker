@@ -16,6 +16,7 @@
   align-items: center;
   gap: 8px;
   padding: 14px 16px;
+  padding-top: calc(14px + var(--safe-top));
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   position: sticky;
