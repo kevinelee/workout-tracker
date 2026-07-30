@@ -97,6 +97,8 @@ export default function HomeScreen({
   const isDraggingRef = useRef(false)
   const dragIdRef     = useRef(null)
   const hoverIdxRef   = useRef(null)
+  const holdTimerRef  = useRef(null)
+  const pressStartRef = useRef(null)
 
   // Load persisted order once templates arrive
   useEffect(() => {
@@ -140,9 +142,10 @@ export default function HomeScreen({
     return best
   }
 
-  function handleDragPointerDown(e, templateId) {
-    e.stopPropagation()
-    e.currentTarget.setPointerCapture(e.pointerId)
+  const HOLD_TO_DRAG_MS  = 250
+  const HOLD_CANCEL_DIST = 10
+
+  function armDrag(templateId) {
     isDraggingRef.current = true
     dragIdRef.current     = templateId
     hoverIdxRef.current   = (baseList ?? []).findIndex(t => t.id === templateId)
@@ -150,8 +153,28 @@ export default function HomeScreen({
     setHoverIdx(hoverIdxRef.current)
   }
 
+  function handleDragPointerDown(e, templateId) {
+    e.stopPropagation()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    pressStartRef.current = { x: e.clientX, y: e.clientY }
+    clearTimeout(holdTimerRef.current)
+    holdTimerRef.current = setTimeout(() => armDrag(templateId), HOLD_TO_DRAG_MS)
+  }
+
   function handleDragPointerMove(e) {
-    if (!isDraggingRef.current) return
+    if (!isDraggingRef.current) {
+      // Not armed yet — a finger passing through on its way to scrolling
+      // shouldn't count as a deliberate press-and-hold.
+      if (pressStartRef.current) {
+        const dx = e.clientX - pressStartRef.current.x
+        const dy = e.clientY - pressStartRef.current.y
+        if (Math.hypot(dx, dy) > HOLD_CANCEL_DIST) {
+          clearTimeout(holdTimerRef.current)
+          pressStartRef.current = null
+        }
+      }
+      return
+    }
     const newHover = getHoverIdx(e.clientY)
     if (newHover !== hoverIdxRef.current) {
       hoverIdxRef.current = newHover
@@ -159,15 +182,23 @@ export default function HomeScreen({
     }
   }
 
-  function handleDragPointerUp() {
-    if (!isDraggingRef.current) return
+  function resetDragState() {
+    clearTimeout(holdTimerRef.current)
+    pressStartRef.current = null
     isDraggingRef.current = false
-    const draggedId = dragIdRef.current
-    const toIdx     = hoverIdxRef.current
+    dragIdRef.current     = null
+    hoverIdxRef.current   = null
     setDragId(null)
     setHoverIdx(null)
-    dragIdRef.current   = null
-    hoverIdxRef.current = null
+  }
+
+  function handleDragPointerUp() {
+    clearTimeout(holdTimerRef.current)
+    pressStartRef.current = null
+    if (!isDraggingRef.current) return
+    const draggedId = dragIdRef.current
+    const toIdx     = hoverIdxRef.current
+    resetDragState()
 
     if (draggedId != null && toIdx != null) {
       const from = (baseList ?? []).findIndex(t => t.id === draggedId)
@@ -180,6 +211,10 @@ export default function HomeScreen({
         saveTemplateOrder(newOrder)
       }
     }
+  }
+
+  function handleDragPointerCancel() {
+    resetDragState()
   }
   // ──────────────────────────────────────────────────────────
 
@@ -304,6 +339,7 @@ export default function HomeScreen({
                     onPointerDown={e => handleDragPointerDown(e, t.id)}
                     onPointerMove={handleDragPointerMove}
                     onPointerUp={handleDragPointerUp}
+                    onPointerCancel={handleDragPointerCancel}
                     onClick={e => e.stopPropagation()}
                     aria-label="Drag to reorder"
                   >
