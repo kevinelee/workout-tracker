@@ -711,6 +711,7 @@
 .swipe-content {
   transition: transform 0.15s ease;
   will-change: transform;
+  touch-action: pan-y;
 }
 
 .swipe-content--out {

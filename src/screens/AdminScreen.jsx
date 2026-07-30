@@ -65,33 +65,47 @@ function FeedbackModal({ item, onClose, onMarkReviewed, onArchive }) {
 }
 
 const SWIPE_THRESHOLD = 80
+const AXIS_LOCK_THRESHOLD = 8
 
 function SwipeToArchive({ onArchive, children }) {
   const [offsetX, setOffsetX] = useState(0)
   const [swiped, setSwiped]   = useState(false)
   const startX = useRef(null)
+  const startY = useRef(null)
   const tracking = useRef(false)
+  const axis = useRef(null)
 
   function onTouchStart(e) {
     startX.current = e.touches[0].clientX
+    startY.current = e.touches[0].clientY
     tracking.current = true
+    axis.current = null
   }
 
   function onTouchMove(e) {
     if (!tracking.current) return
     const dx = e.touches[0].clientX - startX.current
+    const dy = e.touches[0].clientY - startY.current
+
+    if (axis.current === null) {
+      if (Math.abs(dx) < AXIS_LOCK_THRESHOLD && Math.abs(dy) < AXIS_LOCK_THRESHOLD) return
+      axis.current = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+    }
+    if (axis.current !== 'x') return
+
     if (dx < 0) setOffsetX(Math.max(dx, -SWIPE_THRESHOLD * 1.5))
   }
 
   function onTouchEnd() {
     tracking.current = false
-    if (offsetX <= -SWIPE_THRESHOLD) {
+    if (axis.current === 'x' && offsetX <= -SWIPE_THRESHOLD) {
       setSwiped(true)
       setOffsetX(-SWIPE_THRESHOLD * 1.5)
       setTimeout(() => onArchive(), 280)
     } else {
       setOffsetX(0)
     }
+    axis.current = null
   }
 
   return (

@@ -29,6 +29,14 @@ const MODE_OPTIONS = [
 
 const notifSupported = typeof Notification !== 'undefined'
 
+const EXPORT_RANGE_OPTIONS = [
+  { label: 'All time',     value: 'all' },
+  { label: 'Last 7 days',  value: '7'   },
+  { label: 'Last 30 days', value: '30'  },
+  { label: 'Last 90 days', value: '90'  },
+  { label: 'Last year',    value: '365' },
+]
+
 export default function SettingsScreen({ settings, onSave, sessions, templates, onSignOut, authUser, onRecalibrate, onShowWhatsNew, appVersion, onBack }) {
   const [s, setS] = useState(settings)
   const [notifStatus, setNotifStatus] = useState(notifSupported ? Notification.permission : 'unsupported')
@@ -50,6 +58,7 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
   const [pwError, setPwError]     = useState(null)
   const [pwSuccess, setPwSuccess] = useState(false)
   const [pwLoading, setPwLoading] = useState(false)
+  const [exportRange, setExportRange] = useState('all')
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -134,8 +143,14 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
     setNotifStatus(result)
   }
 
-  function handleExportJSON() { exportJSON(sessions, templates) }
-  function handleExportCSV()  { exportCSV(sessions) }
+  function sessionsInExportRange() {
+    if (exportRange === 'all') return sessions
+    const cutoff = Date.now() - Number(exportRange) * 86400000
+    return sessions.filter(s => s.finishedAt && new Date(s.finishedAt).getTime() >= cutoff)
+  }
+
+  function handleExportJSON() { exportJSON(sessionsInExportRange(), templates) }
+  function handleExportCSV()  { exportCSV(sessionsInExportRange()) }
 
   return (
     <div className="settings">
@@ -246,6 +261,18 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
 
       {/* Export */}
       <Section title="Export Data">
+        <label className="settings-select-label">
+          Time range
+          <select
+            className="settings-select"
+            value={exportRange}
+            onChange={e => setExportRange(e.target.value)}
+          >
+            {EXPORT_RANGE_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </label>
         <div className="settings-export-row">
           <button className="settings-action-btn" onClick={handleExportJSON}>Export JSON</button>
           <button className="settings-action-btn" onClick={handleExportCSV}>Export CSV</button>
