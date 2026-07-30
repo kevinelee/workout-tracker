@@ -637,9 +637,9 @@ export default function App() {
     const prTypes = Object.fromEntries(
       exerciseIds.map(id => [id, allExercises.find(e => e.id === id)?.prType ?? 'weight'])
     )
-    const { prMap, prRepsMap } = await getPRMap(exerciseIds, prTypes)
+    const { prMap, prRepsMap, repPRByWeightMap } = await getPRMap(exerciseIds, prTypes)
     const logs = initLogsFromTemplate(template)
-    const data = { template, sessionId: session.id, startedAt: session.startedAt, logs, prMap, prRepsMap, aiBreakdown }
+    const data = { template, sessionId: session.id, startedAt: session.startedAt, logs, prMap, prRepsMap, repPRByWeightMap, aiBreakdown }
     saveActiveSession(data)
     setActiveSession(data)
     setStartingTemplateId(null)
@@ -712,9 +712,9 @@ export default function App() {
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [pendingStart, startSheetOpen])
 
-  function handleSessionUpdate(logs, prMap, prRepsMap) {
+  function handleSessionUpdate(logs, prMap, prRepsMap, repPRByWeightMap) {
     if (!activeSession) return
-    const updated = { ...activeSession, logs, prMap, prRepsMap }
+    const updated = { ...activeSession, logs, prMap, prRepsMap, repPRByWeightMap: repPRByWeightMap ?? activeSession.repPRByWeightMap }
     saveActiveSession(updated)
     setActiveSession(updated)
   }

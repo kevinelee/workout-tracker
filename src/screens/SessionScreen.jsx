@@ -38,15 +38,17 @@ function elapsedFromStart(startedAt) {
 }
 
 export default function SessionScreen({ activeSession, settings, programId, onUpdate, onFinish, onMinimize, onAbandon }) {
-  const { template, sessionId, startedAt, logs: initialLogs, prMap: initialPrMap, prRepsMap: initialPrRepsMap, aiBreakdown } = activeSession
+  const { template, sessionId, startedAt, logs: initialLogs, prMap: initialPrMap, prRepsMap: initialPrRepsMap, repPRByWeightMap: initialRepPRByWeightMap, aiBreakdown } = activeSession
   const hasBreakdown = !!(aiBreakdown && (aiBreakdown.headline || aiBreakdown.suggestions?.length))
   const [showBreakdown, setShowBreakdown] = useState(false)
 
   const [logs, setLogs]           = useState(initialLogs)
   const [prMap, setPRMap]         = useState(initialPrMap)
   const [prRepsMap, setPRRepsMap] = useState(initialPrRepsMap ?? {})
+  const [repPRByWeightMap, setRepPRByWeightMap] = useState(initialRepPRByWeightMap ?? {})
   const basePrMapRef              = useRef(initialPrMap)
   const basePrRepsMapRef          = useRef(initialPrRepsMap ?? {})
+  const baseRepPRByWeightMapRef   = useRef(initialRepPRByWeightMap ?? {})
   const [elapsed, setElapsed] = useState(() => elapsedFromStart(startedAt))
   const [restDuration, setRestDuration] = useState(null)
   const [timerFlash, setTimerFlash] = useState(false)
@@ -142,11 +144,12 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   }, [])
 
 
-  function updateLogsAndSync(newLogs, newPrMap, newPrRepsMap) {
+  function updateLogsAndSync(newLogs, newPrMap, newPrRepsMap, newRepPRByWeightMap) {
     setLogs(newLogs)
     if (newPrMap) setPRMap(newPrMap)
     if (newPrRepsMap) setPRRepsMap(newPrRepsMap)
-    onUpdate(newLogs, newPrMap ?? prMap, newPrRepsMap ?? prRepsMap)
+    if (newRepPRByWeightMap) setRepPRByWeightMap(newRepPRByWeightMap)
+    onUpdate(newLogs, newPrMap ?? prMap, newPrRepsMap ?? prRepsMap, newRepPRByWeightMap ?? repPRByWeightMap)
   }
 
   function recalcPrRepsMapForExercise(newPrMap, newLogs, exerciseId) {
@@ -159,6 +162,15 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
       .flatMap(l => l.sets.filter(s => s.completed && s.weight === newMaxWeight))
       .reduce((best, s) => (!best || s.reps > best.reps) ? s : best, null)
     return { ...prRepsMap, [exerciseId]: bestSet?.reps ?? baselineReps }
+  }
+
+  function recalcRepPRByWeightMapForExercise(newLogs, exerciseId) {
+    const bucket = { ...(baseRepPRByWeightMapRef.current[exerciseId] ?? {}) }
+    newLogs
+      .filter(l => l.exerciseId === exerciseId)
+      .flatMap(l => l.sets.filter(s => s.completed && s.weight > 0))
+      .forEach(s => { bucket[s.weight] = Math.max(bucket[s.weight] ?? 0, s.reps) })
+    return { ...repPRByWeightMap, [exerciseId]: bucket }
   }
 
   function copyLastSession() {
@@ -199,11 +211,27 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     const exercise = findExercise(exerciseId)
     const prType = exercise?.prType ?? 'weight'
     const currentPR = prMap[exerciseId] ?? 0
-    const isPR = prType === 'reps'
-      ? set.reps > 0 && set.reps > currentPR
-      : set.weight > 0 && set.weight > currentPR
-    const newPrMap = isPR ? { ...prMap, [exerciseId]: prType === 'reps' ? set.reps : set.weight } : prMap
-    const newPrRepsMap = (isPR && prType !== 'reps') ? { ...prRepsMap, [exerciseId]: set.reps } : null
+
+    let isPR, newPrMap, newPrRepsMap, newRepPRByWeightMap
+
+    if (prType === 'reps') {
+      isPR = set.reps > 0 && set.reps > currentPR
+      newPrMap = isPR ? { ...prMap, [exerciseId]: set.reps } : prMap
+      newPrRepsMap = null
+      newRepPRByWeightMap = null
+    } else {
+      const isWeightPR = set.weight > 0 && set.weight > currentPR
+      const weightBucket = repPRByWeightMap[exerciseId] ?? {}
+      const bestRepsAtWeight = weightBucket[set.weight] ?? 0
+      const isRepPR = set.weight > 0 && set.reps > bestRepsAtWeight
+      isPR = isWeightPR || isRepPR
+      newPrMap = isWeightPR ? { ...prMap, [exerciseId]: set.weight } : prMap
+      newPrRepsMap = isWeightPR ? { ...prRepsMap, [exerciseId]: set.reps } : null
+      newRepPRByWeightMap = isPR
+        ? { ...repPRByWeightMap, [exerciseId]: { ...weightBucket, [set.weight]: Math.max(bestRepsAtWeight, set.reps) } }
+        : null
+    }
+
     const newLogs = logs.map((l, li) =>
       li !== logIndex ? l : {
         ...l,
@@ -211,7 +239,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
       }
     )
     lastActivityAt.current = Date.now()
-    updateLogsAndSync(newLogs, newPrMap, newPrRepsMap)
+    updateLogsAndSync(newLogs, newPrMap, newPrRepsMap, newRepPRByWeightMap)
     if (settings.restTimerDuration > 0) setRestDuration(settings.restTimerDuration)
 
     // Celebrate when all sets (including any added extras) are done
@@ -259,6 +287,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     )
     let newPrMap = prMap
     let newPrRepsMap = null
+    let newRepPRByWeightMap = null
     if (removedSet.isPR) {
       const exerciseId = log.exerciseId
       const exercise = findExercise(exerciseId)
@@ -269,9 +298,12 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
         .flatMap(l => l.sets.filter(s => s.completed && (prType === 'reps' ? s.reps > 0 : s.weight > 0)))
         .reduce((max, s) => Math.max(max, prType === 'reps' ? s.reps : s.weight), 0)
       newPrMap = { ...prMap, [exerciseId]: Math.max(baseline, sessionMax) }
-      if (prType !== 'reps') newPrRepsMap = recalcPrRepsMapForExercise(newPrMap, newLogs, exerciseId)
+      if (prType !== 'reps') {
+        newPrRepsMap = recalcPrRepsMapForExercise(newPrMap, newLogs, exerciseId)
+        newRepPRByWeightMap = recalcRepPRByWeightMapForExercise(newLogs, exerciseId)
+      }
     }
-    updateLogsAndSync(newLogs, newPrMap, newPrRepsMap)
+    updateLogsAndSync(newLogs, newPrMap, newPrRepsMap, newRepPRByWeightMap)
   }
 
   function rescindSet(logIndex, setIndex) {
@@ -284,6 +316,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     )
     let newPrMap = prMap
     let newPrRepsMap = null
+    let newRepPRByWeightMap = null
     if (rescindedSet.isPR) {
       const exerciseId = logs[logIndex].exerciseId
       const exercise = findExercise(exerciseId)
@@ -294,9 +327,12 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
         .flatMap(l => l.sets.filter(s => s.completed && (prType === 'reps' ? s.reps > 0 : s.weight > 0)))
         .reduce((max, s) => Math.max(max, prType === 'reps' ? s.reps : s.weight), 0)
       newPrMap = { ...prMap, [exerciseId]: Math.max(baseline, sessionMax) }
-      if (prType !== 'reps') newPrRepsMap = recalcPrRepsMapForExercise(newPrMap, newLogs, exerciseId)
+      if (prType !== 'reps') {
+        newPrRepsMap = recalcPrRepsMapForExercise(newPrMap, newLogs, exerciseId)
+        newRepPRByWeightMap = recalcRepPRByWeightMapForExercise(newLogs, exerciseId)
+      }
     }
-    updateLogsAndSync(newLogs, newPrMap, newPrRepsMap)
+    updateLogsAndSync(newLogs, newPrMap, newPrRepsMap, newRepPRByWeightMap)
   }
 
   function addExerciseToSession(exercise) {
@@ -654,6 +690,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
                       editExiting={editExiting}
                       isActive={si === nextActiveIndex}
                       currentPR={prMap[log.exerciseId] ?? 0}
+                      bestRepsAtWeight={repPRByWeightMap[log.exerciseId]?.[set.weight] ?? 0}
                       prType={exercise?.prType ?? 'weight'}
                       difficultyLabel={exercise.difficultyLabel}
                       difficultyDecimal={exercise.difficultyDecimal}

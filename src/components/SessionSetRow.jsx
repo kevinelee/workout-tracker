@@ -43,7 +43,7 @@ function EditableValue({ value, onSet, disabled, decimal = false }) {
   )
 }
 
-export default function SessionSetRow({ set, index, onChange, onComplete, onRescind, onRemove, controllerSide, isCardio, cardioUnit, isStretch, unit, editMode, editExiting, isActive, currentPR, prType = 'weight', difficultyLabel, difficultyDecimal }) {
+export default function SessionSetRow({ set, index, onChange, onComplete, onRescind, onRemove, controllerSide, isCardio, cardioUnit, isStretch, unit, editMode, editExiting, isActive, currentPR, bestRepsAtWeight = 0, prType = 'weight', difficultyLabel, difficultyDecimal }) {
   const [burst, setBurst] = useState(false)
   const leftHand  = controllerSide === 'left'
   const distUnit  = unit === 'kg' ? 'km' : 'mi'
@@ -97,7 +97,7 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
   const isPRPending = !set.completed && (
     prType === 'reps'
       ? set.reps > 0 && set.reps > currentPR
-      : set.weight > 0 && set.weight > currentPR
+      : set.weight > 0 && (set.weight > currentPR || set.reps > bestRepsAtWeight)
   )
 
   const circleContent = set.completed
