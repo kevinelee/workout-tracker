@@ -108,6 +108,10 @@ export default function OnboardingScreen({ onComplete }) {
     setStep(s => s - 1)
   }
 
+  function skip() {
+    onComplete({ answers, summary: '' })
+  }
+
   async function submit() {
     setLoading(true)
     setError(null)
@@ -119,8 +123,8 @@ export default function OnboardingScreen({ onComplete }) {
       onComplete({ answers, summary: data.summary ?? '' })
     } catch (err) {
       console.error('Onboarding submit failed:', err)
-      setError('Something went wrong. Please try again.')
       setLoading(false)
+      setError('Could not generate your profile. You can skip for now.')
     }
   }
 
@@ -197,6 +201,9 @@ export default function OnboardingScreen({ onComplete }) {
           {isLast ? 'Finish' : 'Continue'}
         </button>
       </div>
+      {(isLast || error) && (
+        <button className="onboarding-skip" onClick={skip}>Skip for now</button>
+      )}
     </div>
   )
 }

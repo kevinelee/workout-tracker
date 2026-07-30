@@ -179,7 +179,7 @@ export default function App() {
     getSessions().then(setSessions).catch(console.error)
     getSettings().then(setSettings).catch(console.error)
     getCustomExercises().catch(console.error)
-    getProfile().then(p => { setProfile(p); if (!p?.onboardingComplete) setShowOnboarding(true) }).catch(console.error)
+    getProfile().then(p => { setProfile(p); setShowOnboarding(!p?.onboardingComplete) }).catch(console.error)
     getBodyWeightLogs().then(setBodyWeightLogs).catch(console.error)
     if (isAdminUser) getNewFeedbackCount().then(setFeedbackCount).catch(console.error)
 
@@ -227,7 +227,7 @@ export default function App() {
   const [feedbackCount, setFeedbackCount]     = useState(0)
   const [profile, setProfile]                 = useState(null)
   const [bodyWeightLogs, setBodyWeightLogs]   = useState(null) // null = loading, [] = loaded empty
-  const [showOnboarding, setShowOnboarding]   = useState(false)
+  const [showOnboarding, setShowOnboarding]   = useState(null) // null = profile not yet loaded
   const streak = calcStreak(sessions, checkIns)
 
   // Apply theme to document root
