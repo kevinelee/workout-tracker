@@ -231,6 +231,20 @@ export default function App() {
     }
   }, [])
 
+  // iOS keeps a focused <input>'s native undo manager alive across backgrounding,
+  // and resurfaces it as an "Undo Typing" alert when Safari/the PWA regains focus.
+  // Blurring whatever's focused right before we go to the background empties that
+  // undo stack (and commits any in-progress edit, same as tapping away normally).
+  useEffect(() => {
+    function blurActiveInput() {
+      if (document.visibilityState !== 'hidden') return
+      const el = document.activeElement
+      if (el && el !== document.body && typeof el.blur === 'function') el.blur()
+    }
+    document.addEventListener('visibilitychange', blurActiveInput)
+    return () => document.removeEventListener('visibilitychange', blurActiveInput)
+  }, [])
+
   async function bootstrapUser(user) {
     // Guard against double-invocation (React StrictMode fires the auth effect twice in dev).
     if (bootstrappedUidRef.current === user.id) return
