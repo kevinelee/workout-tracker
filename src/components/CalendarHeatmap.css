@@ -1,5 +1,37 @@
 .heatmap {
   display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  overflow: hidden;
+}
+
+.heatmap-months {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+}
+
+.heatmap-months-spacer {
+  flex-shrink: 0;
+  width: 12px;
+}
+
+.heatmap-months-row {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.heatmap-month-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.heatmap-body {
+  display: flex;
   gap: 4px;
   width: 100%;
   overflow: hidden;
