@@ -2,6 +2,7 @@ import { buildHeatmapData } from '../utils/streaks'
 import './CalendarHeatmap.css'
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const MAX_WEEKS = 16
 const MIN_WEEKS = 4
 
@@ -38,6 +39,20 @@ export default function CalendarHeatmap({ sessions, checkIns, onDayClick }) {
 
   const startPad = parseLocalDate(data[0]?.date).getDay()
   const cells = [...Array(startPad).fill(null), ...data]
+  const cols = Math.ceil(cells.length / 7)
+
+  const monthLabels = []
+  let prevMonth = null
+  for (let c = 0; c < cols; c++) {
+    const col = cells.slice(c * 7, c * 7 + 7)
+    const firstCell = col.find(Boolean)
+    if (!firstCell) continue
+    const month = parseLocalDate(firstCell.date).getMonth()
+    if (month !== prevMonth) {
+      monthLabels.push({ col: c, label: MONTHS[month] })
+      prevMonth = month
+    }
+  }
 
   function handleClick(cell) {
     if (!cell?.active || !onDayClick) return
@@ -52,22 +67,32 @@ export default function CalendarHeatmap({ sessions, checkIns, onDayClick }) {
 
   return (
     <div className="heatmap">
-      <div className="heatmap-days">
-        {DAYS.map((d, i) => <span key={i} className="heatmap-day-label">{d}</span>)}
+      <div className="heatmap-months">
+        <span className="heatmap-months-spacer" />
+        <div className="heatmap-months-row" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+          {monthLabels.map(({ col, label }) => (
+            <span key={col} className="heatmap-month-label" style={{ gridColumn: col + 1 }}>{label}</span>
+          ))}
+        </div>
       </div>
-      <div className="heatmap-grid">
-        {cells.map((cell, i) =>
-          cell === null ? (
-            <span key={i} className="heatmap-cell heatmap-cell--empty" />
-          ) : (
-            <span
-              key={i}
-              className={`heatmap-cell ${cell.active ? 'heatmap-cell--active' : ''}`}
-              title={cell.date}
-              onClick={() => handleClick(cell)}
-            />
-          )
-        )}
+      <div className="heatmap-body">
+        <div className="heatmap-days">
+          {DAYS.map((d, i) => <span key={i} className="heatmap-day-label">{d}</span>)}
+        </div>
+        <div className="heatmap-grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+          {cells.map((cell, i) =>
+            cell === null ? (
+              <span key={i} className="heatmap-cell heatmap-cell--empty" />
+            ) : (
+              <span
+                key={i}
+                className={`heatmap-cell ${cell.active ? 'heatmap-cell--active' : ''}`}
+                title={cell.date}
+                onClick={() => handleClick(cell)}
+              />
+            )
+          )}
+        </div>
       </div>
     </div>
   )
