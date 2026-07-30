@@ -1,5 +1,11 @@
 /* Dark mode by default — gym lighting */
 :root {
+  /* Only reserve iOS safe-area space when running as an installed home-screen
+     app. In a regular Safari tab, Safari's own chrome already occupies that
+     space — applying env(safe-area-inset-*) there double-pads the layout. */
+  --safe-top: 0px;
+  --safe-bottom: 0px;
+
   --text: #9ca3af;
   --text-muted: #8b9099;
   --text-m: #8b9099;
@@ -26,6 +32,15 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* iOS matches display-mode: standalone when launched from a home-screen icon
+   (apple-mobile-web-app-capable), so this needs no JS detection. */
+@media all and (display-mode: standalone) {
+  :root {
+    --safe-top: env(safe-area-inset-top);
+    --safe-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 [data-theme="light"] {
@@ -127,6 +142,11 @@
 /* Prevent iOS Safari (and Capacitor WKWebView) from auto-zooming on input focus */
 input, textarea, select {
   font-size: max(16px, 1em);
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
 }
 
 body {

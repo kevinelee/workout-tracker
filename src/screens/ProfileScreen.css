@@ -643,7 +643,7 @@
   align-items: flex-end;
   justify-content: center;
   z-index: 200;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--safe-bottom);
 }
 
 .profile-summary-modal {
