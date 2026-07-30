@@ -391,6 +391,12 @@ export default function App() {
     return `${now.getFullYear()}-W${week}`
   }
 
+  function overloadBreakdown(sheet) {
+    if (!sheet || sheet.loading) return null
+    if (!sheet.headline && !sheet.suggestions?.length) return null
+    return { headline: sheet.headline, suggestions: sheet.suggestions }
+  }
+
   async function showOverloadSheet(template) {
     const allExercises = [...defaultExercises, ...getCachedCustomExercises()]
 
@@ -445,29 +451,41 @@ export default function App() {
   // ── Weekly insight ───────────────────────────────────────────────────────
 
   async function generateWeeklyInsight(currentSessions) {
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    const thisWeek = currentSessions.filter(s => s.finishedAt && new Date(s.finishedAt) >= weekAgo)
-    if (!thisWeek.length) return
+    const weekAgo   = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const finished  = currentSessions
+      .filter(s => s.finishedAt)
+      .sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))
+    const thisWeek  = finished.filter(s => new Date(s.finishedAt) >= weekAgo)
 
     const allExercises = [...defaultExercises, ...getCachedCustomExercises()]
-    const sessionData  = thisWeek.map(s => ({
+    const toSessionData = s => ({
       date:         s.finishedAt?.slice(0, 10),
       templateName: s.template?.name ?? templates?.find(t => t.id === s.templateId)?.name ?? 'Workout',
       durationMins: s.duration ? Math.round(s.duration / 60) : null,
       exercises:    (s.logs ?? [])
         .map(l => allExercises.find(e => e.id === l.exerciseId)?.name)
         .filter(Boolean),
-    }))
+    })
 
-    setWeeklyInsight({ insight: null, loading: true })
+    // No session this week but there's history — surface an absence-aware nudge
+    // instead of just staying silent. Brand-new users with no history at all get nothing.
+    let body
+    if (thisWeek.length) {
+      body = { sessions: thisWeek.map(toSessionData), goal: profile?.goal ?? '', unit: settings.unit, mode: 'weekly' }
+    } else if (finished.length) {
+      const daysSince = Math.round((Date.now() - new Date(finished[0].finishedAt).getTime()) / 86400000)
+      body = { sessions: finished.slice(0, 5).map(toSessionData), goal: profile?.goal ?? '', unit: settings.unit, mode: 'returning', daysSince }
+    } else {
+      return
+    }
+
+    setWeeklyInsight({ insight: null, loading: true, mode: body.mode })
     try {
-      const { data, error } = await callFunction('generate-weekly-insight', {
-        sessions: sessionData, goal: profile?.goal ?? '', unit: settings.unit,
-      })
+      const { data, error } = await callFunction('generate-weekly-insight', body)
       if (error || !data?.insight) throw new Error('empty')
-      const result = { insight: data.insight, week: getWeekKey() }
+      const result = { insight: data.insight, week: getWeekKey(), mode: body.mode }
       localStorage.setItem('weekly-insight', JSON.stringify(result))
-      setWeeklyInsight({ insight: data.insight, loading: false })
+      setWeeklyInsight({ insight: data.insight, loading: false, mode: body.mode })
     } catch {
       setWeeklyInsight(null)
     }
@@ -496,7 +514,7 @@ export default function App() {
     const weekKey = getWeekKey()
     const cached  = (() => { try { return JSON.parse(localStorage.getItem('weekly-insight') ?? '') } catch { return null } })()
     if (cached?.week === weekKey) {
-      if (!cached.dismissed) setWeeklyInsight({ insight: cached.insight, loading: false })
+      if (!cached.dismissed) setWeeklyInsight({ insight: cached.insight, loading: false, mode: cached.mode })
       weeklyInsightFiredRef.current = true
       return
     }
@@ -611,7 +629,7 @@ export default function App() {
 
   async function handleDeleteTemplate() { await refreshData(); goHome() }
 
-  async function doStartSession(template) {
+  async function doStartSession(template, aiBreakdown = null) {
     setStartingTemplateId(template.id)
     const session = createSession({ templateId: template.isQuickStart ? null : template.id, logs: [] })
     const exerciseIds = template.exercises.map(e => e.exerciseId)
@@ -621,7 +639,7 @@ export default function App() {
     )
     const { prMap, prRepsMap } = await getPRMap(exerciseIds, prTypes)
     const logs = initLogsFromTemplate(template)
-    const data = { template, sessionId: session.id, startedAt: session.startedAt, logs, prMap, prRepsMap }
+    const data = { template, sessionId: session.id, startedAt: session.startedAt, logs, prMap, prRepsMap, aiBreakdown }
     saveActiveSession(data)
     setActiveSession(data)
     setStartingTemplateId(null)
@@ -1138,7 +1156,7 @@ const NavShield = () => (
 
       {/* Progressive overload pre-session sheet */}
       {overloadSheet && (
-        <div className="sheet-backdrop" onClick={() => { clearTimeout(overloadTimeoutRef.current); setOverloadSheet(null); doStartSession(overloadSheet.template) }}>
+        <div className="sheet-backdrop" onClick={() => { clearTimeout(overloadTimeoutRef.current); setOverloadSheet(null); doStartSession(overloadSheet.template, overloadBreakdown(overloadSheet)) }}>
           <div className="sheet overload-sheet" onClick={e => e.stopPropagation()}>
             <div className="sheet-handle" />
             {overloadSheet.loading ? (
@@ -1164,7 +1182,7 @@ const NavShield = () => (
                 </div>
                 <button
                   className="overload-start-btn"
-                  onClick={() => { setOverloadSheet(null); doStartSession(overloadSheet.template) }}
+                  onClick={() => { setOverloadSheet(null); doStartSession(overloadSheet.template, overloadBreakdown(overloadSheet)) }}
                 >
                   Start Workout →
                 </button>

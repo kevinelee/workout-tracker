@@ -261,7 +261,7 @@ export default function HomeScreen({
           ) : (
             <div className="home-insight-row">
               <div className="home-insight-body">
-                <p className="home-insight-label">Weekly recap</p>
+                <p className="home-insight-label">{weeklyInsight.mode === 'returning' ? 'Welcome back' : 'Weekly recap'}</p>
                 <p className="home-insight-text">{weeklyInsight.insight}</p>
               </div>
               <div className="home-insight-actions">
