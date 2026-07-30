@@ -654,14 +654,23 @@ export async function hasCheckedInToday() {
 // ── PR Tracking ──────────────────────────────────────────────
 
 // prTypes: { [exerciseId]: 'weight' | 'reps' } — controls which column is used per exercise
-// Returns { prMap, prRepsMap } where prRepsMap tracks reps at PR weight for weight-based exercises
+// Returns { prMap, prRepsMap, repPRByWeightMap } where prRepsMap tracks reps at the all-time
+// PR weight, and repPRByWeightMap tracks the best-ever reps at each individual weight logged
+// (so a higher-rep set at an already-achieved weight can still register as a PR).
 export async function getPRMap(exerciseIds, prTypes = {}) {
-  if (!exerciseIds.length) return { prMap: {}, prRepsMap: {} }
-  const { data } = await supabase
-    .from('personal_records')
-    .select('exercise_id, max_weight, max_reps')
-    .eq('user_id', _uid)
-    .in('exercise_id', exerciseIds)
+  if (!exerciseIds.length) return { prMap: {}, prRepsMap: {}, repPRByWeightMap: {} }
+  const [{ data }, { data: byWeightData }] = await Promise.all([
+    supabase
+      .from('personal_records')
+      .select('exercise_id, max_weight, max_reps')
+      .eq('user_id', _uid)
+      .in('exercise_id', exerciseIds),
+    supabase
+      .from('personal_records_by_weight')
+      .select('exercise_id, weight, max_reps')
+      .eq('user_id', _uid)
+      .in('exercise_id', exerciseIds),
+  ])
 
   const prMap = Object.fromEntries(exerciseIds.map(id => [id, 0]))
   const prRepsMap = {}
@@ -674,7 +683,14 @@ export async function getPRMap(exerciseIds, prTypes = {}) {
       prRepsMap[row.exercise_id] = Number(row.max_reps)
     }
   }
-  return { prMap, prRepsMap }
+
+  const repPRByWeightMap = {}
+  for (const row of byWeightData ?? []) {
+    const bucket = repPRByWeightMap[row.exercise_id] ?? (repPRByWeightMap[row.exercise_id] = {})
+    bucket[Number(row.weight)] = Number(row.max_reps ?? 0)
+  }
+
+  return { prMap, prRepsMap, repPRByWeightMap }
 }
 
 
