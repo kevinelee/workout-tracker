@@ -24,7 +24,7 @@ function SortableExerciseRow({ id, ...props }) {
   )
 }
 
-export default function WorkoutBuilderScreen({ template: initial, onSave, onBack, onDelete, unit }) {
+export default function WorkoutBuilderScreen({ template: initial, onSave, onBack, onDelete, unit, programId }) {
   const isNew = !initial?.id
 
   const [name, setName] = useState(initial?.name ?? '')
@@ -34,6 +34,7 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [saving,         setSaving]        = useState(false)
   const [deleting,       setDeleting]      = useState(false)
+  const [deleteError,    setDeleteError]   = useState(false)
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -65,8 +66,8 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
     setSaving(true)
     try {
       const template = isNew
-        ? createWorkoutTemplate({ name: name.trim(), exercises })
-        : { ...initial, name: name.trim(), exercises }
+        ? { ...createWorkoutTemplate({ name: name.trim(), exercises }), programId: programId ?? null }
+        : { ...initial, name: name.trim(), exercises, programId: initial.programId ?? programId ?? null }
       await saveTemplate(template)
       onSave(template)
     } catch (err) {
@@ -78,8 +79,15 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
   async function handleDelete() {
     if (!initial?.id) return
     setDeleting(true)
-    await deleteTemplate(initial.id)
-    onDelete()
+    setDeleteError(false)
+    try {
+      await deleteTemplate(initial.id)
+      onDelete()
+    } catch (err) {
+      console.error('Failed to delete template:', err)
+      setDeleting(false)
+      setDeleteError(true)
+    }
   }
 
   const canSave = name.trim().length > 0 && exercises.length > 0 && !saving
@@ -172,12 +180,15 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
 
       {/* Confirm delete modal */}
       {confirmDelete && (
-        <div className="builder-modal-overlay" onClick={() => { if (!deleting) setConfirmDelete(false) }}>
+        <div className="builder-modal-overlay" onClick={() => { if (!deleting) { setConfirmDelete(false); setDeleteError(false) } }}>
           <div className="builder-modal" onClick={e => e.stopPropagation()}>
             <p className="builder-modal-title">Delete "{name}"?</p>
             <p className="builder-modal-body">This will permanently remove the workout. This can't be undone.</p>
+            {deleteError && (
+              <p className="builder-modal-error">Something went wrong. Please try again.</p>
+            )}
             <div className="builder-modal-actions">
-              <button className="builder-modal-cancel" onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancel</button>
+              <button className="builder-modal-cancel" onClick={() => { setConfirmDelete(false); setDeleteError(false) }} disabled={deleting}>Cancel</button>
               <button className="builder-modal-confirm" onClick={handleDelete} disabled={deleting}>
                 {deleting ? <span className="builder-btn-spinner" /> : 'Delete'}
               </button>

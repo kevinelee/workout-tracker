@@ -3,7 +3,20 @@
 
 export const CHANGELOG = [
   {
-    version: 'Sprint 4 — Session 3',
+    version: 'May 1, 2026',
+    date:    '2026-05-01',
+    items: [
+      { type: 'new',         title: 'Programs',                         desc: 'Organize your workout templates into named Programs. Switch between them from the home screen — great for running multiple training blocks at once.' },
+      { type: 'new',         title: 'AI plan generator',                desc: 'Answer 2 questions (days per week + focus areas) and get a full training split generated for you. Tap "Generate plan" on the home screen to try it.' },
+      { type: 'new',         title: 'Landing page',                     desc: 'New onboarding flow with a landing page overview before you create an account.' },
+      { type: 'improvement', title: 'Rebrand to session',               desc: 'The app is now called session — shorter, cleaner, fits the focus on logging each training session.' },
+      { type: 'improvement', title: 'Weight chart redesign',            desc: 'Body weight log replaced stacked cards with a compact scrollable list for faster browsing.' },
+      { type: 'fix',         title: 'Cardio excluded from PR tracking', desc: 'Cardio exercises no longer appear in the personal records list — only strength work is tracked for PRs.' },
+      { type: 'fix',         title: 'Startup flash eliminated',         desc: 'Removed the brief white flash on cold launch. Onboarding no longer re-prompts users who already completed it.' },
+    ],
+  },
+  {
+    version: 'Apr 1, 2026',
     date:    '2026-04-01',
     items: [
       { type: 'improvement', title: 'Tap full row to complete a set',         desc: 'Full-width tap target on set rows — no longer need to precisely hit the small circle indicator.' },
@@ -18,7 +31,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    version: 'Sprint 4 — Session 2',
+    version: 'Mar 30, 2026',
     date:    '2026-03-30',
     items: [
       { type: 'new',         title: 'Body part heatmap',            desc: 'Front/back SVG silhouette on Profile tab. Tap a muscle region to see volume for the selected time range.' },
@@ -31,7 +44,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    version: 'Sprint 4 — Session 1',
+    version: 'Mar 25, 2026',
     date:    '2026-03-25',
     items: [
       { type: 'new',         title: 'Profile tab',                  desc: 'Fifth tab with avatar upload, display name, body metrics (height, weight, age, gender, activity level), and lifetime stats.' },
@@ -45,7 +58,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    version: 'Sprint 3',
+    version: 'Mar 20, 2026',
     date:    '2026-03-20',
     items: [
       { type: 'fix',         title: 'Finish button unresponsive',   desc: 'Fixed race condition causing the Finish button to do nothing on first tap.' },

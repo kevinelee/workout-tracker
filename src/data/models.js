@@ -7,14 +7,18 @@ import { nanoid } from 'nanoid'
  * Exercise — a single movement in the library
  * { id, name, category, muscleGroup, isCustom }
  */
-export function createExercise({ name, category, muscleGroup, isCustom = true }) {
-  return {
+export function createExercise({ name, category, muscleGroup, prType, isTimed, cardioUnit, isCustom = true }) {
+  const ex = {
     id: nanoid(),
     name,
-    category,   // 'Push' | 'Pull' | 'Legs' | 'Core' | 'Cardio'
+    category,   // 'Push' | 'Pull' | 'Legs' | 'Core' | 'Cardio' | 'Stretch'
     muscleGroup,
     isCustom,
   }
+  if (prType) ex.prType = prType
+  if (isTimed) ex.isTimed = true
+  if (cardioUnit) ex.cardioUnit = cardioUnit
+  return ex
 }
 
 /**

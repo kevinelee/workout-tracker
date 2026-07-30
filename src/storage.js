@@ -39,6 +39,7 @@ function dbTemplateToApp(t) {
     id:         t.id,
     name:       t.name,
     createdAt:  t.created_at,
+    programId:  t.program_id ?? null,
     exercises,
   }
 }
@@ -70,14 +71,26 @@ function dbSessionToApp(s) {
   }
 }
 
+function computeAge(birthdate) {
+  if (!birthdate) return null
+  const today = new Date()
+  const dob = new Date(birthdate)
+  let age = today.getFullYear() - dob.getFullYear()
+  const m = today.getMonth() - dob.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
+  return age
+}
+
 function dbProfileToApp(p) {
   if (!p) return defaultProfile()
+  const birthdate = p.birth_date ?? null
   return {
     displayName:        p.display_name ?? '',
     avatarUrl:          p.avatar_url ?? '',
     heightCm:           p.height_cm          != null ? Number(p.height_cm)          : null,
     weightKg:           p.weight_kg          != null ? Number(p.weight_kg)          : null,
-    age:                p.age                != null ? Number(p.age)                : null,
+    birthdate,
+    age:                birthdate ? computeAge(birthdate) : (p.age != null ? Number(p.age) : null),
     gender:             p.gender             ?? null,
     activityLevel:      p.activity_level     ?? null,
     trackWeight:           p.track_weight       ?? null,
@@ -85,6 +98,8 @@ function dbProfileToApp(p) {
     targetDaysPerWeek:     p.target_days_per_week != null ? Number(p.target_days_per_week) : 3,
     onboardingComplete:    p.onboarding_complete  ?? false,
     fitnessProfileSummary: p.fitness_profile_summary ?? null,
+    isPro:                 p.is_pro ?? true,
+    role:                  p.role ?? 'user',
   }
 }
 
@@ -94,6 +109,7 @@ function defaultProfile() {
     avatarUrl:             '',
     heightCm:              null,
     weightKg:              null,
+    birthdate:             null,
     age:                   null,
     gender:                null,
     activityLevel:         null,
@@ -102,6 +118,7 @@ function defaultProfile() {
     targetDaysPerWeek:     3,
     onboardingComplete:    false,
     fitnessProfileSummary: null,
+    isPro:                 true,
   }
 }
 
@@ -128,7 +145,6 @@ function dbSettingsToApp(s) {
     themeMode,
     controllerSide:     s.controller_side,
     restTimerDuration:  s.rest_timer_duration,
-    checkInEnabled:     s.check_in_enabled,
   }
 }
 
@@ -139,7 +155,6 @@ function defaultSettings() {
     themeMode:          'dark',
     controllerSide:     'right',
     restTimerDuration:  90,
-    checkInEnabled:     true,
   }
 }
 
@@ -181,6 +196,8 @@ export async function deleteCustomExercise(id) {
 // ── Workout Templates ────────────────────────────────────────
 
 const TEMPLATES_CACHE_KEY = uid => `wt:templates:${uid}`
+const SETTINGS_CACHE_KEY  = uid => `wt:settings:${uid}`
+const SESSIONS_CACHE_KEY  = uid => `wt:sessions:${uid}`
 
 export function getCachedTemplates(uid) {
   try {
@@ -191,6 +208,29 @@ export function getCachedTemplates(uid) {
 
 function writeCachedTemplates(templates) {
   try { localStorage.setItem(TEMPLATES_CACHE_KEY(_uid), JSON.stringify(templates)) } catch {}
+}
+
+export function getCachedSettings(uid) {
+  try {
+    const raw = localStorage.getItem(SETTINGS_CACHE_KEY(uid))
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function writeCachedSettings(settings) {
+  try { localStorage.setItem(SETTINGS_CACHE_KEY(_uid), JSON.stringify(settings)) } catch {}
+}
+
+export function getCachedSessions(uid) {
+  try {
+    const raw = localStorage.getItem(SESSIONS_CACHE_KEY(uid))
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function writeCachedSessions(sessions) {
+  // Cap at 50 most recent to avoid localStorage bloat
+  try { localStorage.setItem(SESSIONS_CACHE_KEY(_uid), JSON.stringify(sessions.slice(0, 50))) } catch {}
 }
 
 export async function getTemplates() {
@@ -210,44 +250,127 @@ export async function getTemplates() {
 }
 
 export async function saveTemplate(template) {
-  // 1. Upsert the template row
-  await supabase.from('workout_templates').upsert({
-    id:      template.id,
-    user_id: _uid,
-    name:    template.name,
+  const { error: upsertErr } = await supabase.from('workout_templates').upsert({
+    id:         template.id,
+    user_id:    _uid,
+    name:       template.name,
+    program_id: template.programId ?? null,
   })
+  if (upsertErr) throw upsertErr
 
-  // 2. Replace all exercises: delete existing, then re-insert
   await supabase.from('template_exercises').delete().eq('template_id', template.id)
 
   for (let i = 0; i < template.exercises.length; i++) {
     const ex = template.exercises[i]
     const teId = nanoid()
 
-    await supabase.from('template_exercises').insert({
+    const { error: teErr } = await supabase.from('template_exercises').insert({
       id:          teId,
       template_id: template.id,
       exercise_id: ex.exerciseId,
       position:    i,
       notes:       ex.notes ?? '',
     })
+    if (teErr) throw teErr
 
     for (let j = 0; j < ex.sets.length; j++) {
-      await supabase.from('template_sets').insert({
+      const { error: tsErr } = await supabase.from('template_sets').insert({
         id:                   nanoid(),
         template_exercise_id: teId,
         position:             j,
         reps:                 ex.sets[j].reps,
         weight:               ex.sets[j].weight,
       })
+      if (tsErr) throw tsErr
     }
   }
 }
 
 export async function deleteTemplate(id) {
-  await supabase.from('workout_templates').delete().eq('id', id)
+  const { error } = await supabase.from('workout_templates').delete().eq('id', id)
+  if (error) throw error
 }
 
+export function getTemplateOrder() {
+  if (!_uid) return null
+  try {
+    const raw = localStorage.getItem(`wt:template-order:${_uid}`)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+export function saveTemplateOrder(ids) {
+  if (!_uid) return
+  try { localStorage.setItem(`wt:template-order:${_uid}`, JSON.stringify(ids)) } catch {}
+}
+
+// ── Programs ──────────────────────────────────────────────────
+
+function dbProgramToApp(p) {
+  if (!p) return null
+  return { id: p.id, name: p.name, isActive: p.is_active, createdAt: p.created_at }
+}
+
+export async function getPrograms() {
+  const { data } = await supabase
+    .from('programs')
+    .select('*')
+    .eq('user_id', _uid)
+    .order('created_at', { ascending: true })
+  return (data ?? []).map(dbProgramToApp)
+}
+
+export async function createProgram(name) {
+  const { data, error } = await supabase
+    .from('programs')
+    .insert({ id: crypto.randomUUID(), user_id: _uid, name, is_active: false })
+    .select()
+    .single()
+  if (error) throw error
+  return dbProgramToApp(data)
+}
+
+export async function renameProgram(id, name) {
+  await supabase.from('programs').update({ name }).eq('id', id).eq('user_id', _uid)
+}
+
+export async function deleteProgram(id) {
+  const { error } = await supabase.from('programs').delete().eq('id', id).eq('user_id', _uid)
+  if (error) throw error
+}
+
+export async function setActiveProgram(id) {
+  await supabase.from('programs').update({ is_active: false }).eq('user_id', _uid)
+  await supabase.from('programs').update({ is_active: true }).eq('id', id).eq('user_id', _uid)
+}
+
+export async function reassignProgramTemplates(fromProgramId, toProgramId) {
+  await supabase
+    .from('workout_templates')
+    .update({ program_id: toProgramId })
+    .eq('user_id', _uid)
+    .eq('program_id', fromProgramId)
+}
+
+export async function ensureDefaultProgram() {
+  const { data: existing } = await supabase
+    .from('programs').select('id').eq('user_id', _uid).limit(1)
+  if (existing && existing.length > 0) return null
+
+  const { data: program, error } = await supabase
+    .from('programs')
+    .insert({ id: crypto.randomUUID(), user_id: _uid, name: 'My Workouts', is_active: true })
+    .select().single()
+  if (error || !program) return null
+
+  await supabase
+    .from('workout_templates')
+    .update({ program_id: program.id })
+    .eq('user_id', _uid)
+    .is('program_id', null)
+
+  return dbProgramToApp(program)
+}
 
 // ── Sessions ─────────────────────────────────────────────────
 
@@ -261,23 +384,56 @@ export async function getSessions() {
         session_sets (*)
       )
     `)
+    .eq('user_id', _uid)
     .eq('status', 'finished')
     .order('finished_at', { ascending: false })
-  return (data ?? []).map(dbSessionToApp)
+  const sessions = (data ?? []).map(dbSessionToApp)
+  writeCachedSessions(sessions)
+  return sessions
+}
+
+async function saveSessionViaEdgeFunction(session) {
+  const { data: { session: authSession } } = await supabase.auth.getSession()
+  const token = authSession?.access_token
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/save-session`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ session }),
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `save-session edge function failed: ${res.status}`)
+  }
 }
 
 export async function saveSession(session) {
-  // 1. Upsert session row
-  await supabase.from('sessions').upsert({
-    id:               session.id,
-    user_id:          _uid,
+  // 1. Update session row — use update() not upsert() to avoid overwriting user_id.
+  //    Add .select('id') so we can detect if 0 rows matched (orphaned session).
+  const { data: updated, error: sessionErr } = await supabase.from('sessions').update({
     template_id:      session.templateId ?? null,
     started_at:       session.startedAt,
     finished_at:      session.finishedAt ?? null,
     duration_seconds: session.duration ?? null,
     status:           session.finishedAt ? 'finished' : 'active',
     pr_map:           session.prMap ?? {},
-  })
+  }).eq('id', session.id).eq('user_id', _uid).select('id')
+
+  if (sessionErr) console.error('[saveSession] update session:', sessionErr)
+
+  // If 0 rows were updated the session is likely orphaned (null user_id).
+  // Fall back to the edge function which uses the service role to claim + update it.
+  if (!sessionErr && (!updated || updated.length === 0)) {
+    await saveSessionViaEdgeFunction(session)
+    return
+  }
 
   if (!session.logs?.length) return
 
@@ -312,7 +468,34 @@ export async function saveSession(session) {
 }
 
 export async function deleteSession(id) {
-  await supabase.from('sessions').delete().eq('id', id)
+  // Delete children explicitly — cascade may not be active on the live DB
+  const { data: logs } = await supabase
+    .from('session_logs').select('id').eq('session_id', id)
+
+  if (logs?.length) {
+    const logIds = logs.map(l => l.id)
+    await supabase.from('session_sets').delete().in('session_log_id', logIds)
+    await supabase.from('session_logs').delete().eq('session_id', id)
+  }
+
+  const { data: deleted, error } = await supabase
+    .from('sessions').delete().eq('id', id).select('id')
+
+  if (error) throw error
+  // If 0 rows were deleted the session either doesn't exist or RLS blocked it.
+  // Treat as success only if the select above already confirmed no logs existed
+  // (i.e. the session was already gone). If logs existed but sessions returned
+  // 0 rows, the delete was blocked — surface it as an error.
+  if (deleted?.length === 0) {
+    // Re-check: if no session row exists at all, it was already gone — OK.
+    const { count } = await supabase
+      .from('sessions').select('id', { count: 'exact', head: true }).eq('id', id)
+    if (count && count > 0) throw new Error('Could not delete session — permission denied')
+  }
+}
+
+export async function updateSessionDuration(id, durationSeconds) {
+  await supabase.from('sessions').update({ duration_seconds: durationSeconds }).eq('id', id)
 }
 
 export async function getLastSessionForTemplate(templateId) {
@@ -335,7 +518,9 @@ export async function getSettings() {
     .select('*')
     .eq('user_id', _uid)
     .single()
-  return dbSettingsToApp(data)
+  const settings = dbSettingsToApp(data)
+  writeCachedSettings(settings)
+  return settings
 }
 
 export async function saveSettings(settings) {
@@ -345,7 +530,6 @@ export async function saveSettings(settings) {
     theme:               encodeTheme(settings.colorScheme, settings.themeMode),
     controller_side:     settings.controllerSide,
     rest_timer_duration: settings.restTimerDuration,
-    check_in_enabled:    settings.checkInEnabled,
   })
 }
 
@@ -395,7 +579,7 @@ export async function saveProfile(profile) {
     display_name:          profile.displayName        ?? null,
     height_cm:             profile.heightCm           ?? null,
     weight_kg:             profile.weightKg           ?? null,
-    age:                   profile.age                ?? null,
+    birth_date:            profile.birthdate          ?? null,
     gender:                profile.gender             ?? null,
     activity_level:        profile.activityLevel      ?? null,
     track_weight:             profile.trackWeight           ?? null,
@@ -470,22 +654,27 @@ export async function hasCheckedInToday() {
 // ── PR Tracking ──────────────────────────────────────────────
 
 // prTypes: { [exerciseId]: 'weight' | 'reps' } — controls which column is used per exercise
+// Returns { prMap, prRepsMap } where prRepsMap tracks reps at PR weight for weight-based exercises
 export async function getPRMap(exerciseIds, prTypes = {}) {
-  if (!exerciseIds.length) return {}
+  if (!exerciseIds.length) return { prMap: {}, prRepsMap: {} }
   const { data } = await supabase
     .from('personal_records')
     .select('exercise_id, max_weight, max_reps')
     .eq('user_id', _uid)
     .in('exercise_id', exerciseIds)
 
-  const map = Object.fromEntries(exerciseIds.map(id => [id, 0]))
+  const prMap = Object.fromEntries(exerciseIds.map(id => [id, 0]))
+  const prRepsMap = {}
   for (const row of data ?? []) {
     const isRepsBased = prTypes[row.exercise_id] === 'reps'
-    map[row.exercise_id] = isRepsBased
+    prMap[row.exercise_id] = isRepsBased
       ? Number(row.max_reps ?? 0)
       : Number(row.max_weight ?? 0)
+    if (!isRepsBased && Number(row.max_reps ?? 0) > 0) {
+      prRepsMap[row.exercise_id] = Number(row.max_reps)
+    }
   }
-  return map
+  return { prMap, prRepsMap }
 }
 
 
@@ -538,6 +727,7 @@ export async function saveFeedback(type, message, userEmail) {
     user_email: userEmail ?? null,
     type,
     message,
+    status:   'new',
     metadata: { userAgent: navigator.userAgent },
   })
 }
@@ -565,14 +755,37 @@ export async function archiveFeedback(id) {
 //   CREATE POLICY "admin_read_all_profiles" ON profiles FOR SELECT
 //     USING (auth.uid() = '<ADMIN_UID>');
 
+export async function getAdminStats() {
+  const todayStr  = new Date().toISOString().split('T')[0]
+  const weekAgo   = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  const [
+    { count: totalUsers },
+    { count: sessionsToday },
+    { count: sessionsThisWeek },
+  ] = await Promise.all([
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('sessions').select('*', { count: 'exact', head: true })
+      .gte('started_at', todayStr).not('finished_at', 'is', null),
+    supabase.from('sessions').select('*', { count: 'exact', head: true })
+      .gte('started_at', weekAgo).not('finished_at', 'is', null),
+  ])
+
+  return {
+    totalUsers:       totalUsers  ?? 0,
+    sessionsToday:    sessionsToday  ?? 0,
+    sessionsThisWeek: sessionsThisWeek ?? 0,
+  }
+}
+
 export async function getAdminActivity() {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
   const [{ data: sessions }, { data: profiles }, { data: feedbackEmails }, { data: authUsers }] = await Promise.all([
     supabase
       .from('sessions')
       .select('id, user_id, started_at, finished_at, status')
-      .gte('started_at', sevenDaysAgo)
+      .gte('started_at', thirtyDaysAgo)
       .order('started_at', { ascending: false }),
     supabase
       .from('profiles')
@@ -585,11 +798,8 @@ export async function getAdminActivity() {
   ])
 
   const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]))
-
-  // Auth email map from admin RPC (most authoritative source)
   const authEmailMap = Object.fromEntries((authUsers ?? []).map(u => [u.id, u.email]))
 
-  // Build email fallback map: most recent email per user_id from feedback
   const emailMap = {}
   for (const f of (feedbackEmails ?? [])) {
     if (f.user_id && f.user_email && !emailMap[f.user_id]) {
@@ -597,52 +807,100 @@ export async function getAdminActivity() {
     }
   }
 
-  // Group sessions by user, track today's activity
   const todayStr = new Date().toISOString().split('T')[0]
   const userMap = {}
 
-  for (const s of (sessions ?? [])) {
-    if (!userMap[s.user_id]) {
-      const displayName = profileMap[s.user_id]?.display_name
-        || authEmailMap[s.user_id]
-        || emailMap[s.user_id]
-        || s.user_id.slice(0, 8)
-      const { data: avatarData } = supabase.storage
-        .from('Avatars')
-        .getPublicUrl(`${s.user_id}/avatar.jpg`)
-      userMap[s.user_id] = {
-        userId:          s.user_id,
-        displayName,
-        avatarUrl:       avatarData?.publicUrl ?? null,
-        lastActive:      s.started_at,
-        hasActiveNow:    false,
-        activeSessionId: null,
-        workedOutToday:  false,
-        todaySessions:   0,
-        recentSessions:  [],
-      }
+  function buildUser(userId) {
+    const displayName = profileMap[userId]?.display_name
+      || authEmailMap[userId]
+      || emailMap[userId]
+      || userId.slice(0, 8)
+    const { data: avatarData } = supabase.storage
+      .from('Avatars')
+      .getPublicUrl(`${userId}/avatar.jpg`)
+    return {
+      userId,
+      displayName,
+      avatarUrl:         avatarData?.publicUrl ?? null,
+      lastActive:        null,
+      hasActiveNow:      false,
+      activeSessionId:   null,
+      workedOutToday:    false,
+      todaySessions:     0,
+      abandonedSessions: 0,
+      recentSessions:    [],
     }
+  }
+
+  for (const s of (sessions ?? [])) {
+    if (!userMap[s.user_id]) userMap[s.user_id] = buildUser(s.user_id)
     const u = userMap[s.user_id]
-    const isRecentlyActive = s.status === 'active' &&
-      (Date.now() - new Date(s.started_at).getTime()) < 3 * 60 * 60 * 1000
-    if (isRecentlyActive) { u.hasActiveNow = true; u.activeSessionId = s.id }
+    if (!u.lastActive) u.lastActive = s.started_at
+
+    const age = Date.now() - new Date(s.started_at).getTime()
+    const isLive      = s.status === 'active' && age < 3 * 60 * 60 * 1000
+    const isAbandoned = s.status === 'active' && !s.finished_at && age >= 3 * 60 * 60 * 1000
+
+    if (isLive)      { u.hasActiveNow = true; u.activeSessionId = s.id }
+    if (isAbandoned) { u.abandonedSessions++ }
+
     const sessionDay = s.started_at?.split('T')[0]
-    if (sessionDay === todayStr) {
+    if (sessionDay === todayStr && s.finished_at) {
       u.workedOutToday = true
       u.todaySessions++
     }
     if (u.recentSessions.length < 5) u.recentSessions.push(s)
   }
 
-  return Object.values(userMap).sort((a, b) =>
-    new Date(b.lastActive) - new Date(a.lastActive)
-  )
+  // Include users who have never sessioned (or all sessions predate the window)
+  for (const p of (profiles ?? [])) {
+    if (!userMap[p.id]) userMap[p.id] = buildUser(p.id)
+  }
+
+  return Object.values(userMap).sort((a, b) => {
+    if (a.lastActive && b.lastActive) return new Date(b.lastActive) - new Date(a.lastActive)
+    if (a.lastActive) return -1
+    if (b.lastActive) return 1
+    return (a.displayName ?? '').localeCompare(b.displayName ?? '')
+  })
 }
 
 export async function getAdminUserStats(userId) {
   const { data, error } = await supabase.rpc('admin_get_user_stats', { target_user_id: userId })
   if (error) throw error
   return data?.[0] ?? { total_sessions: 0, total_duration_seconds: 0, current_session_id: null, current_session_started_at: null }
+}
+
+export async function getAdminUserSessions(userId, limit = 5) {
+  const { data, error } = await supabase.rpc('admin_get_user_sessions', {
+    target_user_id: userId,
+    limit_n: limit,
+  })
+  if (error) throw error
+
+  const sessionMap = new Map()
+  for (const row of (data ?? [])) {
+    if (!sessionMap.has(row.session_id)) {
+      sessionMap.set(row.session_id, {
+        id:              row.session_id,
+        templateName:    row.template_name ?? null,
+        startedAt:       row.started_at,
+        finishedAt:      row.finished_at,
+        status:          row.status,
+        durationSeconds: row.duration_seconds,
+        exercises:       [],
+      })
+    }
+    if (row.exercise_id) {
+      sessionMap.get(row.session_id).exercises.push({
+        exerciseId:    row.exercise_id,
+        position:      row.exercise_position,
+        setsTotal:     Number(row.sets_total),
+        setsCompleted: Number(row.sets_completed),
+      })
+    }
+  }
+  return Array.from(sessionMap.values())
 }
 
 export async function adminTerminateSession(sessionId) {
@@ -675,7 +933,12 @@ export async function clearAll() {
 
 export function clearUserCache() {
   localStorage.removeItem(ACTIVE_KEY)
-  if (_uid) localStorage.removeItem(TEMPLATES_CACHE_KEY(_uid))
+  if (_uid) {
+    localStorage.removeItem(TEMPLATES_CACHE_KEY(_uid))
+    localStorage.removeItem(SETTINGS_CACHE_KEY(_uid))
+    localStorage.removeItem(SESSIONS_CACHE_KEY(_uid))
+    localStorage.removeItem(`wt:template-order:${_uid}`)
+  }
   _uid = null
   _customExercisesCache = []
 }

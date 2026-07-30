@@ -51,10 +51,8 @@ export default function WeightChart({ logs, unit, onLog, onDelete }) {
         : +(l.weightKg.toFixed(1)),
     }))
 
-  // Most recent 10 entries for the list (newest first)
-  const recentEntries = [...sorted]
-    .reverse()
-    .slice(0, 10)
+  // Most recent entries for the scrollable list (newest first)
+  const recentEntries = [...sorted].reverse()
 
   function handleLogOpen() {
     setShowInput(true)
@@ -183,15 +181,15 @@ export default function WeightChart({ logs, unit, onLog, onDelete }) {
       {/* Recent entries list */}
       {recentEntries.length > 0 && (
         <div className="wc-entries">
-          {recentEntries.map(l => {
+          {recentEntries.map((l, i) => {
             const display = isImperial
               ? +(l.weightKg * KG_TO_LBS).toFixed(1)
               : +(l.weightKg.toFixed(1))
             const isBeingDeleted = deleting === l.id
             return (
-              <div key={l.id} className="wc-entry">
+              <div key={l.id} className={`wc-entry${i < recentEntries.length - 1 ? ' wc-entry--sep' : ''}`}>
                 <span className="wc-entry-date">{fmtDate(l.loggedAt)}</span>
-                <span className="wc-entry-weight">{display} {unit}</span>
+                <span className="wc-entry-weight">{display} <span className="wc-entry-unit">{unit}</span></span>
                 <button
                   className="wc-entry-delete"
                   onClick={() => handleDelete(l.id)}

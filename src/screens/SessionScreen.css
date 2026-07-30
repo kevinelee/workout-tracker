@@ -55,6 +55,63 @@
   color: var(--text);
   font-variant-numeric: tabular-nums;
   font-family: var(--mono);
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.15s;
+
+  &:hover { background: var(--border); }
+}
+
+.session-timer-edited {
+  font-size: 11px;
+  color: var(--accent);
+  font-family: var(--sans);
+}
+
+.session-timer-frozen {
+  font-size: 11px;
+  opacity: 0.6;
+  font-family: var(--sans);
+}
+
+.session-duration-inputs {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin: 4px 0 8px;
+}
+
+.session-duration-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  color: var(--text-h);
+  font-family: var(--sans);
+}
+
+.session-duration-input {
+  width: 64px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-h);
+  font-size: 18px;
+  font-family: var(--mono);
+  font-weight: 600;
+  text-align: center;
+  padding: 8px 4px;
+  -moz-appearance: textfield;
+
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button { -webkit-appearance: none; }
+  &:focus { outline: none; border-color: var(--accent); }
 }
 
 /* Edit toggle button in header */
@@ -70,10 +127,11 @@
   min-height: 36px;
   min-width: 64px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
   flex-shrink: 0;
 
   &:hover { border-color: var(--accent-border); }
+  &:active { transform: scale(0.93); }
 }
 
 .session-edit-btn--active {
@@ -174,7 +232,11 @@
 .session-progress-fill {
   height: 100%;
   background: var(--accent);
-  transition: width 0.4s ease;
+  transition: width 0.4s ease, background 0.4s ease;
+}
+
+.session-progress-fill--done {
+  background: #4ade80;
 }
 
 /* Body */
@@ -299,6 +361,13 @@
   margin: 0;
 }
 
+:is([data-theme="light"], [data-theme="pink-light"], [data-theme="blue-light"]) {
+  .session-name,
+  .session-ex-name {
+    color: #000;
+  }
+}
+
 .session-ex-meta {
   font-size: 12px;
   color: var(--text);
@@ -308,6 +377,10 @@
 .session-ex-meta--done {
   color: #4ade80;
   font-weight: 600;
+}
+
+.session-ex-pr-label {
+  opacity: 0.65;
 }
 
 .session-sets {
@@ -326,6 +399,7 @@
   transition: opacity 0.15s, background 0.15s;
   line-height: 1;
   flex-shrink: 0;
+  animation: session-edit-in 0.18s ease-out;
 
   &:hover { opacity: 0.7; background: rgba(255,255,255,0.06); }
 }
@@ -371,6 +445,31 @@
 
 
 /* Remove exercise button in exercise header */
+@keyframes session-edit-in {
+  from { opacity: 0; transform: scale(0.75); }
+}
+
+.session-ex-swap {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 15px;
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 6px;
+  opacity: 0.35;
+  flex-shrink: 0;
+  min-height: 36px;
+  min-width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s, color 0.15s;
+  animation: session-edit-in 0.18s ease-out;
+
+  &:hover { opacity: 1; color: var(--accent); }
+}
+
 .session-ex-remove {
   background: none;
   border: none;
@@ -387,6 +486,7 @@
   align-items: center;
   justify-content: center;
   transition: opacity 0.15s, color 0.15s;
+  animation: session-edit-in 0.18s ease-out;
 
   &:hover { opacity: 1; color: #f87171; }
 }
@@ -528,6 +628,7 @@
   opacity: 0.75;
   transition: opacity 0.15s;
   width: 100%;
+  animation: session-edit-in 0.18s ease-out;
 
   &:hover { opacity: 1; }
 }
@@ -679,4 +780,14 @@
 .session-modal-diff--removed {
   color: #f87171;
   background: rgba(248, 113, 113, 0.08);
+}
+
+@keyframes session-edit-out {
+  to { opacity: 0; transform: scale(0.75); }
+}
+
+.session-edit-exiting {
+  animation: session-edit-out 0.14s ease-in forwards;
+  transition: none;
+  pointer-events: none;
 }

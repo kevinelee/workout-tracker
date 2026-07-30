@@ -2,18 +2,18 @@ import { useState } from 'react'
 import HoldButton from './HoldButton'
 import './SetRow.css'
 
-function EditableValue({ value, onSet }) {
+function EditableValue({ value, onSet, decimal = false }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
 
   function startEdit() {
-    setDraft(String(value))
+    setDraft(value === 0 ? '' : String(value))
     setEditing(true)
   }
 
   function commit() {
-    const n = parseInt(draft, 10)
-    if (!isNaN(n) && n >= 0) onSet(n)
+    const n = decimal ? parseFloat(draft) : parseInt(draft, 10)
+    onSet(!isNaN(n) && n >= 0 ? n : 0)
     setEditing(false)
   }
 
@@ -21,7 +21,7 @@ function EditableValue({ value, onSet }) {
     return (
       <input
         type="number"
-        inputMode="numeric"
+        inputMode={decimal ? 'decimal' : 'numeric'}
         className="stepper-input"
         value={draft}
         onChange={e => setDraft(e.target.value)}
@@ -39,7 +39,7 @@ function EditableValue({ value, onSet }) {
   )
 }
 
-function Stepper({ label, value, onDec, onInc, onSet, useHold = false, min = 0 }) {
+function Stepper({ label, value, onDec, onInc, onSet, useHold = false, min = 0, max, decimal = false }) {
   return (
     <div className="stepper">
       <span className="stepper-label">{label}</span>
@@ -49,18 +49,18 @@ function Stepper({ label, value, onDec, onInc, onSet, useHold = false, min = 0 }
         ) : (
           <button className="stepper-btn" onClick={onDec} disabled={value <= min} aria-label={`Decrease ${label}`}>−</button>
         )}
-        <EditableValue value={value} onSet={onSet} />
+        <EditableValue value={value} onSet={onSet} decimal={decimal} />
         {useHold ? (
-          <HoldButton className="stepper-btn" onTap={onInc} aria-label={`Increase ${label}`}>+</HoldButton>
+          <HoldButton className="stepper-btn" onTap={onInc} disabled={max !== undefined && value >= max} aria-label={`Increase ${label}`}>+</HoldButton>
         ) : (
-          <button className="stepper-btn" onClick={onInc} aria-label={`Increase ${label}`}>+</button>
+          <button className="stepper-btn" onClick={onInc} disabled={max !== undefined && value >= max} aria-label={`Increase ${label}`}>+</button>
         )}
       </div>
     </div>
   )
 }
 
-export default function SetRow({ set, index, onChange, onRemove, isCardio, cardioUnit, isStretch, unit }) {
+export default function SetRow({ set, index, onChange, onRemove, isCardio, cardioUnit, isStretch, unit, difficultyLabel, difficultyDecimal }) {
   const isDistance = isCardio && cardioUnit === 'distance'
   const isBoth     = isCardio && cardioUnit === 'both'
   const distLabel  = unit === 'kg' ? 'km' : 'mi'
@@ -68,16 +68,24 @@ export default function SetRow({ set, index, onChange, onRemove, isCardio, cardi
   // Values are stored in canonical imperial units (lbs / miles).
   // Convert to/from display units at the component boundary.
   const dispWeight = unit === 'kg' ? Math.round(set.weight / 2.2046) : set.weight
-  const dispDist   = unit === 'kg' ? Math.round(set.weight * 1.60934) : set.weight
+  const dispDist   = unit === 'kg' ? Math.round(set.weight * 1.60934 * 10) / 10 : set.weight
   function storeWeight(v) { update('weight', unit === 'kg' ? Math.round(v * 2.2046) : v) }
-  function storeDist(v)   { update('weight', unit === 'kg' ? Math.round(v / 1.60934) : v) }
+  function storeDist(v)   { update('weight', unit === 'kg' ? parseFloat((v / 1.60934).toFixed(3)) : v) }
+  function updateSecs(v)  { update('secs', Math.max(0, Math.min(59, Math.round(v)))) }
+  function updateDifficulty(v) {
+    const step = difficultyDecimal ? 0.5 : 1
+    const clamped = difficultyDecimal ? Math.round(Math.max(0, v) / step) * step : Math.max(0, Math.round(v))
+    update('difficulty', clamped)
+  }
 
   function update(field, value) {
     onChange({ ...set, [field]: Math.max(0, value) })
   }
 
+  const is4Col = isBoth && !!difficultyLabel
+
   return (
-    <div className="set-row">
+    <div className={`set-row${isBoth && !is4Col ? ' set-row--compact' : ''}`}>
       <span className="set-index">{index + 1}</span>
 
       {isStretch ? (
@@ -90,14 +98,7 @@ export default function SetRow({ set, index, onChange, onRemove, isCardio, cardi
           min={5}
         />
       ) : isBoth ? (
-        <>
-          <Stepper
-            label={distLabel}
-            value={dispDist}
-            onDec={() => storeDist(dispDist - 1)}
-            onInc={() => storeDist(dispDist + 1)}
-            onSet={v => storeDist(v)}
-          />
+        <div className={`stepper-group${is4Col ? ' stepper-group--grid' : ''}`}>
           <Stepper
             label="min"
             value={set.reps}
@@ -105,15 +106,84 @@ export default function SetRow({ set, index, onChange, onRemove, isCardio, cardi
             onInc={() => update('reps', set.reps + 1)}
             onSet={v => update('reps', v)}
           />
-        </>
+          <Stepper
+            label="sec"
+            value={set.secs ?? 0}
+            onDec={() => updateSecs((set.secs ?? 0) - 5)}
+            onInc={() => updateSecs((set.secs ?? 0) + 5)}
+            onSet={updateSecs}
+            max={59}
+          />
+          <Stepper
+            label={distLabel}
+            value={dispDist}
+            onDec={() => storeDist(Math.round((dispDist - 0.1) * 10) / 10)}
+            onInc={() => storeDist(Math.round((dispDist + 0.1) * 10) / 10)}
+            onSet={v => storeDist(v)}
+            decimal
+          />
+          {difficultyLabel && (
+            <Stepper
+              label={difficultyLabel}
+              value={set.difficulty ?? 0}
+              onDec={() => updateDifficulty((set.difficulty ?? 0) - (difficultyDecimal ? 0.5 : 1))}
+              onInc={() => updateDifficulty((set.difficulty ?? 0) + (difficultyDecimal ? 0.5 : 1))}
+              onSet={updateDifficulty}
+              decimal={difficultyDecimal}
+            />
+          )}
+        </div>
       ) : isCardio ? (
-        <Stepper
-          label={isDistance ? distLabel : 'min'}
-          value={isDistance ? dispDist : set.reps}
-          onDec={() => isDistance ? storeDist(dispDist - 1) : update('reps', set.reps - 1)}
-          onInc={() => isDistance ? storeDist(dispDist + 1) : update('reps', set.reps + 1)}
-          onSet={v => isDistance ? storeDist(v) : update('reps', v)}
-        />
+        isDistance ? (
+          <>
+            <Stepper
+              label={distLabel}
+              value={dispDist}
+              onDec={() => storeDist(Math.round((dispDist - 0.1) * 10) / 10)}
+              onInc={() => storeDist(Math.round((dispDist + 0.1) * 10) / 10)}
+              onSet={v => storeDist(v)}
+              decimal
+            />
+            {difficultyLabel && (
+              <Stepper
+                label={difficultyLabel}
+                value={set.difficulty ?? 0}
+                onDec={() => updateDifficulty((set.difficulty ?? 0) - (difficultyDecimal ? 0.5 : 1))}
+                onInc={() => updateDifficulty((set.difficulty ?? 0) + (difficultyDecimal ? 0.5 : 1))}
+                onSet={updateDifficulty}
+                decimal={difficultyDecimal}
+              />
+            )}
+          </>
+        ) : (
+          <>
+            <Stepper
+              label="min"
+              value={set.reps}
+              onDec={() => update('reps', set.reps - 1)}
+              onInc={() => update('reps', set.reps + 1)}
+              onSet={v => update('reps', v)}
+            />
+            <Stepper
+              label="sec"
+              value={set.secs ?? 0}
+              onDec={() => updateSecs((set.secs ?? 0) - 5)}
+              onInc={() => updateSecs((set.secs ?? 0) + 5)}
+              onSet={updateSecs}
+              max={59}
+            />
+            {difficultyLabel && (
+              <Stepper
+                label={difficultyLabel}
+                value={set.difficulty ?? 0}
+                onDec={() => updateDifficulty((set.difficulty ?? 0) - (difficultyDecimal ? 0.5 : 1))}
+                onInc={() => updateDifficulty((set.difficulty ?? 0) + (difficultyDecimal ? 0.5 : 1))}
+                onSet={updateDifficulty}
+                decimal={difficultyDecimal}
+              />
+            )}
+          </>
+        )
       ) : (
         <>
           <Stepper

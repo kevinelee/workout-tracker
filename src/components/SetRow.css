@@ -96,6 +96,51 @@
   &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 }
 
+/* Compact row — 3 steppers (isBoth without difficulty) */
+.set-row--compact {
+  gap: 4px;
+}
+
+/* Wrapper for isBoth stepper groups */
+.stepper-group {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+}
+
+.stepper-group .stepper {
+  flex: 1;
+}
+
+.stepper-group .stepper-btn {
+  padding: 6px 4px;
+  min-width: 26px;
+  font-size: 16px;
+}
+
+.stepper-group .stepper-value {
+  min-width: 16px;
+  font-size: 13px;
+}
+
+/* 2×2 grid for 4-input rows (isBoth + difficulty) */
+.stepper-group--grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 8px;
+}
+
+.stepper-group--grid .stepper-btn {
+  padding: 10px 14px;
+  min-width: 44px;
+  font-size: 20px;
+}
+
+.stepper-group--grid .stepper-value {
+  min-width: 32px;
+  font-size: 16px;
+}
+
 /* Remove button */
 .set-remove-btn {
   background: none;

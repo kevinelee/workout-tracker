@@ -9,8 +9,9 @@ function buildLibrary() {
   return [...defaultExercises, ...getCachedCustomExercises()]
 }
 
-function filterExercises(library, query, activeMuscle) {
+function filterExercises(library, query, activeMuscle, excludeIds = []) {
   let result = library
+  if (excludeIds.length) result = result.filter(ex => !excludeIds.includes(ex.id))
   if (activeMuscle) {
     const filter = MUSCLE_FILTERS.find(f => f.label === activeMuscle)
     if (filter) result = result.filter(ex => filter.groups.includes(ex.muscleGroup))
@@ -27,7 +28,9 @@ function filterExercises(library, query, activeMuscle) {
 
 function groupByCategory(exercises) {
   return CATEGORIES.reduce((acc, cat) => {
-    const matches = exercises.filter(ex => ex.category === cat)
+    const matches = exercises
+      .filter(ex => ex.category === cat)
+      .sort((a, b) => a.name.localeCompare(b.name))
     if (matches.length) acc[cat] = matches
     return acc
   }, {})
@@ -38,14 +41,29 @@ function CreateExerciseForm({ name: initialName, onSave, onCancel }) {
   const [name, setName] = useState(initialName)
   const [category, setCategory] = useState(CATEGORIES[0])
   const [muscleGroup, setMuscleGroup] = useState('')
+  const [trackingType, setTrackingType] = useState('weight') // 'weight' | 'reps' | 'timed'
+  const [cardioUnit, setCardioUnit] = useState('time')       // 'time' | 'distance' | 'both'
+
+  function handleCategoryChange(cat) {
+    setCategory(cat)
+    setTrackingType('weight')
+    setCardioUnit('time')
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
     if (!name.trim() || !muscleGroup.trim()) return
-    const exercise = createExercise({ name: name.trim(), category, muscleGroup: muscleGroup.trim() })
+    const extra = {}
+    if (category === 'Cardio') extra.cardioUnit = cardioUnit
+    else if (trackingType === 'reps') extra.prType = 'reps'
+    else if (trackingType === 'timed') extra.isTimed = true
+    const exercise = createExercise({ name: name.trim(), category, muscleGroup: muscleGroup.trim(), ...extra })
     await saveCustomExercise(exercise)
     onSave(exercise)
   }
+
+  const isCardio = category === 'Cardio'
+  const isStretch = category === 'Stretch'
 
   return (
     <form className="es-create-form" onSubmit={handleSubmit}>
@@ -61,7 +79,7 @@ function CreateExerciseForm({ name: initialName, onSave, onCancel }) {
         <select
           className="es-create-select"
           value={category}
-          onChange={e => setCategory(e.target.value)}
+          onChange={e => handleCategoryChange(e.target.value)}
         >
           {CATEGORIES.map(c => <option key={c}>{c}</option>)}
         </select>
@@ -72,6 +90,26 @@ function CreateExerciseForm({ name: initialName, onSave, onCancel }) {
           onChange={e => setMuscleGroup(e.target.value)}
         />
       </div>
+      {!isStretch && (
+        <div className="es-create-tracking">
+          <span className="es-create-tracking-label">Track</span>
+          <div className="es-create-seg">
+            {isCardio ? (
+              <>
+                <button type="button" className={`es-create-seg-btn${cardioUnit === 'time' ? ' es-create-seg-btn--active' : ''}`} onClick={() => setCardioUnit('time')}>Time</button>
+                <button type="button" className={`es-create-seg-btn${cardioUnit === 'distance' ? ' es-create-seg-btn--active' : ''}`} onClick={() => setCardioUnit('distance')}>Distance</button>
+                <button type="button" className={`es-create-seg-btn${cardioUnit === 'both' ? ' es-create-seg-btn--active' : ''}`} onClick={() => setCardioUnit('both')}>Both</button>
+              </>
+            ) : (
+              <>
+                <button type="button" className={`es-create-seg-btn${trackingType === 'weight' ? ' es-create-seg-btn--active' : ''}`} onClick={() => setTrackingType('weight')}>Wt + Reps</button>
+                <button type="button" className={`es-create-seg-btn${trackingType === 'reps' ? ' es-create-seg-btn--active' : ''}`} onClick={() => setTrackingType('reps')}>Reps</button>
+                <button type="button" className={`es-create-seg-btn${trackingType === 'timed' ? ' es-create-seg-btn--active' : ''}`} onClick={() => setTrackingType('timed')}>Timed</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       <div className="es-create-actions">
         <button type="button" className="es-create-btn es-create-cancel" onClick={onCancel}>
           Cancel
@@ -89,7 +127,7 @@ function CreateExerciseForm({ name: initialName, onSave, onCancel }) {
 }
 
 // --- Main Component ---
-export default function ExerciseSearch({ onSelect, placeholder = 'Search exercises…' }) {
+export default function ExerciseSearch({ onSelect, placeholder = 'Search exercises…', excludeIds = [] }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -98,7 +136,7 @@ export default function ExerciseSearch({ onSelect, placeholder = 'Search exercis
   const inputRef = useRef(null)
   const containerRef = useRef(null)
 
-  const filtered = filterExercises(library, query, activeMuscle)
+  const filtered = filterExercises(library, query, activeMuscle, excludeIds)
   const grouped = groupByCategory(filtered)
   const hasResults = filtered.length > 0
   const exactMatch = library.some(ex => ex.name.toLowerCase() === query.toLowerCase().trim())

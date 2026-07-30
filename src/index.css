@@ -1,6 +1,8 @@
 /* Dark mode by default — gym lighting */
 :root {
   --text: #9ca3af;
+  --text-muted: #8b9099;
+  --text-m: #8b9099;
   --text-h: #f3f4f6;
   --bg: #16171d;
   --surface: #1f2028;
@@ -28,6 +30,8 @@
 
 [data-theme="light"] {
   --text: #6b7280;
+  --text-muted: #9ca3af;
+  --text-m: #9ca3af;
   --text-h: #111827;
   --bg: #f5f5f7;
   --surface: #ffffff;
@@ -66,6 +70,8 @@
 
 [data-theme="pink-light"] {
   --text: #6b7280;
+  --text-muted: #9ca3af;
+  --text-m: #9ca3af;
   --text-h: #111827;
   --bg: #fdf2f8;
   --surface: #ffffff;
@@ -98,6 +104,8 @@
 
 [data-theme="blue-light"] {
   --text: #6b7280;
+  --text-muted: #9ca3af;
+  --text-m: #9ca3af;
   --text-h: #111827;
   --bg: #f0f6ff;
   --surface: #ffffff;
@@ -114,6 +122,11 @@
 
 *, *::before, *::after {
   box-sizing: border-box;
+}
+
+/* Prevent iOS Safari (and Capacitor WKWebView) from auto-zooming on input focus */
+input, textarea, select {
+  font-size: max(16px, 1em);
 }
 
 body {

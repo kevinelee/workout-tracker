@@ -212,8 +212,49 @@
   gap: 20px;
 }
 
+.activity-feed-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.activity-stats-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.activity-stat-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 16px;
+  min-width: 64px;
+}
+
+.activity-stat-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-h);
+  line-height: 1;
+}
+
+.activity-stat-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  margin-top: 3px;
+}
+
 .activity-refresh-btn {
-  align-self: flex-end;
+  flex-shrink: 0;
+  align-self: flex-start;
   background: none;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -223,7 +264,6 @@
   padding: 6px 12px;
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
-  margin-top: -8px;
 
   &:hover { border-color: var(--accent); color: var(--accent); }
 }
@@ -316,6 +356,11 @@
   color: var(--accent);
 }
 
+.activity-badge--abandoned {
+  background: rgba(251, 146, 60, 0.15);
+  color: #fb923c;
+}
+
 .activity-meta {
   font-size: 0.75rem;
   color: var(--text);
@@ -328,6 +373,125 @@
 /* User detail modal */
 .admin-user-modal {
   min-width: 280px;
+  max-height: 85vh;
+}
+
+.ud-sessions-scroll {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  padding-right: 2px;
+}
+
+.ud-section-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text);
+  margin: 0 0 2px;
+}
+
+.ud-session-card {
+  background: var(--surface-2, rgba(255,255,255,0.04));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ud-session-card--active {
+  border-color: rgba(74, 222, 128, 0.35);
+  background: rgba(74, 222, 128, 0.04);
+}
+
+.ud-session-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ud-live-dot {
+  font-size: 0.6rem;
+  color: #4ade80;
+  line-height: 1;
+}
+
+.ud-session-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-h);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ud-session-meta {
+  font-size: 0.72rem;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.ud-exercise-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ud-exercise-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.ud-exercise-row--done .ud-exercise-name {
+  color: var(--text);
+}
+
+.ud-exercise-name {
+  font-size: 0.78rem;
+  color: var(--text-h);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ud-exercise-sets {
+  font-size: 0.72rem;
+  color: var(--text);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ud-check {
+  color: #4ade80;
+  font-size: 0.68rem;
+}
+
+.ud-no-exercises {
+  font-size: 0.75rem;
+  color: var(--text);
+  margin: 0;
+  opacity: 0.6;
+}
+
+.ud-empty {
+  font-size: 0.82rem;
+  color: var(--text);
+  text-align: center;
+  padding: 16px 0;
+  margin: 0;
 }
 
 .admin-modal-user-name {

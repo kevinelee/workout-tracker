@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { getFeedback, markFeedbackReviewed, archiveFeedback, getAdminActivity, getAdminUserStats, adminTerminateSession } from '../storage'
+import { getFeedback, markFeedbackReviewed, archiveFeedback, getAdminActivity, getAdminStats, getAdminUserStats, getAdminUserSessions, adminTerminateSession } from '../storage'
+import { defaultExercises } from '../data/exerciseLibrary'
+
+const EXERCISE_MAP = Object.fromEntries(defaultExercises.map(e => [e.id, e.name]))
+function exName(id) { return EXERCISE_MAP[id] ?? id }
 import { CHANGELOG } from '../data/changelog'
 import './AdminScreen.css'
 
@@ -134,25 +138,72 @@ function fmtElapsedLive(startedAt) {
   return { secs, label: fmtDuration(secs) }
 }
 
-function UserDetailModal({ user, onClose, onTerminate }) {
-  const [stats, setStats]     = useState(null)
-  const [loading, setLoading] = useState(true)
+function SessionExerciseRow({ ex }) {
+  const allDone = ex.setsCompleted > 0 && ex.setsCompleted >= ex.setsTotal
+  return (
+    <div className={`ud-exercise-row${allDone ? ' ud-exercise-row--done' : ''}`}>
+      <span className="ud-exercise-name">{exName(ex.exerciseId)}</span>
+      {ex.setsTotal > 0 && (
+        <span className="ud-exercise-sets">
+          {ex.setsCompleted}/{ex.setsTotal}
+          {allDone && <span className="ud-check">✓</span>}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function SessionCard({ session, liveStartedAt }) {
   const [elapsed, setElapsed] = useState(null)
+  const isActive = session.status === 'active'
 
   useEffect(() => {
-    getAdminUserStats(user.userId)
-      .then(s => { setStats(s); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [user.userId])
-
-  // Live-update elapsed for active session
-  useEffect(() => {
-    if (!stats?.current_session_started_at) return
-    function tick() { setElapsed(fmtElapsedLive(stats.current_session_started_at)) }
+    if (!isActive || !liveStartedAt) return
+    function tick() { setElapsed(fmtElapsedLive(liveStartedAt)) }
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [stats?.current_session_started_at])
+  }, [isActive, liveStartedAt])
+
+  const label = session.templateName ?? 'Custom workout'
+  const date  = new Date(session.startedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  const dur   = isActive
+    ? (elapsed?.label ?? '—')
+    : fmtDuration(session.durationSeconds)
+
+  return (
+    <div className={`ud-session-card${isActive ? ' ud-session-card--active' : ''}`}>
+      <div className="ud-session-header">
+        {isActive && <span className="ud-live-dot">●</span>}
+        <span className="ud-session-name">{label}</span>
+        <span className="ud-session-meta">{isActive ? `${dur} in` : `${date} · ${dur}`}</span>
+      </div>
+      {session.exercises.length > 0 ? (
+        <div className="ud-exercise-list">
+          {session.exercises.map(ex => (
+            <SessionExerciseRow key={ex.exerciseId} ex={ex} />
+          ))}
+        </div>
+      ) : (
+        <p className="ud-no-exercises">No exercises logged yet</p>
+      )}
+    </div>
+  )
+}
+
+function UserDetailModal({ user, onClose, onTerminate }) {
+  const [stats,    setStats]    = useState(null)
+  const [sessions, setSessions] = useState(null)
+  const [loading,  setLoading]  = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      getAdminUserStats(user.userId),
+      getAdminUserSessions(user.userId, 5),
+    ])
+      .then(([s, sess]) => { setStats(s); setSessions(sess); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [user.userId])
 
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose() }
@@ -160,7 +211,10 @@ function UserDetailModal({ user, onClose, onTerminate }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const isOverLimit = elapsed?.secs >= THREE_HOURS
+  const activeSession = sessions?.find(s => s.status === 'active')
+  const recentSessions = sessions?.filter(s => s.status !== 'active') ?? []
+  const isOverLimit = activeSession &&
+    (Date.now() - new Date(activeSession.startedAt).getTime()) >= THREE_HOURS * 1000
 
   return (
     <div className="admin-modal-backdrop" onClick={onClose}>
@@ -173,37 +227,76 @@ function UserDetailModal({ user, onClose, onTerminate }) {
         {loading ? (
           <div className="admin-loading"><div className="admin-spinner" /></div>
         ) : (
-          <div className="admin-user-stats">
-            <div className="admin-stat">
-              <span className="admin-stat-value">{stats?.total_sessions ?? 0}</span>
-              <span className="admin-stat-label">Workouts</span>
+          <>
+            <div className="admin-user-stats">
+              <div className="admin-stat">
+                <span className="admin-stat-value">{stats?.total_sessions ?? 0}</span>
+                <span className="admin-stat-label">Workouts</span>
+              </div>
+              <div className="admin-stat">
+                <span className="admin-stat-value">{fmtDuration(stats?.total_duration_seconds)}</span>
+                <span className="admin-stat-label">Total time</span>
+              </div>
             </div>
-            <div className="admin-stat">
-              <span className="admin-stat-value">{fmtDuration(stats?.total_duration_seconds)}</span>
-              <span className="admin-stat-label">Total time</span>
+
+            <div className="ud-sessions-scroll">
+              {activeSession && (
+                <>
+                  <p className="ud-section-label">Active session</p>
+                  <SessionCard
+                    session={activeSession}
+                    liveStartedAt={activeSession.startedAt}
+                  />
+                </>
+              )}
+              {recentSessions.length > 0 && (
+                <>
+                  <p className="ud-section-label">Recent</p>
+                  {recentSessions.map(s => (
+                    <SessionCard key={s.id} session={s} liveStartedAt={null} />
+                  ))}
+                </>
+              )}
+              {!activeSession && recentSessions.length === 0 && (
+                <p className="ud-empty">No sessions yet</p>
+              )}
             </div>
+
             {user.hasActiveNow && (
-              <div className={`admin-stat${isOverLimit ? ' admin-stat--warn' : ''}`}>
-                <span className="admin-stat-value">{elapsed?.label ?? '—'}</span>
-                <span className="admin-stat-label">Current session</span>
+              <div className="admin-user-modal-footer">
+                {isOverLimit && (
+                  <p className="admin-overtime-warning">Session exceeds 3 hours</p>
+                )}
+                <button
+                  className={`admin-terminate-btn${isOverLimit ? ' admin-terminate-btn--urgent' : ''}`}
+                  onClick={() => { onTerminate(user.activeSessionId, user.userId); onClose() }}
+                >
+                  End session
+                </button>
               </div>
             )}
-          </div>
+          </>
         )}
+      </div>
+    </div>
+  )
+}
 
-        {user.hasActiveNow && (
-          <div className="admin-user-modal-footer">
-            {isOverLimit && (
-              <p className="admin-overtime-warning">Session exceeds 3 hours</p>
-            )}
-            <button
-              className={`admin-terminate-btn${isOverLimit ? ' admin-terminate-btn--urgent' : ''}`}
-              onClick={() => { onTerminate(user.activeSessionId, user.userId); onClose() }}
-            >
-              End session
-            </button>
-          </div>
-        )}
+function StatsRow({ stats }) {
+  if (!stats) return null
+  return (
+    <div className="activity-stats-row">
+      <div className="activity-stat-pill">
+        <span className="activity-stat-value">{stats.totalUsers}</span>
+        <span className="activity-stat-label">Users</span>
+      </div>
+      <div className="activity-stat-pill">
+        <span className="activity-stat-value">{stats.sessionsToday}</span>
+        <span className="activity-stat-label">Today</span>
+      </div>
+      <div className="activity-stat-pill">
+        <span className="activity-stat-value">{stats.sessionsThisWeek}</span>
+        <span className="activity-stat-label">This week</span>
       </div>
     </div>
   )
@@ -211,6 +304,7 @@ function UserDetailModal({ user, onClose, onTerminate }) {
 
 function ActivityTab() {
   const [users, setUsers]           = useState([])
+  const [stats, setStats]           = useState(null)
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState(null)
   const [selectedUser, setSelectedUser] = useState(null)
@@ -218,11 +312,12 @@ function ActivityTab() {
   function load() {
     setLoading(true)
     setError(null)
-    getAdminActivity()
-      .then(data => {
+    Promise.all([getAdminActivity(), getAdminStats()])
+      .then(([data, s]) => {
         setUsers(data)
+        setStats(s)
         setLoading(false)
-        if (data.length === 0) setError('No activity in the last 7 days. If you expect data, verify admin RLS policies on sessions and profiles.')
+        if (data.length === 0) setError('No users found. Verify admin RLS policies on sessions and profiles.')
       })
       .catch(err => { setError(`Could not load activity: ${err?.message ?? err}. Check admin RLS policies.`); setLoading(false) })
   }
@@ -240,26 +335,48 @@ function ActivityTab() {
 
   if (loading) return <div className="admin-loading"><div className="admin-spinner" /></div>
 
-  const today = users.filter(u => u.workedOutToday)
-  const rest  = users.filter(u => !u.workedOutToday)
+  const live     = users.filter(u => u.hasActiveNow)
+  const today    = users.filter(u => !u.hasActiveNow && u.workedOutToday)
+  const recent   = users.filter(u => !u.hasActiveNow && !u.workedOutToday && u.lastActive)
+  const inactive = users.filter(u => !u.lastActive)
 
   return (
     <div className="activity-feed">
-      <button className="activity-refresh-btn" onClick={load}>↻ Refresh</button>
+      <div className="activity-feed-header">
+        <StatsRow stats={stats} />
+        <button className="activity-refresh-btn" onClick={load}>↻ Refresh</button>
+      </div>
       {error && <p className="admin-empty">{error}</p>}
+
+      {live.length > 0 && (
+        <>
+          <p className="activity-section-label">Live now — {live.length}</p>
+          <ul className="activity-list">
+            {live.map(u => <ActivityRow key={u.userId} user={u} onSelect={setSelectedUser} onTerminate={handleTerminate} />)}
+          </ul>
+        </>
+      )}
       {today.length > 0 && (
         <>
-          <p className="activity-section-label">Worked out today — {today.length}</p>
+          <p className="activity-section-label">Done today — {today.length}</p>
           <ul className="activity-list">
             {today.map(u => <ActivityRow key={u.userId} user={u} onSelect={setSelectedUser} onTerminate={handleTerminate} />)}
           </ul>
         </>
       )}
-      {rest.length > 0 && (
+      {recent.length > 0 && (
         <>
-          <p className="activity-section-label">Recent — last 7 days</p>
+          <p className="activity-section-label">Recent — last 30 days</p>
           <ul className="activity-list">
-            {rest.map(u => <ActivityRow key={u.userId} user={u} onSelect={setSelectedUser} onTerminate={handleTerminate} />)}
+            {recent.map(u => <ActivityRow key={u.userId} user={u} onSelect={setSelectedUser} onTerminate={handleTerminate} />)}
+          </ul>
+        </>
+      )}
+      {inactive.length > 0 && (
+        <>
+          <p className="activity-section-label">No sessions yet — {inactive.length}</p>
+          <ul className="activity-list">
+            {inactive.map(u => <ActivityRow key={u.userId} user={u} onSelect={setSelectedUser} onTerminate={handleTerminate} />)}
           </ul>
         </>
       )}
@@ -293,6 +410,9 @@ function ActivityRow({ user, onSelect, onTerminate }) {
           {user.hasActiveNow && <span className="activity-badge activity-badge--active">● Live</span>}
           {user.workedOutToday && !user.hasActiveNow && (
             <span className="activity-badge activity-badge--done">✓ Done today</span>
+          )}
+          {user.abandonedSessions > 0 && (
+            <span className="activity-badge activity-badge--abandoned">{user.abandonedSessions} abandoned</span>
           )}
         </div>
         <span className="activity-meta">

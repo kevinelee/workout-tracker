@@ -96,6 +96,24 @@
   transition: background 0.1s;
 }
 
+@media (max-width: 480px) {
+  .ex-row-actions {
+    gap: 0;
+  }
+
+  .ex-notes-btn,
+  .ex-remove-btn {
+    padding: 5px;
+    min-height: 34px;
+    min-width: 34px;
+  }
+
+  .ex-drag-handle {
+    min-width: 22px;
+    padding: 6px 0;
+  }
+}
+
 .ex-notes-btn {
   color: var(--text);
   opacity: 0.6;

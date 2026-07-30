@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -11,6 +12,24 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+    const anonClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+    )
+    const jwt = authHeader.replace(/^Bearer /, '')
+    const { data: { user }, error: userErr } = await anonClient.auth.getUser(jwt)
+    if (userErr || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
     const { answers } = await req.json()
 
     const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
