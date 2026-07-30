@@ -227,6 +227,27 @@
   .settings-action-btn { flex: 1; }
 }
 
+.settings-select-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+
+.settings-select {
+  background: var(--border);
+  border: none;
+  border-radius: 10px;
+  color: var(--text-h);
+  font-size: 14px;
+  font-family: var(--sans);
+  padding: 10px 12px;
+  min-height: 40px;
+  cursor: pointer;
+}
+
 .settings-note {
   font-size: 14px;
   color: var(--text);
