@@ -8,6 +8,7 @@ import MuscleIcon from '../components/MuscleIcon'
 import SessionSetRow from '../components/SessionSetRow'
 import ExerciseSearch from '../components/ExerciseSearch'
 import RestTimer from '../components/RestTimer'
+import { unlockChime, playChime } from '../utils/sound'
 import './SessionScreen.css'
 
 function NotesIcon() {
@@ -240,7 +241,10 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     )
     lastActivityAt.current = Date.now()
     updateLogsAndSync(newLogs, newPrMap, newPrRepsMap, newRepPRByWeightMap)
-    if (settings.restTimerDuration > 0) setRestDuration(settings.restTimerDuration)
+    if (settings.restTimerDuration > 0) {
+      unlockChime() // primes audio now, inside this tap, so the chime can play later from the timer callback
+      setRestDuration(settings.restTimerDuration)
+    }
 
     // Celebrate when all sets (including any added extras) are done
     const target = log.sets.length
@@ -762,6 +766,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
               setRestDuration(null)
               setTimerFlash(true)
               navigator.vibrate?.([200, 100, 200])
+              playChime()
               setTimeout(() => setTimerFlash(false), 600)
             }}
             onSkip={() => setRestDuration(null)}
