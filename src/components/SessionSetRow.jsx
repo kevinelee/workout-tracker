@@ -104,11 +104,14 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
     ? <span className={`ssr-check${set.isPR ? ' ssr-check--pr' : ''}`}>✓</span>
     : <span className={`ssr-circle${isPRPending ? ' ssr-circle--pr-pending' : ''}`} />
 
+  const prBadge = set.isPR && <span className="ssr-pr-badge">PR</span>
+
   // In locked mode: whole row is the tap target; indicator is non-interactive
   // In edit mode: dedicated circle button with its own click handler
   const completeIndicator = locked ? (
     <div className={`ssr-complete-btn${set.completed ? ' ssr-complete-btn--undo' : ''}${isPRPending ? ' ssr-complete-btn--pr-pending' : ''}`}>
       {circleContent}
+      {prBadge}
     </div>
   ) : (
     <button
@@ -117,6 +120,7 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
       aria-label={set.completed ? 'Undo complete' : 'Mark complete'}
     >
       {circleContent}
+      {prBadge}
     </button>
   )
 
@@ -222,7 +226,6 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
       )}
 
       {!leftHand && completeIndicator}
-      {set.isPR && <span className="ssr-pr-badge">PR</span>}
       {(editMode || editExiting) && onRemove && (
         <button
           className={`ssr-delete-btn${editExiting ? ' session-edit-exiting' : ''}`}
