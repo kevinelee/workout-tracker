@@ -25,6 +25,16 @@ function findExercise(id) {
   return defaultExercises.find(e => e.id === id) ?? getCachedCustomExercises().find(e => e.id === id) ?? null
 }
 
+// Best reps logged at this weight or heavier — a lighter weight you've never
+// tried isn't a real rep PR if you've already out-repped it at more weight.
+function bestRepsAtOrAboveWeight(weightBucket, weight) {
+  let best = 0
+  for (const w in weightBucket) {
+    if (Number(w) >= weight) best = Math.max(best, weightBucket[w])
+  }
+  return best
+}
+
 function fmtElapsed(seconds) {
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
@@ -222,7 +232,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     } else {
       const isWeightPR = set.weight > 0 && set.weight > currentPR
       const weightBucket = repPRByWeightMap[exerciseId] ?? {}
-      const bestRepsAtWeight = weightBucket[set.weight] ?? 0
+      const bestRepsAtWeight = bestRepsAtOrAboveWeight(weightBucket, set.weight)
       const isRepPR = set.weight > 0 && set.reps > bestRepsAtWeight
       isPR = isWeightPR || isRepPR
       newPrMap = isWeightPR ? { ...prMap, [exerciseId]: set.weight } : prMap
@@ -690,7 +700,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
                       editExiting={editExiting}
                       isActive={si === nextActiveIndex}
                       currentPR={prMap[log.exerciseId] ?? 0}
-                      bestRepsAtWeight={repPRByWeightMap[log.exerciseId]?.[set.weight] ?? 0}
+                      bestRepsAtWeight={bestRepsAtOrAboveWeight(repPRByWeightMap[log.exerciseId] ?? {}, set.weight)}
                       prType={exercise?.prType ?? 'weight'}
                       difficultyLabel={exercise.difficultyLabel}
                       difficultyDecimal={exercise.difficultyDecimal}
