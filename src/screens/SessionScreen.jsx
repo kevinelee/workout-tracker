@@ -38,7 +38,9 @@ function elapsedFromStart(startedAt) {
 }
 
 export default function SessionScreen({ activeSession, settings, programId, onUpdate, onFinish, onMinimize, onAbandon }) {
-  const { template, sessionId, startedAt, logs: initialLogs, prMap: initialPrMap, prRepsMap: initialPrRepsMap } = activeSession
+  const { template, sessionId, startedAt, logs: initialLogs, prMap: initialPrMap, prRepsMap: initialPrRepsMap, aiBreakdown } = activeSession
+  const hasBreakdown = !!(aiBreakdown && (aiBreakdown.headline || aiBreakdown.suggestions?.length))
+  const [showBreakdown, setShowBreakdown] = useState(false)
 
   const [logs, setLogs]           = useState(initialLogs)
   const [prMap, setPRMap]         = useState(initialPrMap)
@@ -521,6 +523,14 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
           <div className="session-copied-banner">✓ Filled from last session</div>
         )}
 
+        {/* AI breakdown recap */}
+        {hasBreakdown && (
+          <button className="session-breakdown-btn" onClick={() => setShowBreakdown(true)}>
+            <span>✨</span>
+            <span>View AI breakdown</span>
+          </button>
+        )}
+
         {/* Exercise blocks */}
         {logs.map((log, li) => {
           const exercise = findExercise(log.exerciseId)
@@ -960,6 +970,30 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
                 Keep going
               </button>
               <button className="session-modal-confirm" onClick={onAbandon}>Abandon</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI breakdown detail sheet */}
+      {showBreakdown && (
+        <div className="sheet-backdrop" onClick={() => setShowBreakdown(false)}>
+          <div className="sheet overload-sheet" onClick={e => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <p className="sheet-title">AI Breakdown</p>
+            {aiBreakdown.headline && (
+              <p className="overload-headline">{aiBreakdown.headline}</p>
+            )}
+            <div className="overload-list">
+              {(aiBreakdown.suggestions ?? []).map((s, i) => {
+                const ex = findExercise(s.exerciseId)
+                return (
+                  <div key={i} className="overload-row">
+                    <p className="overload-ex-name">{ex?.name ?? s.exerciseId}</p>
+                    <p className="overload-ex-note">{s.note}</p>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>
