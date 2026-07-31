@@ -34,13 +34,21 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* iOS matches display-mode: standalone when launched from a home-screen icon
-   (apple-mobile-web-app-capable), so this needs no JS detection. */
+/* Reserve the iOS safe areas only when installed to the home screen. iOS
+   launches home-screen apps via the legacy apple-mobile-web-app-capable meta
+   tag and does not reliably match display-mode: standalone, so main.jsx sets
+   data-standalone from navigator.standalone. The media query stays as the
+   standards-based path for every other browser. */
 @media all and (display-mode: standalone) {
   :root {
     --safe-top: env(safe-area-inset-top);
     --safe-bottom: env(safe-area-inset-bottom);
   }
+}
+
+:root[data-standalone='true'] {
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
 }
 
 [data-theme="light"] {
