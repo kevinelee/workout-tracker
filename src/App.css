@@ -59,6 +59,8 @@
   padding: 14px 20px;
   padding-top: calc(14px + var(--safe-top));
   border-bottom: 1px solid var(--border);
+  /* Same non-scrollable region as .app-nav — refuse page-panning drags here too. */
+  touch-action: none;
 }
 
 .app-header-spacer {
@@ -106,6 +108,7 @@
   flex-direction: column;
   overflow-y: auto;
   min-height: 0;
+  overscroll-behavior-y: contain;
 }
 
 .app-placeholder {
@@ -558,6 +561,10 @@
   background: var(--bg);
   flex-shrink: 0;
   padding-bottom: var(--safe-bottom);
+  /* The nav is outside .app-main, so a drag starting here is picked up by the
+     document and pans the whole page (leaving it offset until the next tap).
+     Taps still fire — this only refuses the pan gesture. */
+  touch-action: none;
 }
 
 .nav-item {

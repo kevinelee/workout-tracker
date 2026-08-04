@@ -147,6 +147,9 @@ input, textarea, select {
 html, body {
   height: 100%;
   background: var(--bg);
+  /* Keep rubber-banding inside the app's own scrollers — nothing chains out to
+     the document (no pull-to-refresh, no page-level bounce). */
+  overscroll-behavior: none;
 }
 
 body {
