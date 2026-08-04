@@ -98,13 +98,23 @@ function initLogsFromTemplate(template) {
 function initLogsFromSession(template, lastSession) {
   return template.exercises.map(te => {
     const lastLog = lastSession.logs?.find(l => l.exerciseId === te.exerciseId)
+    const targetCount = te.sets.length
     if (!lastLog) {
-      return { exerciseId: te.exerciseId, targetCount: te.sets.length, sets: te.sets.map(s => ({ ...s, completed: false, isPR: false })), notes: '' }
+      return { exerciseId: te.exerciseId, targetCount, sets: te.sets.map(s => ({ ...s, completed: false, isPR: false })), notes: '' }
     }
+    // The template's set count may have changed since lastLog was recorded
+    // (edited, or extra/removed sets that session) — reconcile the copied
+    // sets to today's target instead of carrying over a mismatched count.
+    const lastSets = lastLog.sets
+    const fallback = lastSets[lastSets.length - 1] ?? te.sets[te.sets.length - 1] ?? { reps: 0, weight: 0 }
+    const sets = Array.from({ length: targetCount }, (_, i) => {
+      const s = lastSets[i] ?? fallback
+      return { reps: s.reps, weight: s.weight, completed: false, isPR: false }
+    })
     return {
       exerciseId: te.exerciseId,
-      targetCount: te.sets.length,
-      sets: lastLog.sets.map(s => ({ reps: s.reps, weight: s.weight, completed: false, isPR: false })),
+      targetCount,
+      sets,
       notes: lastLog.notes ?? '',
     }
   })
