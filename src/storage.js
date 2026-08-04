@@ -723,9 +723,33 @@ export function saveActiveSession(data) {
   }
 }
 
+// Which exercises the user has collapsed in the live session. Purely a view
+// preference, so it stays local-only — but it has to outlive SessionScreen,
+// which unmounts every time you switch tabs and would otherwise reopen
+// everything on the way back. Stamped with the session id so a new workout
+// starts fresh instead of inheriting the last one's collapsed rows.
+const COLLAPSED_KEY = 'wt:collapsedExercises'
+
 export function clearActiveSession() {
   localStorage.removeItem(ACTIVE_KEY)
+  localStorage.removeItem(COLLAPSED_KEY)
   // The session row in DB will be updated to 'finished' by saveSession()
+}
+
+export function getCollapsedExercises(sessionId) {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_KEY)
+    if (!raw) return []
+    const { sessionId: savedId, ids } = JSON.parse(raw)
+    return savedId === sessionId && Array.isArray(ids) ? ids : []
+  } catch { return [] }
+}
+
+export function saveCollapsedExercises(sessionId, ids) {
+  if (!sessionId) return
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify({ sessionId, ids: [...ids] }))
+  } catch { /* quota — a lost view preference isn't worth surfacing */ }
 }
 
 export async function abandonSession(sessionId) {

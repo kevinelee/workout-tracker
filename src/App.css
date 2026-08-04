@@ -43,12 +43,10 @@
 .app {
   display: flex;
   flex-direction: column;
-  height: 100svh;
-  /* dvh tracks the true visible viewport more reliably than svh in standalone
-     iOS home-screen mode, where svh can under-report and leave the bottom
-     safe-area strip unpainted below the app shell. Declared after svh so
-     browsers without dvh support silently keep the svh fallback. */
-  height: 100dvh;
+  /* Fills #root exactly, which is itself height:100% of the window. Sizing
+     this in dvh disagreed with #root's svh in iOS standalone and left the
+     shell taller than the viewport — see the note in index.css. */
+  height: 100%;
   background: var(--bg);
 }
 

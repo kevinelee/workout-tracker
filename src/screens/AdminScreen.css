@@ -710,8 +710,14 @@
 
 .swipe-content {
   transition: transform 0.15s ease;
-  will-change: transform;
   touch-action: pan-y;
+}
+
+/* Promote to its own layer only while the card is being dragged. Left on
+   permanently it gives every row a composited layer, which is what makes the
+   seam over the red panel visible during scroll. */
+.swipe-content--moving {
+  will-change: transform;
 }
 
 .swipe-content--out {

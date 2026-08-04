@@ -70,10 +70,26 @@ const AXIS_LOCK_THRESHOLD = 8
 function SwipeToArchive({ onArchive, children }) {
   const [offsetX, setOffsetX] = useState(0)
   const [swiped, setSwiped]   = useState(false)
+  // Whether the red panel behind the card is mounted. Mounting it permanently
+  // bleeds red at the rounded corners — the card and the panel round the same
+  // 14px, and iOS rasterizes the translated card on its own layer, so the seam
+  // shows as a red halo whenever the list scrolls. It outlives offsetX
+  // returning to 0 so the card still slides home over red, not over the page.
+  const [revealing, setRevealing] = useState(false)
   const startX = useRef(null)
   const startY = useRef(null)
   const tracking = useRef(false)
   const axis = useRef(null)
+  const hideRevealRef = useRef(null)
+
+  useEffect(() => () => clearTimeout(hideRevealRef.current), [])
+
+  function settleBack() {
+    setOffsetX(0)
+    clearTimeout(hideRevealRef.current)
+    // Matches the 0.15s snap-back on .swipe-content, plus a frame of slack.
+    hideRevealRef.current = setTimeout(() => setRevealing(false), 200)
+  }
 
   function onTouchStart(e) {
     startX.current = e.touches[0].clientX
@@ -96,7 +112,11 @@ function SwipeToArchive({ onArchive, children }) {
     }
     if (axis.current !== 'x') return
 
-    if (dx < 0) setOffsetX(Math.max(dx, -SWIPE_THRESHOLD * 1.5))
+    if (dx < 0) {
+      clearTimeout(hideRevealRef.current)
+      setRevealing(true)
+      setOffsetX(Math.max(dx, -SWIPE_THRESHOLD * 1.5))
+    }
   }
 
   function onTouchEnd() {
@@ -106,7 +126,7 @@ function SwipeToArchive({ onArchive, children }) {
       setOffsetX(-SWIPE_THRESHOLD * 1.5)
       setTimeout(() => onArchive(), 280)
     } else {
-      setOffsetX(0)
+      settleBack()
     }
     axis.current = null
   }
@@ -118,14 +138,14 @@ function SwipeToArchive({ onArchive, children }) {
     // exposed behind the card.
     tracking.current = false
     axis.current = null
-    setOffsetX(0)
+    settleBack()
   }
 
   return (
     <div className="swipe-wrap">
-      <div className="swipe-reveal"><span>Archive</span></div>
+      {revealing && <div className="swipe-reveal"><span>Archive</span></div>}
       <div
-        className={`swipe-content${swiped ? ' swipe-content--out' : ''}`}
+        className={`swipe-content${swiped ? ' swipe-content--out' : ''}${revealing ? ' swipe-content--moving' : ''}`}
         style={{ transform: `translateX(${offsetX}px)` }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}

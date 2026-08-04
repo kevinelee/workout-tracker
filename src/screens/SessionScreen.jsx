@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createSet } from '../data/models'
 import { defaultExercises } from '../data/exerciseLibrary'
-import { getCachedCustomExercises, getLastSessionForTemplate, saveSession, saveTemplate } from '../storage'
+import { getCachedCustomExercises, getCollapsedExercises, getLastSessionForTemplate, saveCollapsedExercises, saveSession, saveTemplate } from '../storage'
 import { initLogsFromSession } from '../App'
 import { createTemplateExercise } from '../data/models'
 import MuscleIcon from '../components/MuscleIcon'
@@ -76,7 +76,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const [timerEditM, setTimerEditM] = useState(0)
   const [timerEditS, setTimerEditS] = useState(0)
   const [openNotes, setOpenNotes] = useState(new Set())
-  const [collapsedExercises, setCollapsedExercises] = useState(new Set())
+  const [collapsedExercises, setCollapsedExercises] = useState(() => new Set(getCollapsedExercises(sessionId)))
   const [editMode, setEditMode] = useState(false)
   const [editVisible, setEditVisible] = useState(false)
   const editExitRef = useRef(null)
@@ -272,12 +272,11 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   }
 
   function toggleCollapse(exerciseId) {
-    setCollapsedExercises(prev => {
-      const next = new Set(prev)
-      if (next.has(exerciseId)) next.delete(exerciseId)
-      else next.add(exerciseId)
-      return next
-    })
+    const next = new Set(collapsedExercises)
+    if (next.has(exerciseId)) next.delete(exerciseId)
+    else next.add(exerciseId)
+    setCollapsedExercises(next)
+    saveCollapsedExercises(sessionId, next)
   }
 
   function addSet(logIndex) {

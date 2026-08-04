@@ -162,12 +162,29 @@ html, body {
 
 body {
   margin: 0;
+  /* Long-pressing a label or button should feel like an app, not a web page —
+     no blue selection drag, no iOS "Copy | Look Up" callout. Fields and the
+     text users actually copy opt back in below. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input, textarea, [contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 #root {
   max-width: 480px; /* mobile-first, centered on desktop */
   margin: 0 auto;
-  min-height: 100svh;
+  /* Percentage of the real window rather than svh/dvh. The app shell inside is
+     also height:100%, so the two always agree — sizing the shell in dvh while
+     #root was svh made it taller than the visible area in iOS standalone, and
+     the resulting sliver of document scroll launched the app offset (nav
+     floating above the bottom edge) until a drag scrolled it back to 0. */
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
