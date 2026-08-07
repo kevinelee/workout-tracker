@@ -4,7 +4,14 @@ import './CalendarHeatmap.css'
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const MAX_WEEKS = 16
-const MIN_WEEKS = 4
+// The grid always fills the card's width, so the week count decides how big
+// the cells are. Too few columns and they inflate into big slabs — four weeks
+// gave 77px cells and a 560px-tall widget. Holding a floor near the ceiling
+// keeps the cell size in a narrow band and, more importantly, keeps the
+// widget a stable height instead of shrinking as history accumulates. Padding
+// weeks read as "not yet logged", the same way GitHub shows a full year from
+// day one.
+const MIN_WEEKS = 12
 
 function parseLocalDate(str) {
   const [y, m, d] = str.split('-').map(Number)
@@ -69,7 +76,7 @@ export default function CalendarHeatmap({ sessions, checkIns, onDayClick }) {
     <div className="heatmap">
       <div className="heatmap-months">
         <span className="heatmap-months-spacer" />
-        <div className="heatmap-months-row" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+        <div className="heatmap-months-row" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`}}>
           {monthLabels.map(({ col, label }) => (
             <span key={col} className="heatmap-month-label" style={{ gridColumn: col + 1 }}>{label}</span>
           ))}
@@ -79,7 +86,7 @@ export default function CalendarHeatmap({ sessions, checkIns, onDayClick }) {
         <div className="heatmap-days">
           {DAYS.map((d, i) => <span key={i} className="heatmap-day-label">{d}</span>)}
         </div>
-        <div className="heatmap-grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+        <div className="heatmap-grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`}}>
           {cells.map((cell, i) =>
             cell === null ? (
               <span key={i} className="heatmap-cell heatmap-cell--empty" />
