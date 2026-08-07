@@ -15,20 +15,44 @@ function buildActivitySet(sessions, checkIns) {
   return dates
 }
 
+// Monday-start, matching the week boundary already used elsewhere in the app
+// (see weekStartDay in HistoryScreen.jsx). Returns that week's Monday as a
+// date string, used as the week's identity for grouping/comparison.
+//
+// Takes a Date, not a string -- new Date('YYYY-MM-DD') parses as UTC
+// midnight, which in any timezone behind UTC (all of the Americas) lands on
+// the previous local day. Round-tripping a date through toDateStr and back
+// via `new Date(str)` silently shifts it back a day. Every date here has to
+// stay a real Date object, stepped with setDate, and only ever turned into a
+// string at the point it's used as a Set key -- never turned back into a Date.
+function toWeekStartStr(date) {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  const daysSinceMonday = (d.getDay() + 6) % 7
+  d.setDate(d.getDate() - daysSinceMonday)
+  return toDateStr(d)
+}
+
+// Consecutive weeks (Monday-Sunday) with at least one workout or check-in --
+// a missed single day no longer breaks it, only a whole week with nothing
+// logged does. Alive if this week or last week has activity, same one-period
+// grace the old day-based version gave "today or yesterday", so the streak
+// doesn't zero out before you've had a chance to train this week.
 export function calcStreak(sessions, checkIns) {
   const dates = buildActivitySet(sessions, checkIns)
-  const today = toDateStr(new Date())
-  const yesterday = toDateStr(new Date(Date.now() - 86400000))
+  const weeks = new Set([...dates].map(d => toWeekStartStr(new Date(d + 'T12:00:00'))))
 
-  // Streak is alive if active today or yesterday
-  const startStr = dates.has(today) ? today : dates.has(yesterday) ? yesterday : null
-  if (!startStr) return 0
+  const cursor = new Date()
+  cursor.setHours(0, 0, 0, 0)
+  if (!weeks.has(toWeekStartStr(cursor))) {
+    cursor.setDate(cursor.getDate() - 7)
+    if (!weeks.has(toWeekStartStr(cursor))) return 0
+  }
 
   let streak = 0
-  const cursor = new Date(startStr)
-  while (dates.has(toDateStr(cursor))) {
+  while (weeks.has(toWeekStartStr(cursor))) {
     streak++
-    cursor.setDate(cursor.getDate() - 1)
+    cursor.setDate(cursor.getDate() - 7)
   }
   return streak
 }
