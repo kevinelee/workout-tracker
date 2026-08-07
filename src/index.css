@@ -153,7 +153,14 @@ input, textarea, select {
 }
 
 html, body {
-  height: 100%;
+  /* --app-height is window.innerHeight, kept in sync by main.jsx. The shell,
+     #root and the document all measure from that one value, so they cannot
+     disagree the way svh/dvh/% did — and because it is re-read on resize the
+     shell still grows when the browser chrome retracts. The unit fallbacks
+     only matter for the first paint if the script hasn't run yet. */
+  height: 100svh;
+  height: 100dvh;
+  height: var(--app-height, 100dvh);
   background: var(--bg);
   /* Keep rubber-banding inside the app's own scrollers — nothing chains out to
      the document (no pull-to-refresh, no page-level bounce). */
@@ -179,11 +186,15 @@ input, textarea, [contenteditable='true'] {
 #root {
   max-width: 480px; /* mobile-first, centered on desktop */
   margin: 0 auto;
-  /* Percentage of the real window rather than svh/dvh. The app shell inside is
-     also height:100%, so the two always agree — sizing the shell in dvh while
-     #root was svh made it taller than the visible area in iOS standalone, and
-     the resulting sliver of document scroll launched the app offset (nav
-     floating above the bottom edge) until a drag scrolled it back to 0. */
+  /* Matches the document exactly (see html, body above), so the shell inside
+     can never be taller than the viewport and leave the page a sliver of
+     scroll — that sliver is what launched the app offset, nav floating above
+     the bottom edge, until a drag scrolled it back to 0. It has to be a
+     definite height, not min-height: with min-height the shell grows to fit
+     its content instead of clipping to the viewport, .app-main stops being
+     the scroller, and the whole document scrolls instead. The pre-app screens
+     (auth, onboarding) are taller than this and simply overflow, scrolling
+     the document the way they always have. */
   height: 100%;
   display: flex;
   flex-direction: column;

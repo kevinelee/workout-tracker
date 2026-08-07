@@ -43,10 +43,12 @@
 .app {
   display: flex;
   flex-direction: column;
-  /* Fills #root exactly, which is itself height:100% of the window. Sizing
-     this in dvh disagreed with #root's svh in iOS standalone and left the
-     shell taller than the viewport — see the note in index.css. */
-  height: 100%;
+  /* Fills #root as a flex item rather than claiming a height of its own. #root
+     is already exactly the viewport (see index.css), so the shell inherits the
+     one measurement instead of naming a second one that could disagree — that
+     disagreement is what left the nav floating above the bottom edge. */
+  flex: 1;
+  min-height: 0;
   background: var(--bg);
 }
 
