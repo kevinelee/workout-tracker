@@ -372,17 +372,6 @@
   pointer-events: none;
 }
 
-.history-swipe-item--dim .history-card {
-  opacity: 0.3;
-  filter: saturate(0.3);
-  transition: opacity 0.25s ease, filter 0.25s ease;
-}
-
-.history-swipe-item--match .history-card {
-  border-color: var(--accent-border);
-  box-shadow: 0 0 0 1px var(--accent-border);
-}
-
 .history-swipe-actions {
   position: absolute;
   right: 0;
