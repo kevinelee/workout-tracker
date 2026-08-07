@@ -383,6 +383,14 @@
 .overload-sheet {
   gap: 0;
   padding-bottom: 32px;
+  /* Capped and scrollable, same pattern as .review-sheet: a long suggestion
+     list otherwise grew the sheet past the top of the screen with no way to
+     reach the rest of it. The handle, headline and start button stay put;
+     only .overload-list scrolls. */
+  max-height: 80dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .overload-loading {
@@ -419,6 +427,7 @@
   margin: 0 0 16px;
   text-align: center;
   padding: 0 4px;
+  flex-shrink: 0;
 }
 
 .overload-list {
@@ -426,6 +435,14 @@
   flex-direction: column;
   gap: 0;
   margin-bottom: 20px;
+  /* The scrollable region. min-height:0 lets it shrink below its content's
+     natural height inside the flex column — without it the list ignores the
+     sheet's max-height and pushes the sheet (and the start button) past the
+     cap instead of scrolling internally. */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .overload-row {

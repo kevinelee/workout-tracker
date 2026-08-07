@@ -3,10 +3,16 @@ import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSe
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { createWorkoutTemplate, createTemplateExercise, createSet } from '../data/models'
-import { saveTemplate, deleteTemplate } from '../storage'
+import { saveTemplate, deleteTemplate, getCachedCustomExercises } from '../storage'
+import { defaultExercises } from '../data/exerciseLibrary'
 import ExerciseSearch from '../components/ExerciseSearch'
 import ExerciseRow from '../components/ExerciseRow'
 import './WorkoutBuilderScreen.css'
+
+function findExerciseName(id) {
+  const ex = defaultExercises.find(e => e.id === id) ?? getCachedCustomExercises().find(e => e.id === id)
+  return ex?.name ?? 'this exercise'
+}
 
 function SortableExerciseRow({ id, ...props }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
@@ -32,17 +38,20 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
     initial?.exercises ?? []
   )
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmRemoveIndex, setConfirmRemoveIndex] = useState(null)
   const [saving,         setSaving]        = useState(false)
   const [deleting,       setDeleting]      = useState(false)
   const [deleteError,    setDeleteError]   = useState(false)
 
   useEffect(() => {
     function onKeyDown(e) {
-      if (e.key === 'Escape' && confirmDelete) setConfirmDelete(false)
+      if (e.key !== 'Escape') return
+      if (confirmRemoveIndex !== null) { setConfirmRemoveIndex(null); return }
+      if (confirmDelete) setConfirmDelete(false)
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [confirmDelete])
+  }, [confirmDelete, confirmRemoveIndex])
 
   function handleSelectExercise(exercise) {
     // Don't add duplicates
@@ -59,6 +68,12 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
 
   function removeExercise(index) {
     setExercises(prev => prev.filter((_, i) => i !== index))
+  }
+
+  function handleConfirmRemove() {
+    if (confirmRemoveIndex === null) return
+    removeExercise(confirmRemoveIndex)
+    setConfirmRemoveIndex(null)
   }
 
   async function handleSave() {
@@ -157,7 +172,7 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
                     id={ex.exerciseId}
                     templateExercise={ex}
                     onChange={updated => updateExercise(i, updated)}
-                    onRemove={() => removeExercise(i)}
+                    onRemove={() => setConfirmRemoveIndex(i)}
                     unit={unit}
                   />
                 ))}
@@ -192,6 +207,20 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
               <button className="builder-modal-confirm" onClick={handleDelete} disabled={deleting}>
                 {deleting ? <span className="builder-btn-spinner" /> : 'Delete'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm remove-exercise modal */}
+      {confirmRemoveIndex !== null && (
+        <div className="builder-modal-overlay" onClick={() => setConfirmRemoveIndex(null)}>
+          <div className="builder-modal" onClick={e => e.stopPropagation()}>
+            <p className="builder-modal-title">Remove "{findExerciseName(exercises[confirmRemoveIndex]?.exerciseId)}"?</p>
+            <p className="builder-modal-body">This removes it from the workout.</p>
+            <div className="builder-modal-actions">
+              <button className="builder-modal-cancel" onClick={() => setConfirmRemoveIndex(null)}>Cancel</button>
+              <button className="builder-modal-confirm" onClick={handleConfirmRemove}>Remove</button>
             </div>
           </div>
         </div>
