@@ -509,11 +509,13 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     }
   }
 
-  const totalSets     = logs.reduce((sum, log) => sum + (log.targetCount ?? log.sets.length), 0)
-  const completedSets = logs.reduce((sum, log) => {
-    const target = log.targetCount ?? log.sets.length
-    return sum + Math.min(log.sets.filter(s => s.completed).length, target)
-  }, 0)
+  // log.sets.length, not targetCount: targetCount is the originally-planned
+  // count, kept around only so saving/updating a template can tell a
+  // deliberately-removed set apart from an added one (see handleSaveAsNewWorkout
+  // and handleUpdateTemplate). The visible progress has to include added sets
+  // too — completeSet's celebration check below already does this.
+  const totalSets     = logs.reduce((sum, log) => sum + log.sets.length, 0)
+  const completedSets = logs.reduce((sum, log) => sum + log.sets.filter(s => s.completed).length, 0)
   const allDone   = completedSets === totalSets && totalSets > 0
   const underHalf = totalSets > 0 && completedSets < totalSets / 2
 
@@ -585,7 +587,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
           const exercise = findExercise(log.exerciseId)
           if (!exercise) return null
           const doneCount   = log.sets.filter(s => s.completed).length
-          const target      = log.targetCount ?? log.sets.length
+          const target      = log.sets.length
           const allSetsDone = doneCount >= target
           const isCardio    = exercise.category === 'Cardio'
           const cardioUnit  = exercise.cardioUnit ?? 'time'
@@ -623,7 +625,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
                 <div className="session-ex-info">
                   <p className="session-ex-name">{exercise.name}</p>
                   <p className={`session-ex-meta${allSetsDone ? ' session-ex-meta--done' : ''}`}>
-                    {allSetsDone ? '✓ ' : ''}{doneCount}/{target} sets{doneCount > target ? ` +${doneCount - target}` : ''}
+                    {allSetsDone ? '✓ ' : ''}{doneCount}/{target} sets
                     {lastHint && <span className="session-ex-pr-label"> · {lastHint}</span>}
                     {prLabel && <span className="session-ex-pr-label"> · {prLabel}</span>}
                   </p>
