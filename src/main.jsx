@@ -44,9 +44,17 @@ function syncAppHeight() {
 syncAppHeight()
 window.addEventListener('resize', syncAppHeight)
 window.addEventListener('orientationchange', syncAppHeight)
-// iOS settles the standalone viewport a beat after launch; re-measure once
-// painted so the first frame's value can't be the one that sticks.
-window.addEventListener('load', syncAppHeight)
+// 'load' alone isn't enough: relaunching a standalone PWA from the app
+// switcher is often a bfcache-style restore, not a fresh navigation, so
+// 'load' never fires there at all — only 'pageshow' covers both. And even on
+// a genuinely fresh launch, iOS can report a transitional window.innerHeight
+// immediately at startup that settles a moment later without firing any
+// resize event to say so, so a couple of short delayed re-checks are the
+// only reliable way to catch that correction.
+window.addEventListener('pageshow', syncAppHeight)
+window.visualViewport?.addEventListener('resize', syncAppHeight)
+setTimeout(syncAppHeight, 100)
+setTimeout(syncAppHeight, 500)
 
 // In dev, nuke any stale service worker so it never serves cached files
 // over Vite's live dev server. In production the SW registers normally.
