@@ -38,23 +38,72 @@ if (window.navigator.standalone === true ||
 // Deliberately window.innerHeight and not visualViewport.height: on iOS the
 // former ignores the software keyboard, so focusing a weight field doesn't
 // collapse the shell mid-set.
+//
+// On iOS, relaunching a standalone PWA can go through several transitional
+// window.innerHeight readings before settling on the true one — no single
+// event reliably marks "this is the final value", and firing more
+// re-measurements to try to catch it made the launch height worse, not
+// better, because a later trigger can catch a still-settling, too-small
+// reading with nothing left to correct it afterward. So this only ever
+// grows the tracked height, never shrinks it — a smaller reading is treated
+// as unsettled, not as truth. orientationchange is the one legitimate case
+// where the height should get smaller (rotating to landscape), so it resets
+// the floor instead of just taking the max.
+let knownHeight = 0
 function syncAppHeight() {
-  document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`)
+  knownHeight = Math.max(knownHeight, window.innerHeight)
+  document.documentElement.style.setProperty('--app-height', `${knownHeight}px`)
+}
+function resyncAppHeight() {
+  knownHeight = 0
+  syncAppHeight()
 }
 syncAppHeight()
 window.addEventListener('resize', syncAppHeight)
-window.addEventListener('orientationchange', syncAppHeight)
+window.addEventListener('orientationchange', resyncAppHeight)
 // 'load' alone isn't enough: relaunching a standalone PWA from the app
-// switcher is often a bfcache-style restore, not a fresh navigation, so
-// 'load' never fires there at all — only 'pageshow' covers both. And even on
-// a genuinely fresh launch, iOS can report a transitional window.innerHeight
-// immediately at startup that settles a moment later without firing any
-// resize event to say so, so a couple of short delayed re-checks are the
-// only reliable way to catch that correction.
+// switcher is often a bfcache-style restore, not a fresh navigation, so load
+// never fires there at all.
 window.addEventListener('pageshow', syncAppHeight)
 window.visualViewport?.addEventListener('resize', syncAppHeight)
 setTimeout(syncAppHeight, 100)
 setTimeout(syncAppHeight, 500)
+setTimeout(syncAppHeight, 1500)
+
+// TEMPORARY viewport-sizing diagnostics — remove once the standalone-PWA
+// bottom-nav-gap bug is confirmed fixed on device. Renders the raw numbers
+// iOS is actually reporting so the next report is real data instead of
+// another guess at timing.
+//
+// Opt-in via localStorage, not just navigator.standalone, so this doesn't
+// show for every standalone user — only whoever has actually turned it on.
+// Visit the site once in regular Safari with ?debugViewport=1 to set the
+// flag (localStorage is shared across the whole origin, including the
+// home-screen-launched app), then relaunch the home-screen icon.
+if (new URLSearchParams(location.search).get('debugViewport') === '1') {
+  localStorage.setItem('debugViewport', '1')
+} else if (new URLSearchParams(location.search).get('debugViewport') === '0') {
+  localStorage.removeItem('debugViewport')
+}
+if (window.navigator.standalone === true && localStorage.getItem('debugViewport') === '1') {
+  const debugEl = document.createElement('div')
+  debugEl.style.cssText = 'position:fixed;left:4px;top:4px;z-index:99999;background:rgba(255,0,0,0.85);color:#fff;font:10px/1.4 monospace;padding:4px 6px;border-radius:4px;pointer-events:none;white-space:pre;'
+  document.body.appendChild(debugEl)
+  function renderDebug() {
+    const navEl = document.querySelector('.app-nav')
+    const navRect = navEl?.getBoundingClientRect()
+    debugEl.textContent =
+      `innerH:${window.innerHeight} known:${knownHeight}\n` +
+      `vvH:${window.visualViewport?.height ?? 'n/a'} scrH:${window.screen.height}\n` +
+      `navBottom:${navRect ? Math.round(navRect.bottom) : 'n/a'} gap:${navRect ? Math.round(window.innerHeight - navRect.bottom) : 'n/a'}\n` +
+      `safeBottom:${getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom')}`
+  }
+  // Polls rather than hooking into syncAppHeight itself: it reads knownHeight
+  // and the live DOM/window state directly, so it reflects every update
+  // regardless of which listener triggered it.
+  setInterval(renderDebug, 500)
+  renderDebug()
+}
 
 // In dev, nuke any stale service worker so it never serves cached files
 // over Vite's live dev server. In production the SW registers normally.
