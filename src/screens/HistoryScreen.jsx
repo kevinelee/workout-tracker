@@ -241,7 +241,7 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
       <div className="history-streak-banner">
         <span className="history-streak-fire"><FlameIcon /></span>
         <div>
-          <p className="history-streak-count">{streak} day streak</p>
+          <p className="history-streak-count">{streak} week streak</p>
           <p className="history-streak-sub">{streak === 0 ? 'Start a session to begin your streak' : 'Keep it going!'}</p>
         </div>
       </div>

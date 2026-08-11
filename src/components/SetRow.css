@@ -16,6 +16,16 @@
 /* Stepper */
 .stepper {
   flex: 1;
+  /* Without this, the reps/weight steppers don't split evenly: a flex item's
+     automatic minimum size is its content's min-content size, and for a
+     nested <input type="number"> that min-content is the browser's UA-default
+     field width (~200px) -- not the small min-width set on .stepper-input --
+     because that floor comes from the ancestor chain, not the input itself.
+     The weight stepper claims ~200px+ as its "minimum" and everything to its
+     right, including the + button, gets pushed off-screen. Already fixed this
+     way in SessionSetRow's .ssr-stepper; this is the same fix for the
+     workout-builder version of the same row. */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;

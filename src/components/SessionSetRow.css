@@ -40,7 +40,13 @@
   min-width: 0;
   overflow: visible;
   background: var(--surface, var(--bg));
-  will-change: transform;
+  /* .ssr itself never animates transform (row-burst only touches background;
+     the scale-pop belongs to the child .ssr-pr-badge) -- this was pinning
+     every set row to its own persistent GPU layer for nothing. Toggling Edit
+     mounts/unmounts each row's delete button as a real flex sibling, which
+     redistributes the steppers' widths in that same frame; the stale
+     layers then briefly repainted at their old size on top of the new
+     layout, reading as a duplicated/overlapping row. */
 }
 
 .ssr--done {
