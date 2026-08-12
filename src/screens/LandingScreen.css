@@ -1,5 +1,12 @@
 .landing {
+  /* Same --app-height used by the main app shell (set from window.innerHeight
+     in main.jsx, before React even mounts) rather than a viewport unit. This
+     screen renders before login, outside .app, so it never inherited that
+     fix -- svh under-reports in standalone and left a gap below the CTA
+     footer with nothing painted in it. */
   min-height: 100svh;
+  min-height: 100dvh;
+  min-height: var(--app-height, 100dvh);
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -9,6 +16,10 @@
   flex: 1;
   overflow-y: auto;
   padding: 48px 20px 32px;
+  /* --safe-top is already global on :root regardless of auth state -- this
+     screen just never read it, so the logo sat closer to the status bar /
+     notch than the other screens that do use it. */
+  padding-top: calc(48px + var(--safe-top));
 }
 
 .landing-hero {
@@ -92,6 +103,10 @@
 /* Sticky CTA footer */
 .landing-actions {
   padding: 16px 20px 40px;
+  /* Same gap as everywhere else that skipped --safe-bottom: the 40px was a
+     flat guess, not the device's real home-indicator height, so the CTA
+     footer sat above the true bottom edge with unpainted space beneath it. */
+  padding-bottom: calc(40px + var(--safe-bottom));
   display: flex;
   flex-direction: column;
   gap: 10px;

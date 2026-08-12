@@ -1,10 +1,15 @@
 .onboarding {
+  /* See LandingScreen.css -- same fix, same reason. */
+  min-height: 100svh;
   min-height: 100dvh;
+  min-height: var(--app-height, 100dvh);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 32px 24px 48px;
+  padding-top: calc(32px + var(--safe-top));
+  padding-bottom: calc(48px + var(--safe-bottom));
   background: var(--bg);
   gap: 32px;
 }

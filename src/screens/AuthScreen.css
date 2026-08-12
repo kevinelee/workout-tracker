@@ -1,9 +1,16 @@
 .auth {
+  /* See LandingScreen.css -- same fix, same reason: this pre-login screen
+     never inherited the --app-height/safe-area handling the main app shell
+     already has. */
   min-height: 100svh;
+  min-height: 100dvh;
+  min-height: var(--app-height, 100dvh);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
+  padding-top: calc(24px + var(--safe-top));
+  padding-bottom: calc(24px + var(--safe-bottom));
   background: var(--bg);
 }
 
