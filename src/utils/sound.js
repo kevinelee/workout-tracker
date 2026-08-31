@@ -15,6 +15,26 @@ export function unlockChime() {
   getCtx()?.resume()
 }
 
+// Short single-note tick for the 3-2-1 countdown cue, distinct in timbre from
+// the ascending completion chime so the two are never confused mid-rest.
+export function playTick() {
+  const ctx = getCtx()
+  if (!ctx) return
+  if (ctx.state === 'suspended') ctx.resume()
+
+  const now = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.type = 'square'
+  osc.frequency.value = 660
+  gain.gain.setValueAtTime(0, now)
+  gain.gain.linearRampToValueAtTime(0.18, now + 0.01)
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09)
+  osc.connect(gain).connect(ctx.destination)
+  osc.start(now)
+  osc.stop(now + 0.1)
+}
+
 // Two-note ascending chime for the rest-timer-done alert.
 export function playChime() {
   const ctx = getCtx()

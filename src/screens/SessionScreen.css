@@ -203,6 +203,27 @@
   50%       { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); }
 }
 
+/* Sticky Finish — sticks to the bottom of the scrolling app-main, i.e. right
+   above the bottom nav, so it never covers it. Only rendered while the
+   in-flow Finish button (above) is off-screen, so the two never double up. */
+.session-finish-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  padding: 10px 16px calc(10px + var(--safe-bottom));
+  background: linear-gradient(to top, var(--bg) 60%, transparent);
+  animation: session-finish-sticky-in 0.2s ease-out;
+}
+
+.session-finish-sticky-btn {
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes session-finish-sticky-in {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
 .session-spinner {
   display: block;
   width: 16px;
@@ -374,13 +395,16 @@
   svg { width: 100%; height: 100%; }
 }
 
-.session-ex-info { flex: 1; }
+.session-ex-info { flex: 1; min-width: 0; }
 
 .session-ex-name {
   font-size: 16px;
   font-weight: 600;
   color: var(--text-h);
   margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 :is([data-theme="light"], [data-theme="pink-light"], [data-theme="blue-light"]) {
@@ -394,6 +418,9 @@
   font-size: 12px;
   color: var(--text);
   margin: 2px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .session-ex-meta--done {
@@ -421,7 +448,6 @@
   transition: opacity 0.15s, background 0.15s;
   line-height: 1;
   flex-shrink: 0;
-  animation: session-edit-in 0.18s ease-out;
 
   &:hover { opacity: 0.7; background: rgba(255,255,255,0.06); }
 }
@@ -453,7 +479,7 @@
   border: none;
   border-bottom: 1px solid var(--border);
   color: var(--text-h);
-  font-size: 14px;
+  font-size: 16px;
   font-family: var(--sans);
   line-height: 1.5;
   padding: 12px 14px;
@@ -534,7 +560,15 @@
 /* Add exercise fullscreen overlay */
 .session-add-ex-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Matches html/body's sizing (see index.css) — a bare inset:0 sizes off the
+     raw viewport instead of the measured --app-height, which drifts from the
+     rest of the app shell as mobile browser chrome shows/hides. */
+  height: 100svh;
+  height: 100dvh;
+  height: var(--app-height, 100dvh);
   background: var(--bg);
   z-index: 100;
   display: flex;
@@ -551,7 +585,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 14px 16px;
+  padding: calc(14px + var(--safe-top)) 16px 14px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -577,7 +611,7 @@
 }
 
 .session-add-ex-body {
-  padding: 16px;
+  padding: 16px 16px calc(16px + var(--safe-bottom));
   flex: 1;
   overflow-y: auto;
 }
