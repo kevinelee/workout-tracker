@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
+import { playTick } from '../utils/sound'
 import './RestTimer.css'
+
+// Seconds-remaining values that get an audible tick during the countdown,
+// not just the final chime at 0.
+const TICK_THRESHOLDS = new Set([3, 2, 1])
 
 function fmt(seconds) {
   const m = Math.floor(seconds / 60)
@@ -11,11 +16,16 @@ function fmt(seconds) {
 export default function RestTimer({ duration, onDone, onSkip }) {
   const endAtRef = useRef(Date.now() + duration * 1000)
   const [remaining, setRemaining] = useState(duration)
+  const tickedRef = useRef(new Set())
 
   useEffect(() => {
     function tick() {
       const r = Math.max(0, Math.ceil((endAtRef.current - Date.now()) / 1000))
       setRemaining(r)
+      if (TICK_THRESHOLDS.has(r) && !tickedRef.current.has(r)) {
+        tickedRef.current.add(r)
+        playTick()
+      }
       if (r <= 0) onDone()
     }
 

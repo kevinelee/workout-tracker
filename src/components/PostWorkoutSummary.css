@@ -354,6 +354,18 @@
   color: #fbbf24;
 }
 
+.pws-set--pr-reps {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+}
+
+.pws-set--pr-both {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
 .pws-set--skipped {
   opacity: 0.4;
   font-style: italic;
@@ -495,24 +507,8 @@
   border-top: 1px solid var(--border);
 }
 
-.pws-share-btn {
-  flex: 1;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  color: var(--text-h);
-  font-size: 15px;
-  font-family: var(--sans);
-  font-weight: 600;
-  padding: 14px;
-  cursor: pointer;
-  transition: opacity 0.15s;
-
-  &:active { opacity: 0.6; }
-}
-
 .pws-done-btn {
-  flex: 2;
+  flex: 1;
   background: var(--accent);
   border: none;
   border-radius: 12px;
