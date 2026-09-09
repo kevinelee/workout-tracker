@@ -97,7 +97,7 @@
 
 /* Sticky CTA footer */
 .landing-actions {
-  padding: 16px 20px 40px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 10px;
