@@ -48,7 +48,7 @@ function elapsedFromStart(startedAt) {
   return Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
 }
 
-export default function SessionScreen({ activeSession, settings, programId, onUpdate, onFinish, onMinimize, onAbandon }) {
+export default function SessionScreen({ activeSession, settings, programId, onUpdate, onFinish, onMinimize, onAbandon, onUpdateSettings }) {
   const { template, sessionId, startedAt, logs: initialLogs, prMap: initialPrMap, prRepsMap: initialPrRepsMap, repPRByWeightMap: initialRepPRByWeightMap, aiBreakdown } = activeSession
   const hasBreakdown = !!(aiBreakdown && (aiBreakdown.headline || aiBreakdown.suggestions?.length))
   const [showBreakdown, setShowBreakdown] = useState(false)
@@ -782,8 +782,13 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
         </div>
       </div>
 
-      {/* Sticky Finish — mirrors the in-flow button, shown only while that one is off-screen */}
-      {!finishInlineVisible && (
+      {/* Sticky Finish — mirrors the in-flow button, shown only once the workout
+          is actually done and that in-flow button is scrolled off-screen. Not
+          gated on off-screen alone: the in-flow button sits after every
+          exercise, so for any multi-exercise workout it's off-screen almost
+          the entire time — showing the sticky version the whole workout,
+          not just once there's something to finish. */}
+      {!finishInlineVisible && allDone && (
         <div className="session-finish-sticky">
           <button
             className={`session-finish-main session-finish-sticky-btn ${allDone ? 'session-finish-main--done' : ''} ${warnPending ? 'session-finish-main--warn' : ''}`}
@@ -799,19 +804,25 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
         </div>
       )}
 
-      {/* Rest timer overlay — the backdrop minimizes it to a docked ribbon
-          rather than dismissing it, so a stray tap outside the modal
-          doesn't cancel the rest period; Skip/Finish still end it outright. */}
+      {/* Rest timer overlay — a tap or scroll anywhere outside it minimizes it
+          to a docked ribbon rather than dismissing it, so stray interaction
+          with the rest of the screen doesn't cancel the rest period; Skip/
+          Finish still end it outright. The backdrop is now purely a visual
+          dim (pointer-events: none) so the page underneath stays scrollable
+          while the modal is up — RestTimer detects "outside" itself. */}
       {restDuration !== null && (
         <>
           {!timerMinimized && (
-            <div className="rest-timer-backdrop" onClick={() => setTimerMinimized(true)} />
+            <div className="rest-timer-backdrop" />
           )}
           <RestTimer
             key={restDuration}
             duration={restDuration}
             minimized={timerMinimized}
             onExpand={() => setTimerMinimized(false)}
+            onMinimize={() => setTimerMinimized(true)}
+            restTimerDuration={settings.restTimerDuration}
+            onChangeRestTimerDuration={value => onUpdateSettings?.({ ...settings, restTimerDuration: value })}
             onDone={() => {
               setRestDuration(null)
               setTimerFlash(true)

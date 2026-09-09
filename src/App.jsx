@@ -981,6 +981,7 @@ const NavShield = () => (
             onFinish={handleSessionFinish}
             onMinimize={handleSessionMinimize}
             onAbandon={handleSessionAbandon}
+            onUpdateSettings={handleSaveSettings}
           />
         ) : null
       case 'summary':
