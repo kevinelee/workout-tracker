@@ -153,12 +153,12 @@
 }
 
 .detail-set-input {
-  width: 52px;
+  width: 58px;
   background: var(--bg);
   border: 1px solid var(--accent);
   border-radius: 6px;
   color: var(--text-h);
-  font-size: 14px;
+  font-size: 16px;
   font-family: var(--mono);
   font-weight: 600;
   text-align: center;

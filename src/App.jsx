@@ -29,6 +29,7 @@ import GeneratePlanWizard from './screens/GeneratePlanWizard'
 import GenerateWorkoutWizard from './screens/GenerateWorkoutWizard'
 import WhatsNewModal, { hasSeenLatest, LATEST_VERSION } from './components/WhatsNewModal'
 import { ProGateProvider } from './lib/proGate'
+import { startOfThisWeek } from './utils/streaks'
 import './App.css'
 
 const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -475,11 +476,11 @@ export default function App() {
   // ── Weekly insight ───────────────────────────────────────────────────────
 
   async function generateWeeklyInsight(currentSessions) {
-    const weekAgo   = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const weekStart = startOfThisWeek(profile?.weekStartDay ?? 1)
     const finished  = currentSessions
       .filter(s => s.finishedAt)
       .sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))
-    const thisWeek  = finished.filter(s => new Date(s.finishedAt) >= weekAgo)
+    const thisWeek  = finished.filter(s => new Date(s.finishedAt) >= weekStart)
 
     const allExercises = [...defaultExercises, ...getCachedCustomExercises()]
     const toSessionData = s => ({

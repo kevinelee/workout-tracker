@@ -31,7 +31,7 @@ export function exportCSV(sessions) {
           set.reps,
           set.weight,
           set.completed ? 'Yes' : 'No',
-          set.isPR ? 'Yes' : 'No',
+          set.isPR ? (set.prKind === 'reps' ? 'Rep PR' : set.prKind === 'both' ? 'Weight+Rep PR' : 'Weight PR') : 'No',
           i === 0 ? (session.duration ?? '') : '',
         ])
       })

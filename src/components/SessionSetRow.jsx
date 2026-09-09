@@ -104,7 +104,11 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
     ? <span className={`ssr-check${set.isPR ? ' ssr-check--pr' : ''}`}>✓</span>
     : <span className={`ssr-circle${isPRPending ? ' ssr-circle--pr-pending' : ''}`} />
 
-  const prBadge = set.isPR && <span className="ssr-pr-badge">PR</span>
+  const prBadge = set.isPR && (
+    <span className={`ssr-pr-badge ssr-pr-badge--${set.prKind ?? 'weight'}`}>
+      {set.prKind === 'reps' ? 'REP PR' : set.prKind === 'both' ? 'PR+' : 'PR'}
+    </span>
+  )
 
   // In locked mode: whole row is the tap target; indicator is non-interactive
   // In edit mode: dedicated circle button with its own click handler

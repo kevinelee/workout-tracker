@@ -15,6 +15,18 @@ function buildActivitySet(sessions, checkIns) {
   return dates
 }
 
+// Start of "this week" per the user's configured weekStartDay (0=Sunday,
+// 1=Monday, ... matching Date.getDay()), as a Date at local midnight.
+// For "this week" filtering/display — distinct from toWeekStartStr below,
+// which hardcodes Monday-start and is only used for streak continuity.
+export function startOfThisWeek(weekStartDay = 1) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const daysSinceStart = ((today.getDay() - weekStartDay) + 7) % 7
+  today.setDate(today.getDate() - daysSinceStart)
+  return today
+}
+
 // Monday-start, matching the week boundary already used elsewhere in the app
 // (see weekStartDay in HistoryScreen.jsx). Returns that week's Monday as a
 // date string, used as the week's identity for grouping/comparison.

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { uploadAvatar, getCachedCustomExercises } from "../storage";
 import { sessionVolume, fmtVolume, fmtDuration } from "../utils/volume";
+import { startOfThisWeek } from "../utils/streaks";
 import { defaultExercises } from "../data/exerciseLibrary";
 import { supabase, callFunction } from "../lib/supabase";
 import WeightChart from "../components/WeightChart";
@@ -124,12 +125,12 @@ export default function ProfileScreen({
     setSummaryOpen(true)
     setSummaryText(null)
     setSummaryError(false)
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const weekStart = startOfThisWeek(profile?.weekStartDay ?? 1)
     const allEx = [...defaultExercises, ...getCachedCustomExercises()]
     const allFinished = (sessions ?? [])
       .filter(s => s.finishedAt)
       .sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))
-    const recent = allFinished.filter(s => new Date(s.finishedAt) >= weekAgo)
+    const recent = allFinished.filter(s => new Date(s.finishedAt) >= weekStart)
 
     const toSessionData = s => ({
       date: s.finishedAt?.slice(0, 10),

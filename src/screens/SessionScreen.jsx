@@ -64,6 +64,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const [restDuration, setRestDuration] = useState(null)
   const [timerFlash, setTimerFlash] = useState(false)
   const [copiedBanner, setCopiedBanner] = useState(false)
+  const [hasCopiedLastSession, setHasCopiedLastSession] = useState(false)
   const [showAbandon, setShowAbandon]       = useState(false)
   const [showTimeLimit, setShowTimeLimit]   = useState(false)
   const timeLimitDismissedAt                = useRef(null)
@@ -83,6 +84,8 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const [warnPending, setWarnPending] = useState(false)
   const warnTimerRef = useRef(null)
   const noteRefs = useRef({})
+  const finishInlineRef = useRef(null)
+  const [finishInlineVisible, setFinishInlineVisible] = useState(true)
 
   const [celebratingExercise, setCelebratingExercise] = useState(null)
   const celebrateTimerRef    = useRef(null)
@@ -154,6 +157,19 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     clearTimeout(editExitRef.current)
   }, [])
 
+  // Track whether the in-flow Finish button is on-screen, so the sticky
+  // bottom copy only shows up when it isn't — avoids a duplicate button.
+  useEffect(() => {
+    const el = finishInlineRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setFinishInlineVisible(entry.isIntersecting),
+      { rootMargin: '0px 0px -1px 0px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
 
   function updateLogsAndSync(newLogs, newPrMap, newPrRepsMap, newRepPRByWeightMap) {
     setLogs(newLogs)
@@ -185,9 +201,10 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   }
 
   function copyLastSession() {
-    if (!lastSession) return
+    if (!lastSession || hasCopiedLastSession) return
     const newLogs = initLogsFromSession(template, lastSession)
     updateLogsAndSync(newLogs, prMap)
+    setHasCopiedLastSession(true)
     setCopiedBanner(true)
     setTimeout(() => setCopiedBanner(false), 2000)
   }
@@ -223,10 +240,11 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     const prType = exercise?.prType ?? 'weight'
     const currentPR = prMap[exerciseId] ?? 0
 
-    let isPR, newPrMap, newPrRepsMap, newRepPRByWeightMap
+    let isPR, prKind, newPrMap, newPrRepsMap, newRepPRByWeightMap
 
     if (prType === 'reps') {
       isPR = set.reps > 0 && set.reps > currentPR
+      prKind = isPR ? 'reps' : null
       newPrMap = isPR ? { ...prMap, [exerciseId]: set.reps } : prMap
       newPrRepsMap = null
       newRepPRByWeightMap = null
@@ -236,6 +254,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
       const bestRepsAtWeight = bestRepsAtOrAboveWeight(weightBucket, set.weight)
       const isRepPR = set.weight > 0 && set.reps > bestRepsAtWeight
       isPR = isWeightPR || isRepPR
+      prKind = isWeightPR && isRepPR ? 'both' : isWeightPR ? 'weight' : isRepPR ? 'reps' : null
       newPrMap = isWeightPR ? { ...prMap, [exerciseId]: set.weight } : prMap
       newPrRepsMap = isWeightPR ? { ...prRepsMap, [exerciseId]: set.reps } : null
       newRepPRByWeightMap = isPR
@@ -246,7 +265,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     const newLogs = logs.map((l, li) =>
       li !== logIndex ? l : {
         ...l,
-        sets: l.sets.map((s, si) => si === setIndex ? { ...set, completed: true, isPR } : s),
+        sets: l.sets.map((s, si) => si === setIndex ? { ...set, completed: true, isPR, prKind } : s),
       }
     )
     lastActivityAt.current = Date.now()
@@ -282,7 +301,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   function addSet(logIndex) {
     const log = logs[logIndex]
     const last = log.sets[log.sets.length - 1]
-    const newSet = { reps: last?.reps ?? 0, weight: last?.weight ?? 0, completed: false, isPR: false, isBonus: true }
+    const newSet = { reps: last?.reps ?? 0, weight: last?.weight ?? 0, completed: false, isPR: false, prKind: null, isBonus: true }
     const newLogs = logs.map((l, li) => li !== logIndex ? l : { ...l, sets: [...l.sets, newSet] })
     updateLogsAndSync(newLogs, null)
   }
@@ -324,7 +343,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     const newLogs = logs.map((log, li) =>
       li !== logIndex ? log : {
         ...log,
-        sets: log.sets.map((s, si) => si === setIndex ? { ...s, completed: false, isPR: false } : s),
+        sets: log.sets.map((s, si) => si === setIndex ? { ...s, completed: false, isPR: false, prKind: null } : s),
       }
     )
     let newPrMap = prMap
@@ -353,7 +372,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     const newLog = {
       exerciseId: exercise.id,
       targetCount: 3,
-      sets: Array.from({ length: 3 }, () => ({ reps: 0, weight: 0, completed: false, isPR: false, isBonus: false })),
+      sets: Array.from({ length: 3 }, () => ({ reps: 0, weight: 0, completed: false, isPR: false, prKind: null, isBonus: false })),
       notes: '',
     }
     updateLogsAndSync([...logs, newLog], null)
@@ -376,7 +395,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     const newLog = {
       exerciseId:  newExercise.id,
       targetCount: setCount,
-      sets: Array.from({ length: setCount }, () => ({ reps: 0, weight: 0, completed: false, isPR: false })),
+      sets: Array.from({ length: setCount }, () => ({ reps: 0, weight: 0, completed: false, isPR: false, prKind: null })),
       notes: '',
     }
     updateLogsAndSync(logs.map((l, i) => i === substituteIndex ? newLog : l), null)
@@ -561,7 +580,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
 
       <div className="session-body">
         {/* Copy last session banner */}
-        {lastSession && !copiedBanner && (
+        {lastSession && !hasCopiedLastSession && !copiedBanner && (
           <button className="session-copy-btn" onClick={copyLastSession}>
             <span>📋</span>
             <span>Copy last session</span>
@@ -640,16 +659,13 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
                     ⇄
                   </button>
                 )}
-                {editVisible && (
-                  <button
-                    className={`session-notes-toggle ${openNotes.has(log.exerciseId) ? 'session-notes-toggle--open' : ''} ${log.notes ? 'session-notes-toggle--has-note' : ''}${editExiting ? ' session-edit-exiting' : ''}`}
-                    onClick={e => { e.stopPropagation(); toggleNotes(log.exerciseId) }}
-                    aria-label="Toggle notes"
-                    disabled={editExiting}
-                  >
-                    <NotesIcon />
-                  </button>
-                )}
+                <button
+                  className={`session-notes-toggle ${openNotes.has(log.exerciseId) ? 'session-notes-toggle--open' : ''} ${log.notes ? 'session-notes-toggle--has-note' : ''}`}
+                  onClick={e => { e.stopPropagation(); toggleNotes(log.exerciseId) }}
+                  aria-label="Toggle notes"
+                >
+                  <NotesIcon />
+                </button>
                 {editVisible && (
                   <button
                     className={`session-ex-remove${editExiting ? ' session-edit-exiting' : ''}`}
@@ -671,20 +687,18 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
 
               <div className={`session-ex-body ${isCollapsed ? 'session-ex-body--collapsed' : ''}`}>
               <div className="session-ex-body-inner">
-                {editVisible && (
-                  <div
-                    className={`session-notes-wrap ${openNotes.has(log.exerciseId) ? 'session-notes-wrap--open' : ''}`}
-                    ref={el => { noteRefs.current[log.exerciseId] = el }}
-                  >
-                    <textarea
-                      className="session-notes-input"
-                      placeholder="Add a note for this exercise…"
-                      value={log.notes ?? ''}
-                      onChange={e => updateNotes(li, e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-                )}
+                <div
+                  className={`session-notes-wrap ${openNotes.has(log.exerciseId) ? 'session-notes-wrap--open' : ''}`}
+                  ref={el => { noteRefs.current[log.exerciseId] = el }}
+                >
+                  <textarea
+                    className="session-notes-input"
+                    placeholder="Add a note for this exercise…"
+                    value={log.notes ?? ''}
+                    onChange={e => updateNotes(li, e.target.value)}
+                    rows={3}
+                  />
+                </div>
 
                 <div className="session-sets">
                   {log.sets.map((set, si) => (
@@ -740,7 +754,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
         )}
 
         {/* Finish + Abandon */}
-        <div className="session-finish-inline">
+        <div className="session-finish-inline" ref={finishInlineRef}>
           {allDone && (
             <p className="session-finish-all-done">All sets complete!</p>
           )}
@@ -765,6 +779,23 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
           </button>
         </div>
       </div>
+
+      {/* Sticky Finish — mirrors the in-flow button, shown only while that one is off-screen */}
+      {!finishInlineVisible && (
+        <div className="session-finish-sticky">
+          <button
+            className={`session-finish-main session-finish-sticky-btn ${allDone ? 'session-finish-main--done' : ''} ${warnPending ? 'session-finish-main--warn' : ''}`}
+            onClick={handleFinishClick}
+            disabled={finishing}
+          >
+            {finishing
+              ? <span className="session-spinner" />
+              : warnPending
+                ? 'Tap again to confirm'
+                : 'Finish Workout'}
+          </button>
+        </div>
+      )}
 
       {/* Rest timer overlay */}
       {restDuration !== null && (

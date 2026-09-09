@@ -57,6 +57,7 @@ function dbSessionToApp(s) {
           weight:    Number(ss.weight),
           completed: ss.completed,
           isPR:      ss.is_pr,
+          prKind:    ss.pr_kind ?? null,
         })),
     }))
 
@@ -462,6 +463,7 @@ export async function saveSession(session) {
         weight:         s.weight,
         completed:      s.completed,
         is_pr:          s.isPR ?? false,
+        pr_kind:        s.prKind ?? null,
       })
     }
   }

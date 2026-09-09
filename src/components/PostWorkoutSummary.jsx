@@ -86,15 +86,6 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
     fetchAiSummary()
   }, [])
 
-  function handleShare() {
-    const text = `Just finished ${template.name}! 💪 ${fmtVolume(volume)} ${unit} volume${prsHit > 0 ? ` · ${prsHit} new PR${prsHit > 1 ? 's' : ''}` : ''} — tracked with session`
-    if (navigator.share) {
-      navigator.share({ title: 'Workout Complete', text }).catch(() => {})
-    } else {
-      navigator.clipboard?.writeText(text)
-    }
-  }
-
   const hasPRs    = prsHit > 0
   const isPartial = totalSets > 0 && completedSets < totalSets && completedSets > 0
 
@@ -188,7 +179,10 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
                 </div>
                 <div className="pws-sets">
                   {done.map((s, j) => (
-                    <span key={j} className={`pws-set ${s.isPR ? 'pws-set--pr' : ''}`}>
+                    <span
+                      key={j}
+                      className={`pws-set ${s.isPR ? `pws-set--pr${s.prKind === 'reps' ? '-reps' : s.prKind === 'both' ? '-both' : ''}` : ''}`}
+                    >
                       {s.weight > 0 ? `${s.weight} × ${s.reps}` : `${s.reps} reps`}
                     </span>
                   ))}
@@ -267,7 +261,6 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
 
       {/* Sticky footer */}
       <div className="pws-footer">
-        <button className="pws-share-btn" onClick={handleShare}>Share</button>
         <button className="pws-done-btn" onClick={onDone}>Done</button>
       </div>
     </div>

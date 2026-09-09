@@ -321,7 +321,7 @@ export default function SessionDetailScreen({ session, templateName, onBack, onD
                           </td>
                         </>
                       )}
-                      <td>{set.isPR ? 'PR' : set.completed ? '✓' : '—'}</td>
+                      <td>{set.isPR ? (set.prKind === 'reps' ? 'REP PR' : set.prKind === 'both' ? 'PR+' : 'PR') : set.completed ? '✓' : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
