@@ -110,22 +110,27 @@ if (new URLSearchParams(location.search).get('debugViewport') === '1') {
 } else if (new URLSearchParams(location.search).get('debugViewport') === '0') {
   localStorage.removeItem('debugViewport')
 }
-// Gate on data-standalone (kept in sync by syncStandalone above) rather than
-// a fresh navigator.standalone read — the whole point of this overlay is to
-// debug the standalone-only viewport math, so it should agree with whatever
-// the app itself believes "standalone" means at the moment it renders.
-if (document.documentElement.dataset.standalone === 'true' && localStorage.getItem('debugViewport') === '1') {
+// No longer gated on data-standalone: the same --app-height settling issue
+// this was built for turns out to also hit regular (non-standalone) Safari
+// tabs on first load — e.g. a bottom CTA landing up under Safari's own
+// toolbar before it's finished expanding/collapsing. The localStorage opt-in
+// below is enough to keep this from showing for everyone.
+if (localStorage.getItem('debugViewport') === '1') {
   const debugEl = document.createElement('div')
   debugEl.style.cssText = 'position:fixed;left:4px;top:4px;z-index:99999;background:rgba(255,0,0,0.85);color:#fff;font:10px/1.4 monospace;padding:4px 6px;border-radius:4px;pointer-events:none;white-space:pre;'
   document.body.appendChild(debugEl)
   function renderDebug() {
     const navEl = document.querySelector('.app-nav')
     const navRect = navEl?.getBoundingClientRect()
+    const ctaEl = document.querySelector('.landing-cta, .session-finish-main, .onboarding-continue')
+    const ctaRect = ctaEl?.getBoundingClientRect()
     const cs = getComputedStyle(document.documentElement)
     debugEl.textContent =
+      `standalone:${document.documentElement.dataset.standalone ?? 'no'}\n` +
       `innerH:${window.innerHeight} known:${knownHeight}\n` +
       `vvH:${window.visualViewport?.height ?? 'n/a'} scrH:${window.screen.height}\n` +
-      `navBottom:${navRect ? Math.round(navRect.bottom) : 'n/a (not on this screen)'} gap:${navRect ? Math.round(window.innerHeight - navRect.bottom) : 'n/a'}\n` +
+      `navBottom:${navRect ? Math.round(navRect.bottom) : 'n/a'} navGap:${navRect ? Math.round(window.innerHeight - navRect.bottom) : 'n/a'}\n` +
+      `ctaBottom:${ctaRect ? Math.round(ctaRect.bottom) : 'n/a'} ctaGap:${ctaRect ? Math.round(window.innerHeight - ctaRect.bottom) : 'n/a'}\n` +
       `safeBottom css:${cs.getPropertyValue('--safe-bottom')} raw:${cs.getPropertyValue('--safe-bottom') === 'env(safe-area-inset-bottom)' ? 'unresolved!' : 'ok'}\n` +
       `envBottomProbe:${(() => { const p = document.createElement('div'); p.style.cssText = 'position:fixed;bottom:0;height:env(safe-area-inset-bottom);width:1px;visibility:hidden'; document.body.appendChild(p); const h = p.getBoundingClientRect().height; p.remove(); return Math.round(h) })()}`
   }
