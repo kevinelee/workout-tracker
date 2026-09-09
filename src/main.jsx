@@ -100,18 +100,24 @@ if (new URLSearchParams(location.search).get('debugViewport') === '1') {
 } else if (new URLSearchParams(location.search).get('debugViewport') === '0') {
   localStorage.removeItem('debugViewport')
 }
-if (window.navigator.standalone === true && localStorage.getItem('debugViewport') === '1') {
+// Gate on data-standalone (kept in sync by syncStandalone above) rather than
+// a fresh navigator.standalone read — the whole point of this overlay is to
+// debug the standalone-only viewport math, so it should agree with whatever
+// the app itself believes "standalone" means at the moment it renders.
+if (document.documentElement.dataset.standalone === 'true' && localStorage.getItem('debugViewport') === '1') {
   const debugEl = document.createElement('div')
   debugEl.style.cssText = 'position:fixed;left:4px;top:4px;z-index:99999;background:rgba(255,0,0,0.85);color:#fff;font:10px/1.4 monospace;padding:4px 6px;border-radius:4px;pointer-events:none;white-space:pre;'
   document.body.appendChild(debugEl)
   function renderDebug() {
     const navEl = document.querySelector('.app-nav')
     const navRect = navEl?.getBoundingClientRect()
+    const cs = getComputedStyle(document.documentElement)
     debugEl.textContent =
       `innerH:${window.innerHeight} known:${knownHeight}\n` +
       `vvH:${window.visualViewport?.height ?? 'n/a'} scrH:${window.screen.height}\n` +
-      `navBottom:${navRect ? Math.round(navRect.bottom) : 'n/a'} gap:${navRect ? Math.round(window.innerHeight - navRect.bottom) : 'n/a'}\n` +
-      `safeBottom:${getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom')}`
+      `navBottom:${navRect ? Math.round(navRect.bottom) : 'n/a (not on this screen)'} gap:${navRect ? Math.round(window.innerHeight - navRect.bottom) : 'n/a'}\n` +
+      `safeBottom css:${cs.getPropertyValue('--safe-bottom')} raw:${cs.getPropertyValue('--safe-bottom') === 'env(safe-area-inset-bottom)' ? 'unresolved!' : 'ok'}\n` +
+      `envBottomProbe:${(() => { const p = document.createElement('div'); p.style.cssText = 'position:fixed;bottom:0;height:env(safe-area-inset-bottom);width:1px;visibility:hidden'; document.body.appendChild(p); const h = p.getBoundingClientRect().height; p.remove(); return Math.round(h) })()}`
   }
   // Polls rather than hooking into syncAppHeight itself: it reads knownHeight
   // and the live DOM/window state directly, so it reflects every update
