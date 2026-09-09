@@ -20,10 +20,25 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 // navigator.standalone — it does not reliably match the display-mode media
 // query, so a CSS-only check leaves the insets at 0 and the status bar
 // overlaps the header (we use black-translucent, so content runs full-bleed).
-if (window.navigator.standalone === true ||
-    window.matchMedia?.('(display-mode: standalone)').matches) {
-  document.documentElement.dataset.standalone = 'true'
+//
+// Same class of bug as --app-height below: navigator.standalone/the media
+// query can both misreport transiently right after a relaunch, before iOS
+// has settled into standalone chrome. A launch that reads wrong here used to
+// stay wrong for the entire session — no code ever re-checked it. Re-running
+// on pageshow (bfcache/relaunch restores) and on returning to the foreground
+// lets a bad initial read self-correct instead of leaving the header cramped
+// against the status bar until the next full app kill.
+function syncStandalone() {
+  if (window.navigator.standalone === true ||
+      window.matchMedia?.('(display-mode: standalone)').matches) {
+    document.documentElement.dataset.standalone = 'true'
+  }
 }
+syncStandalone()
+window.addEventListener('pageshow', syncStandalone)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') syncStandalone()
+})
 
 // The app shell is sized from --app-height rather than any viewport unit.
 // Every unit we tried misreports somewhere on iOS: svh under-reports in
