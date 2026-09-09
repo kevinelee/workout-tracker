@@ -62,6 +62,14 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const baseRepPRByWeightMapRef   = useRef(initialRepPRByWeightMap ?? {})
   const [elapsed, setElapsed] = useState(() => elapsedFromStart(startedAt))
   const [restDuration, setRestDuration] = useState(null)
+  // Forces RestTimer to remount on every new rest period, even when the
+  // duration is identical to the previous one (the common case — most
+  // workouts use one fixed rest length). Keying on restDuration itself
+  // doesn't work then: React sees the same key/value, skips the remount,
+  // and the countdown just keeps ticking from the last set's rest instead
+  // of restarting — completing a set while the ribbon was still counting
+  // down from the set before silently did nothing.
+  const restKeyRef = useRef(0)
   const [timerMinimized, setTimerMinimized] = useState(false)
   const [timerFlash, setTimerFlash] = useState(false)
   const [copiedBanner, setCopiedBanner] = useState(false)
@@ -273,6 +281,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     updateLogsAndSync(newLogs, newPrMap, newPrRepsMap, newRepPRByWeightMap)
     if (settings.restTimerDuration > 0) {
       unlockChime() // primes audio now, inside this tap, so the chime can play later from the timer callback
+      restKeyRef.current += 1
       setRestDuration(settings.restTimerDuration)
       setTimerMinimized(false) // each new rest period starts as the full modal
     }
@@ -816,7 +825,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
             <div className="rest-timer-backdrop" />
           )}
           <RestTimer
-            key={restDuration}
+            key={restKeyRef.current}
             duration={restDuration}
             minimized={timerMinimized}
             onExpand={() => setTimerMinimized(false)}
