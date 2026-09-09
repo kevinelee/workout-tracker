@@ -198,6 +198,21 @@ input, textarea, [contenteditable='true'] {
   height: 100%;
   display: flex;
   flex-direction: column;
+  /* Reserve the safe area ONCE, here, for every screen — instead of every
+     header/footer/hero across a dozen files individually remembering to add
+     var(--safe-top)/var(--safe-bottom) to its own padding. That per-component
+     approach is exactly why this kept resurfacing on screens that predated
+     the convention or were just never updated to follow it (LandingScreen,
+     AuthScreen, OnboardingScreen never referenced either variable at all).
+     Descendants use min-height/height: 100% (not another viewport unit) to
+     fill this already-inset content box exactly — see .landing, .detail,
+     .session, .wiz, .builder for the existing examples of that pattern.
+     This only reaches normal-flow/sticky content: position: fixed overlays
+     (bottom sheets, modals, the rest timer) sit outside #root's box by
+     definition and still handle their own edge insets — those are
+     unaffected and unchanged. */
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
 }
 
 h1, h2, h3 {

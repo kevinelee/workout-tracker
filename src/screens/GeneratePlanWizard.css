@@ -12,7 +12,6 @@
   display: flex;
   align-items: center;
   padding: 14px 16px;
-  padding-top: calc(14px + var(--safe-top));
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -187,7 +186,7 @@
 
 /* ── Footer ──────────────────────────────────────────────────────────────── */
 .gpw-footer {
-  padding: 16px 24px calc(32px + var(--safe-bottom));
+  padding: 16px 24px 32px;
   display: flex;
   flex-direction: column;
   gap: 10px;

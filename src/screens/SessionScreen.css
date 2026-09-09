@@ -10,7 +10,6 @@
   top: 0;
   z-index: 10;
   background: var(--bg);
-  padding-top: var(--safe-top);
 }
 
 /* Header */
@@ -210,7 +209,7 @@
   position: sticky;
   bottom: 0;
   z-index: 10;
-  padding: 10px 16px calc(10px + var(--safe-bottom));
+  padding: 10px 16px;
   background: linear-gradient(to top, var(--bg) 60%, transparent);
   animation: session-finish-sticky-in 0.2s ease-out;
 }
@@ -263,7 +262,7 @@
 
 /* Body */
 .session-body {
-  padding: 14px 16px calc(24px + var(--safe-bottom));
+  padding: 14px 16px 24px;
   display: flex;
   flex-direction: column;
   gap: 12px;
