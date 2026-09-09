@@ -15,6 +15,12 @@
   box-shadow: 0 16px 48px rgba(0,0,0,0.5);
   overflow: hidden;
   animation: rest-modal-in 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  /* Minimized, this doubles as role="button" (tap-to-expand) — the global
+     tap-highlight reset in index.css only covers real <button> elements, so
+     without this a mobile browser's default blue tap/selection highlight
+     flashes across the whole box, most visible during the bar→modal morph. */
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
   transition:
     top 0.35s cubic-bezier(0.22, 1, 0.36, 1),
     left 0.35s cubic-bezier(0.22, 1, 0.36, 1),

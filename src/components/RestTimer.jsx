@@ -59,20 +59,32 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
   // instead of requiring a dedicated backdrop tap — the backdrop is now
   // purely a visual dim (pointer-events: none in the CSS) so the page
   // underneath stays genuinely scrollable/tappable while the timer is up.
+  //
+  // The outside tap that dismisses the modal must not ALSO reach whatever
+  // was underneath it (a set's checkmark, a button, ...) — that first tap
+  // is spent just leaving the modal, nothing else. Listening on 'click' in
+  // the capture phase (rather than 'pointerdown') and calling
+  // stopPropagation lets us consume that exact click before it ever
+  // dispatches to the element the backdrop's pointer-events: none exposed
+  // underneath — a subsequent tap then reaches the app normally.
   useEffect(() => {
     if (minimized || !onMinimize) return
-    function handlePointerDown(e) {
-      if (!rootRef.current?.contains(e.target)) onMinimize()
+    function handleOutsideClick(e) {
+      if (!rootRef.current?.contains(e.target)) {
+        e.preventDefault()
+        e.stopPropagation()
+        onMinimize()
+      }
     }
     function handleScroll(e) {
       if (!rootRef.current?.contains(e.target)) onMinimize()
     }
-    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('click', handleOutsideClick, true)
     // capture: true so this also catches scrolls on nested scroll containers
     // (like .app-main), which don't bubble as regular 'scroll' events.
     document.addEventListener('scroll', handleScroll, true)
     return () => {
-      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('click', handleOutsideClick, true)
       document.removeEventListener('scroll', handleScroll, true)
     }
   }, [minimized, onMinimize])
