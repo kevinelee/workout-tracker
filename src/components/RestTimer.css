@@ -1,21 +1,60 @@
+/* One persistent element that morphs between a centered modal and a
+   top-docked ribbon, rather than swapping between two different elements.
+   Both states are expressed as left/right/top (never a raw width, which
+   can't transition to/from "auto") plus border-radius/padding/box-shadow —
+   all plain animatable lengths, so toggling .rest-timer--minimized just
+   transitions smoothly. The one thing this does NOT interpolate is height:
+   the inner content swaps abruptly (modal <-> ribbon are different DOM),
+   so the box's height still snaps rather than smoothly resizing — a full
+   shared-element FLIP would need JS-measured heights, out of scope here. */
 .rest-timer {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 260px;
+  z-index: 50;
   background: var(--surface);
   border: 1px solid var(--border);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  overflow: hidden;
+  animation: rest-modal-in 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    top 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    right 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 0.35s ease,
+    padding 0.35s ease,
+    box-shadow 0.35s ease;
+
+  /* Expanded (default): a roughly-centered modal. Fixed 260px width via
+     mirrored left/right insets instead of left:50%+transform, so left/right
+     stay plain animatable lengths in both states. */
+  top: 30vh;
+  left: calc(50% - 130px);
+  right: calc(50% - 130px);
   border-radius: 24px;
   padding: 32px 24px 28px;
-  z-index: 50;
-  animation: rest-modal-in 0.25s cubic-bezier(0.22, 1, 0.36, 1);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
 }
 
 @keyframes rest-modal-in {
-  from { transform: translate(-50%, -50%) scale(0.88); opacity: 0; }
-  to   { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
+  from { opacity: 0; transform: scale(0.88); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Minimized: docked at the top as a slim ribbon. Triggered by a tap or a
+   scroll anywhere outside the timer (see RestTimer.jsx) — the backdrop is
+   only a visual dim now (pointer-events: none), so the page underneath
+   stays genuinely interactive/scrollable while this is up. */
+.rest-timer--minimized {
+  top: calc(var(--safe-top) + 12px);
+  left: 16px;
+  right: 16px;
+  border-radius: 16px;
+  padding: 10px 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  cursor: pointer;
+}
+
+@keyframes rest-content-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .rest-timer-inner {
@@ -23,15 +62,68 @@
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  animation: rest-content-fade-in 0.2s ease;
 }
 
 .rest-ring-wrap {
+  /* Also a button (tap the digits to change the default rest length) —
+     reset the native button chrome back to how the div looked before. */
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  padding: 0;
   position: relative;
   width: 120px;
   height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
+
+  &:not(:disabled) { cursor: pointer; }
+  &:disabled { cursor: default; }
+}
+
+.rest-duration-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.rest-duration-picker-label {
+  font-size: 12px;
+  color: var(--text);
+  margin: 0;
+}
+
+.rest-duration-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.rest-duration-opt {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-h);
+  font-size: 13px;
+  font-family: var(--sans);
+  padding: 8px 12px;
+  cursor: pointer;
+  min-height: 36px;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+
+  &:hover { border-color: var(--accent-border); }
+}
+
+.rest-duration-opt--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 .rest-ring {
@@ -122,33 +214,18 @@
   &:active { transform: scale(0.98); filter: brightness(0.95); }
 }
 
-/* Docked ribbon — the minimized state. Tapping the backdrop no longer fully
-   dismisses the timer; it collapses to this instead, so the countdown keeps
-   running without blocking the rest of the screen. Same countdown state as
-   the full modal, just a different render of it (see RestTimer.jsx) — no
-   shared-element FLIP morph, just a coordinated fade/slide on each side. */
-.rest-ribbon {
-  position: fixed;
-  left: 16px;
-  right: 16px;
-  bottom: calc(16px + var(--safe-bottom));
-  z-index: 50;
+/* Ribbon content — fills the full padded box edge-to-edge (negative margin
+   cancels .rest-timer--minimized's own 10px/14px padding) so the progress
+   fill can span the whole rounded box, then re-applies the same padding to
+   its own children. Coupled to that padding value by design. */
+.rest-ribbon-inner {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 10px 8px 10px 14px;
-  cursor: pointer;
-  overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-  animation: rest-ribbon-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@keyframes rest-ribbon-in {
-  from { transform: translateY(20px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
+  margin: -10px -14px;
+  padding: 10px 14px;
+  animation: rest-content-fade-in 0.2s ease;
 }
 
 .rest-ribbon-fill {

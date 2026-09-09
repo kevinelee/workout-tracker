@@ -689,13 +689,15 @@
   &:hover { opacity: 1; }
 }
 
-/* Backdrop behind rest timer modal */
+/* Backdrop behind rest timer modal — visual dim only. RestTimer itself
+   detects taps/scrolls outside its own bounds to minimize (so the page
+   underneath stays genuinely interactive), so this never captures input. */
 .rest-timer-backdrop {
   position: fixed;
   inset: 0;
   z-index: 49;
   background: rgba(0, 0, 0, 0.55);
-  cursor: pointer;
+  pointer-events: none;
 }
 
 /* Abandon modal */

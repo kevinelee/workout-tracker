@@ -3,6 +3,18 @@
 
 import { nanoid } from 'nanoid'
 
+// Shared between SettingsScreen (the main editor) and RestTimer (tap the
+// countdown digits to change it in place, mid-workout).
+export const REST_OPTIONS = [
+  { label: 'Off', value: 0 },
+  { label: '30s', value: 30 },
+  { label: '45s', value: 45 },
+  { label: '1m',  value: 60 },
+  { label: '90s', value: 90 },
+  { label: '2m',  value: 120 },
+  { label: '3m',  value: 180 },
+]
+
 /**
  * Exercise — a single movement in the library
  * { id, name, category, muscleGroup, isCustom }

@@ -3,17 +3,8 @@ import { getCachedCustomExercises, getCustomExercises, saveCustomExercise, delet
 import { exportJSON, exportCSV } from '../utils/export'
 import { updatePassword, supabase, callFunction } from '../lib/supabase'
 import FeedbackModal from '../components/FeedbackModal'
+import { REST_OPTIONS } from '../data/models'
 import './SettingsScreen.css'
-
-const REST_OPTIONS = [
-  { label: 'Off', value: 0 },
-  { label: '30s', value: 30 },
-  { label: '45s', value: 45 },
-  { label: '1m',  value: 60 },
-  { label: '90s', value: 90 },
-  { label: '2m',  value: 120 },
-  { label: '3m',  value: 180 },
-]
 
 const SCHEME_OPTIONS = [
   { label: 'Default', value: 'default' },
