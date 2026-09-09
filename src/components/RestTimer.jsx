@@ -13,7 +13,12 @@ function fmt(seconds) {
 }
 
 // duration = total seconds for this rest period
-export default function RestTimer({ duration, onDone, onSkip }) {
+// showFinish/onFinish surface a "Finish Workout" action instead of just
+// Skip, for when this rest period follows the last set of the workout.
+// minimized/onExpand render a docked ribbon instead of the full modal — the
+// countdown itself (state + interval below) is unaffected by which one is
+// showing, so minimizing never resets or desyncs the timer.
+export default function RestTimer({ duration, onDone, onSkip, showFinish, onFinish, minimized, onExpand }) {
   const endAtRef = useRef(Date.now() + duration * 1000)
   const [remaining, setRemaining] = useState(duration)
   const tickedRef = useRef(new Set())
@@ -47,6 +52,23 @@ export default function RestTimer({ duration, onDone, onSkip }) {
   const circumference = 2 * Math.PI * 52
   const dashOffset = circumference * progress
 
+  if (minimized) {
+    return (
+      <div className="rest-ribbon" onClick={onExpand} role="button" tabIndex={0}>
+        <div className="rest-ribbon-fill" style={{ width: `${(1 - progress) * 100}%` }} />
+        <span className="rest-ribbon-time">{fmt(remaining)}</span>
+        <span className="rest-ribbon-label">{showFinish ? 'All sets complete — tap to finish' : 'Resting — tap to expand'}</span>
+        <button
+          className="rest-ribbon-skip"
+          onClick={e => { e.stopPropagation(); onSkip() }}
+          aria-label={showFinish ? 'Dismiss' : 'Skip rest'}
+        >
+          ✕
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="rest-timer">
       <div className="rest-timer-inner">
@@ -63,7 +85,15 @@ export default function RestTimer({ duration, onDone, onSkip }) {
           </svg>
           <span className="rest-countdown">{fmt(remaining)}</span>
         </div>
-        <button className="rest-skip-btn" onClick={onSkip}>Skip</button>
+        {showFinish ? (
+          <>
+            <p className="rest-all-done">All sets complete!</p>
+            <button className="rest-finish-btn" onClick={onFinish}>Finish Workout</button>
+            <button className="rest-skip-btn rest-skip-btn--secondary" onClick={onSkip}>Not yet</button>
+          </>
+        ) : (
+          <button className="rest-skip-btn" onClick={onSkip}>Skip</button>
+        )}
       </div>
     </div>
   )

@@ -117,16 +117,16 @@ and removing the low-context post-workout Share button.
 **Depends on**: none directly, but item 11 (workout screen revamp) explicitly wants this done first if feasible
 **Effort**: Medium–Large. State model is simple (the countdown already survives visibility changes via `endAtRef`/timestamp math, not a running interval that could desync), but the docked-ribbon layout and a smooth modal→ribbon morph is genuine animation work.
 
+---
+
+### Phase C — Design pass (gated)
+
 #### 10. Dial slider for number entry
 **Understood**: reps/weight currently use tap-to-edit (`EditableValue` in [SessionSetRow.jsx:5](src/components/SessionSetRow.jsx:5)) plus +/- steppers (`HoldButton` for weight, plain buttons for reps). Item asks for a dial/slider as an additional or alternative input method.
 **Touches**: `SessionSetRow.jsx` (new control alongside/replacing steppers), `SessionSetRow.css`
 **Note**: no slider/dial library in dependencies — custom pointer-drag math needed. Must integrate with existing kg/lbs conversion (`dispWeight`/`storeWeight` in [SessionSetRow.jsx:53-55](src/components/SessionSetRow.jsx:53)) and the cardio/stretch/"both" row variants, which already branch into several different stepper layouts — the dial needs a design decision per variant, not just the plain reps/weight case.
 **Depends on**: none, but the "alongside or replacing steppers" decision affects how much of item 11's layout work is redundant if done before it
 **Effort**: Medium–Large. The gesture math itself is bounded; the real cost is that `SessionSetRow` already has five distinct layout branches (plain, stretch, cardio-distance, cardio-time, "both") and the dial needs to work in each.
-
----
-
-### Phase C — Design pass (gated)
 
 #### 11. Current workout UI revamp
 **Understood**: as specified — a cohesive pass on the active-workout screen once its underlying interactions have changed shape.
