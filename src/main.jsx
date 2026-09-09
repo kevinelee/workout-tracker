@@ -81,6 +81,16 @@ window.addEventListener('orientationchange', resyncAppHeight)
 // never fires there at all.
 window.addEventListener('pageshow', syncAppHeight)
 window.visualViewport?.addEventListener('resize', syncAppHeight)
+// Also re-check on returning to the foreground — the same trigger already
+// used for syncStandalone above. A resume that comes back without firing
+// resize/pageshow (observed as the bottom nav sitting above the true device
+// edge, with the physical screen corners visible below it — exactly the
+// "bottom strip unpainted" case this comment warned about) previously had no
+// remaining chance to correct knownHeight for the rest of the session. Since
+// knownHeight only ever grows, this is safe to call as often as we like.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') syncAppHeight()
+})
 setTimeout(syncAppHeight, 100)
 setTimeout(syncAppHeight, 500)
 setTimeout(syncAppHeight, 1500)
