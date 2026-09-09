@@ -1,6 +1,8 @@
 /* ── Loading screen ── */
 .app-loading {
-  min-height: 100svh;
+  /* #root already reserves the safe area and is sized from --app-height —
+     see index.css and the matching comment in LandingScreen.css. */
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -57,7 +59,6 @@
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   padding: 14px 20px;
-  padding-top: calc(14px + var(--safe-top));
   border-bottom: 1px solid var(--border);
   /* Same non-scrollable region as .app-nav — refuse page-panning drags here too. */
   touch-action: none;
@@ -577,7 +578,6 @@
   border-top: 1px solid var(--border);
   background: var(--bg);
   flex-shrink: 0;
-  padding-bottom: var(--safe-bottom);
   /* The nav is outside .app-main, so a drag starting here is picked up by the
      document and pans the whole page (leaving it offset until the next tap).
      Taps still fire — this only refuses the pan gesture. */

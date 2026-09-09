@@ -1,7 +1,9 @@
 .pws {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+  /* #root already reserves the safe area and is sized from --app-height —
+     see index.css and the matching comment in LandingScreen.css. */
+  min-height: 100%;
   background: var(--bg);
 }
 
@@ -12,7 +14,6 @@
   flex-direction: column;
   align-items: center;
   padding: 48px 24px 32px;
-  padding-top: calc(48px + var(--safe-top));
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   gap: 10px;

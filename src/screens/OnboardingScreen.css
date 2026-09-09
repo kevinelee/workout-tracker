@@ -1,5 +1,7 @@
 .onboarding {
-  min-height: 100dvh;
+  /* #root already reserves the safe area and is sized from --app-height —
+     see index.css and the matching comment in LandingScreen.css. */
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;

@@ -1,5 +1,7 @@
 .auth {
-  min-height: 100svh;
+  /* #root already reserves the safe area and is sized from --app-height —
+     see index.css and the matching comment in LandingScreen.css. */
+  min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
