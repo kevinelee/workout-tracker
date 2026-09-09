@@ -62,6 +62,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const baseRepPRByWeightMapRef   = useRef(initialRepPRByWeightMap ?? {})
   const [elapsed, setElapsed] = useState(() => elapsedFromStart(startedAt))
   const [restDuration, setRestDuration] = useState(null)
+  const [timerMinimized, setTimerMinimized] = useState(false)
   const [timerFlash, setTimerFlash] = useState(false)
   const [copiedBanner, setCopiedBanner] = useState(false)
   const [hasCopiedLastSession, setHasCopiedLastSession] = useState(false)
@@ -273,6 +274,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     if (settings.restTimerDuration > 0) {
       unlockChime() // primes audio now, inside this tap, so the chime can play later from the timer callback
       setRestDuration(settings.restTimerDuration)
+      setTimerMinimized(false) // each new rest period starts as the full modal
     }
 
     // Celebrate when all sets (including any added extras) are done
@@ -797,13 +799,19 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
         </div>
       )}
 
-      {/* Rest timer overlay */}
+      {/* Rest timer overlay — the backdrop minimizes it to a docked ribbon
+          rather than dismissing it, so a stray tap outside the modal
+          doesn't cancel the rest period; Skip/Finish still end it outright. */}
       {restDuration !== null && (
         <>
-          <div className="rest-timer-backdrop" onClick={() => setRestDuration(null)} />
+          {!timerMinimized && (
+            <div className="rest-timer-backdrop" onClick={() => setTimerMinimized(true)} />
+          )}
           <RestTimer
             key={restDuration}
             duration={restDuration}
+            minimized={timerMinimized}
+            onExpand={() => setTimerMinimized(false)}
             onDone={() => {
               setRestDuration(null)
               setTimerFlash(true)
@@ -812,6 +820,11 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
               setTimeout(() => setTimerFlash(false), 600)
             }}
             onSkip={() => setRestDuration(null)}
+            showFinish={allDone}
+            onFinish={() => {
+              setRestDuration(null)
+              handleFinishClick()
+            }}
           />
         </>
       )}

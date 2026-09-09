@@ -90,3 +90,110 @@
     background: rgba(192, 132, 252, 0.08);
   }
 }
+
+.rest-skip-btn--secondary {
+  border-color: transparent;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.rest-all-done {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4ade80;
+  margin: 2px 0 0;
+}
+
+.rest-finish-btn {
+  background: #4ade80;
+  border: 1px solid #4ade80;
+  border-radius: 10px;
+  color: #0a0f0a;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--sans);
+  padding: 10px 32px;
+  cursor: pointer;
+  min-height: 44px;
+  margin-top: 10px;
+  width: 100%;
+  transition: filter 0.15s, transform 0.1s;
+
+  &:active { transform: scale(0.98); filter: brightness(0.95); }
+}
+
+/* Docked ribbon — the minimized state. Tapping the backdrop no longer fully
+   dismisses the timer; it collapses to this instead, so the countdown keeps
+   running without blocking the rest of the screen. Same countdown state as
+   the full modal, just a different render of it (see RestTimer.jsx) — no
+   shared-element FLIP morph, just a coordinated fade/slide on each side. */
+.rest-ribbon {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(16px + var(--safe-bottom));
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 10px 8px 10px 14px;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  animation: rest-ribbon-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes rest-ribbon-in {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.rest-ribbon-fill {
+  position: absolute;
+  inset: 0;
+  right: auto;
+  background: var(--accent-bg);
+  transition: width 0.9s linear;
+}
+
+.rest-ribbon-time {
+  position: relative;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.rest-ribbon-label {
+  position: relative;
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rest-ribbon-skip {
+  position: relative;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover { background: var(--border); color: var(--text-h); }
+}
