@@ -219,12 +219,22 @@ export default function ExerciseSearch({ onSelect, placeholder = 'Search exercis
 
       {open && (
         <div className="es-dropdown">
+          {/* Every tappable row in this dropdown pairs onMouseDown{preventDefault}
+              with onClick, not onPointerDown — deliberately. Per the Pointer
+              Events spec, calling preventDefault() on a touch-originated
+              pointerdown suppresses the browser's compatibility mouse events
+              for that tap, including the click that follows it. On a mouse
+              that's harmless (there's no separate compatibility click to
+              suppress), but on a real touchscreen it silently killed onClick
+              here — search worked, tapping a result did nothing. mousedown
+              doesn't carry that side effect, and still keeps the input from
+              blurring before the click registers. */}
           <div className="es-muscle-chips">
             {MUSCLE_FILTERS.map(f => (
               <button
                 key={f.label}
                 className={`es-muscle-chip${activeMuscle === f.label ? ' es-muscle-chip--active' : ''}`}
-                onPointerDown={e => e.preventDefault()}
+                onMouseDown={e => e.preventDefault()}
                 onClick={() => setActiveMuscle(prev => prev === f.label ? null : f.label)}
               >
                 {f.label}
@@ -247,7 +257,7 @@ export default function ExerciseSearch({ onSelect, placeholder = 'Search exercis
                       <button
                         key={exercise.id}
                         className="es-result"
-                        onPointerDown={e => e.preventDefault()} // prevent input blur
+                        onMouseDown={e => e.preventDefault()} // prevent input blur
                         onClick={() => handleSelect(exercise)}
                       >
                         <MuscleIcon muscleGroup={exercise.muscleGroup} className="es-muscle-icon" />
@@ -266,7 +276,7 @@ export default function ExerciseSearch({ onSelect, placeholder = 'Search exercis
               {query.trim() && !exactMatch && (
                 <button
                   className="es-create-trigger"
-                  onPointerDown={e => e.preventDefault()}
+                  onMouseDown={e => e.preventDefault()}
                   onClick={() => setCreating(true)}
                 >
                   <span className="es-create-plus">+</span>
