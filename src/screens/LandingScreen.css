@@ -1,9 +1,9 @@
 .landing {
-  /* 100%, not a viewport unit — #root already reserves the safe area and
-     is sized from --app-height (see index.css), so this just fills that
+  /* 100%, not a viewport unit — #root already reserves the safe area and is
+     pinned to the window (see index.css), so this just fills that
      already-correct, already-inset content box exactly, the same pattern
-     .detail/.session/.wiz/.builder already use. A raw svh/dvh here would
-     both disagree with --app-height (svh under-reports in standalone) and
+     .detail/.session/.wiz/.builder already use. A raw svh/dvh here would both
+     disagree with the shell (on iOS those units stop short of the window) and
      double-count the safe-area inset #root already subtracted. */
   min-height: 100%;
   display: flex;

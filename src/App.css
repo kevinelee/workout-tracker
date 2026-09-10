@@ -1,6 +1,6 @@
 /* ── Loading screen ── */
 .app-loading {
-  /* #root already reserves the safe area and is sized from --app-height —
+  /* #root already reserves the safe area and is pinned to the window —
      see index.css and the matching comment in LandingScreen.css. */
   min-height: 100%;
   display: flex;
@@ -578,6 +578,17 @@
   border-top: 1px solid var(--border);
   background: var(--bg);
   flex-shrink: 0;
+  /* The bar itself runs all the way to the bottom edge of the window, and the
+     icons sit above the home indicator inside it — the way a native tab bar
+     does. #root reserves the bottom safe area for every screen (index.css),
+     which is right for content but wrong for this one element: it lifted the
+     whole bar, border and all, off the bottom edge and left a strip of bare
+     background underneath. The negative margin hands that strip back to the
+     nav, and the matching padding keeps the labels out of it, so nothing else
+     on screen loses its inset and the bar still can't collide with the home
+     indicator. */
+  margin-bottom: calc(-1 * var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
   /* The nav is outside .app-main, so a drag starting here is picked up by the
      document and pans the whole page (leaving it offset until the next tap).
      Taps still fire — this only refuses the pan gesture. */
