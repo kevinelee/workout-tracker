@@ -6,12 +6,6 @@
   --safe-top: 0px;
   --safe-bottom: 0px;
 
-  /* How far short of the real app window the layout viewport stops — set by
-     main.jsx, 0 everywhere except an iOS home-screen app with a translucent
-     status bar, where the content is moved up under the status bar but the
-     viewport is never grown back. See the long comment in main.jsx. */
-  --vp-shift: 0px;
-
   --text: #9ca3af;
   --text-muted: #8b9099;
   --text-m: #8b9099;
@@ -55,6 +49,17 @@
 :root[data-standalone='true'] {
   --safe-top: env(safe-area-inset-top);
   --safe-bottom: env(safe-area-inset-bottom);
+}
+
+/* Set by main.jsx when iOS hands the app a window shorter than the screen
+   (an old install still launching with the translucent status bar it cached).
+   That window already ends a status bar above the physical bottom edge, so it
+   cannot reach the home indicator and there is nothing for the bottom inset to
+   protect against — reserving it only pushes the nav a further 34pt up inside
+   an already-short window. The top inset stays: that one is real, the status
+   bar genuinely overlaps the view. */
+:root[data-standalone='true'][data-viewport-shifted='true'] {
+  --safe-bottom: 0px;
 }
 
 [data-theme="light"] {
@@ -190,30 +195,24 @@ input, textarea, [contenteditable='true'] {
 }
 
 #root {
-  /* Pinned to the window, not laid out inside the viewport.
-     `position: fixed` is what finally puts the bottom of the app at the
-     bottom of the screen: it lets the shell be anchored to both edges, so
-     `bottom` can reach PAST the layout viewport by --vp-shift to the
-     window's real bottom edge. Nothing sized in viewport units can do that —
-     on an iOS home-screen app the layout viewport itself stops one status
-     bar short of the window (see main.jsx), which is why every previous
-     attempt to re-measure the shell left the nav floating: the shell was
-     always exactly as tall as iOS claimed the viewport was.
-     --vp-shift is 0 in every other context (browser tabs, Android, desktop),
-     where this is just a normal full-height fixed shell.
-     Being fixed also means the shell contributes nothing to the document's
-     scrollable overflow, so the stray sliver of page scroll that used to
-     leave the app launched offset can no longer exist at all. */
+  /* Pinned to the window rather than laid out inside it. The shell fills the
+     window exactly and, being fixed, contributes nothing to the document's
+     scrollable overflow — so the stray sliver of page scroll that used to
+     leave the app launched offset can no longer exist at all.
+     Note that `bottom: 0` is the whole window: when iOS gives the app a
+     window shorter than the screen there is no reaching past it, because the
+     view is clipped at its own bottom edge (measured on device — content
+     below it is cut off, not just unpainted). That shift is fixed in
+     index.html, at the source. */
   position: fixed;
   top: 0;
-  bottom: calc(-1 * var(--vp-shift));
-  /* Centered with left+transform rather than margin: auto, deliberately.
-     The transform makes #root the containing block for every
-     `position: fixed` descendant — bottom sheets, modals, the post-workout
-     footer, the rest-timer backdrop — so they all resolve `inset: 0` /
-     `bottom: 0` against this corrected box and reach the true bottom edge
-     too, instead of each one needing its own copy of the correction and the
-     next new overlay forgetting it again. */
+  bottom: 0;
+  /* Centered with left+transform rather than margin: auto. The transform also
+     makes #root the containing block for every `position: fixed` descendant —
+     bottom sheets, modals, the post-workout footer, the rest-timer backdrop —
+     which on mobile is the same box they already resolved against, and on
+     desktop scopes them to the app column instead of the whole browser
+     window. */
   left: 50%;
   transform: translateX(-50%);
   width: 100%;

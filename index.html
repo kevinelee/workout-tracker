@@ -5,7 +5,16 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Deliberately NOT black-translucent. Asking for a translucent status bar
+         moves the web view up under the status bar but never grows it back, so
+         iOS hands the app a view that is one status bar (62pt on an iPhone 16
+         Pro) shorter than the screen and anchored to the top. Measured on
+         device: the view is [0, 812] on an 874pt screen, and anything laid out
+         below 812 is clipped, not merely unpainted — the bottom nav was cut in
+         half mid-icon. "black" keeps the view below the status bar, where its
+         bottom edge is the bottom of the screen and env(safe-area-inset-top)
+         is 0, so #root's top inset collapses on its own. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <title>session</title>
   </head>
   <body>

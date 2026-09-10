@@ -559,8 +559,7 @@
 /* Add exercise fullscreen overlay */
 .session-add-ex-overlay {
   /* inset: 0 against #root, which is itself pinned to the window (index.css),
-     so this fills exactly the same box as the app shell — including the strip
-     below the layout viewport that --vp-shift recovers. It no longer needs
+     so this fills exactly the same box as the app shell. It no longer needs
      --app-height for that: the containing block is already the right size. */
   position: fixed;
   inset: 0;

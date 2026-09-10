@@ -40,35 +40,29 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') syncStandalone()
 })
 
-// How far the layout viewport falls short of the actual app window.
+// Detect an app window that is shorter than the screen it is running on.
 //
-// This is the whole bottom-nav bug. An iOS home-screen app that asks for a
-// translucent status bar (apple-mobile-web-app-status-bar-style, set in
-// index.html) gets its content moved up under that status bar — but the
-// layout viewport is never grown back to match. The window is the full
-// screen; window.innerHeight, every vh/dvh/svh unit, and the containing
-// block every `position: fixed` element resolves against all stop one
-// status bar (62pt on an iPhone 16 Pro) above the physical bottom edge.
+// An iOS home-screen app that asks for a translucent status bar gets its web
+// view moved up under that status bar without the view ever being grown back
+// to match. Measured on device (iPhone 16 Pro, 874pt screen): the view is
+// [0, 812] — one status bar short — and it is a real, hard edge. Content laid
+// out below 812pt is CLIPPED, not just left unpainted: an earlier attempt to
+// reach past it pushed the nav into that strip and the icons were cut in half.
+// Nothing in CSS can put pixels down there.
 //
-// So nothing anchored to the bottom of the layout viewport can reach the
-// bottom of the screen, and no amount of re-measuring the shell fixes it:
-// the shell was always exactly as tall as iOS said the viewport was. That
-// is why the nav kept floating ~60px up, plus another ~34px once
-// env(safe-area-inset-bottom) was reserved inside that already-short box.
+// index.html no longer asks for the translucent status bar, which is the fix
+// for that shift. But iOS can keep using the metadata it cached when the app
+// was first added to the home screen, so an existing install may still launch
+// short until it is re-added. This handles that case: when the window is
+// short, env(safe-area-inset-bottom) is pointless — the view already ends
+// 62pt above the physical bottom edge, nowhere near the home indicator — so
+// index.css drops that inset and the nav sits flush with the bottom of the
+// view instead of another 34pt above it.
 //
-// Measure the shortfall here and publish it as --vp-shift; index.css uses it
-// to let #root extend past the short viewport down to the window's real
-// bottom edge.
-//
-// Guarded hard, because a wrongly positive value pushes the nav off the
-// bottom instead of onto it. It only applies when:
-//   - running as an installed home-screen app (a browser tab's missing
-//     height is its own toolbars, which are real and must not be covered),
-//   - portrait (screen.width/height swap on rotation; the manifest locks
-//     the app to portrait anyway), and
-//   - the shortfall matches env(safe-area-inset-top) within a few px, which
-//     is the signature of this specific status-bar shift rather than of any
-//     other viewport we don't understand.
+// Guarded to the signature of exactly that shift: installed home-screen app,
+// portrait, and a shortfall matching env(safe-area-inset-top). Any other
+// missing height (a browser's own toolbars) is real and must not be
+// reclaimed.
 function readSafeInset(side) {
   const probe = document.createElement('div')
   probe.style.cssText =
@@ -94,7 +88,8 @@ function syncViewportShift() {
     }
   }
   viewportShift = shift
-  document.documentElement.style.setProperty('--vp-shift', `${shift}px`)
+  if (shift > 0) document.documentElement.dataset.viewportShifted = 'true'
+  else delete document.documentElement.dataset.viewportShifted
 }
 
 // The app shell is sized from --app-height rather than any viewport unit.
@@ -125,9 +120,9 @@ let knownHeight = 0
 function syncAppHeight() {
   knownHeight = Math.max(knownHeight, window.innerHeight)
   document.documentElement.style.setProperty('--app-height', `${knownHeight}px`)
-  // --vp-shift is derived from the same reading, so it re-settles on exactly
-  // the same triggers instead of being measured once during a launch that
-  // may not have settled yet.
+  // The short-window check is derived from the same reading, so it re-settles
+  // on exactly the same triggers instead of being measured once during a
+  // launch that may not have settled yet.
   syncViewportShift()
 }
 function resyncAppHeight() {
