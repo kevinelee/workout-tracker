@@ -6,6 +6,12 @@
   --safe-top: 0px;
   --safe-bottom: 0px;
 
+  /* How far short of the real app window the layout viewport stops — set by
+     main.jsx, 0 everywhere except an iOS home-screen app with a translucent
+     status bar, where the content is moved up under the status bar but the
+     viewport is never grown back. See the long comment in main.jsx. */
+  --vp-shift: 0px;
+
   --text: #9ca3af;
   --text-muted: #8b9099;
   --text-m: #8b9099;
@@ -153,11 +159,11 @@ input, textarea, select {
 }
 
 html, body {
-  /* --app-height is window.innerHeight, kept in sync by main.jsx. The shell,
-     #root and the document all measure from that one value, so they cannot
-     disagree the way svh/dvh/% did — and because it is re-read on resize the
-     shell still grows when the browser chrome retracts. The unit fallbacks
-     only matter for the first paint if the script hasn't run yet. */
+  /* --app-height is window.innerHeight, kept in sync by main.jsx. The document
+     is held to exactly that so it never becomes scrollable behind the shell —
+     #root itself is fixed and anchored to the window (see below), so it no
+     longer takes its height from here. The unit fallbacks only matter for the
+     first paint if the script hasn't run yet. */
   height: 100svh;
   height: 100dvh;
   height: var(--app-height, 100dvh);
@@ -184,18 +190,41 @@ input, textarea, [contenteditable='true'] {
 }
 
 #root {
+  /* Pinned to the window, not laid out inside the viewport.
+     `position: fixed` is what finally puts the bottom of the app at the
+     bottom of the screen: it lets the shell be anchored to both edges, so
+     `bottom` can reach PAST the layout viewport by --vp-shift to the
+     window's real bottom edge. Nothing sized in viewport units can do that —
+     on an iOS home-screen app the layout viewport itself stops one status
+     bar short of the window (see main.jsx), which is why every previous
+     attempt to re-measure the shell left the nav floating: the shell was
+     always exactly as tall as iOS claimed the viewport was.
+     --vp-shift is 0 in every other context (browser tabs, Android, desktop),
+     where this is just a normal full-height fixed shell.
+     Being fixed also means the shell contributes nothing to the document's
+     scrollable overflow, so the stray sliver of page scroll that used to
+     leave the app launched offset can no longer exist at all. */
+  position: fixed;
+  top: 0;
+  bottom: calc(-1 * var(--vp-shift));
+  /* Centered with left+transform rather than margin: auto, deliberately.
+     The transform makes #root the containing block for every
+     `position: fixed` descendant — bottom sheets, modals, the post-workout
+     footer, the rest-timer backdrop — so they all resolve `inset: 0` /
+     `bottom: 0` against this corrected box and reach the true bottom edge
+     too, instead of each one needing its own copy of the correction and the
+     next new overlay forgetting it again. */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
   max-width: 480px; /* mobile-first, centered on desktop */
-  margin: 0 auto;
-  /* Matches the document exactly (see html, body above), so the shell inside
-     can never be taller than the viewport and leave the page a sliver of
-     scroll — that sliver is what launched the app offset, nav floating above
-     the bottom edge, until a drag scrolled it back to 0. It has to be a
-     definite height, not min-height: with min-height the shell grows to fit
-     its content instead of clipping to the viewport, .app-main stops being
-     the scroller, and the whole document scrolls instead. The pre-app screens
-     (auth, onboarding) are taller than this and simply overflow, scrolling
-     the document the way they always have. */
-  height: 100%;
+  /* The pre-app screens (auth, onboarding) can be taller than the window;
+     they used to overflow and scroll the document, which is no longer
+     possible now that the shell is fixed, so the shell scrolls them itself.
+     In-app screens never reach this — .app fills the shell exactly and
+     .app-main stays the scroller. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   /* Reserve the safe area ONCE, here, for every screen — instead of every
@@ -207,10 +236,8 @@ input, textarea, [contenteditable='true'] {
      Descendants use min-height/height: 100% (not another viewport unit) to
      fill this already-inset content box exactly — see .landing, .detail,
      .session, .wiz, .builder for the existing examples of that pattern.
-     This only reaches normal-flow/sticky content: position: fixed overlays
-     (bottom sheets, modals, the rest timer) sit outside #root's box by
-     definition and still handle their own edge insets — those are
-     unaffected and unchanged. */
+     Bars that are meant to paint edge-to-edge (the bottom nav) cancel the
+     bottom half of it with a negative margin — see .app-nav in App.css. */
   padding-top: var(--safe-top);
   padding-bottom: var(--safe-bottom);
 }

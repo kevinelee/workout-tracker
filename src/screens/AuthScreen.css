@@ -1,5 +1,5 @@
 .auth {
-  /* #root already reserves the safe area and is sized from --app-height —
+  /* #root already reserves the safe area and is pinned to the window —
      see index.css and the matching comment in LandingScreen.css. */
   min-height: 100%;
   display: flex;

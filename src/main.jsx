@@ -40,6 +40,63 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') syncStandalone()
 })
 
+// How far the layout viewport falls short of the actual app window.
+//
+// This is the whole bottom-nav bug. An iOS home-screen app that asks for a
+// translucent status bar (apple-mobile-web-app-status-bar-style, set in
+// index.html) gets its content moved up under that status bar — but the
+// layout viewport is never grown back to match. The window is the full
+// screen; window.innerHeight, every vh/dvh/svh unit, and the containing
+// block every `position: fixed` element resolves against all stop one
+// status bar (62pt on an iPhone 16 Pro) above the physical bottom edge.
+//
+// So nothing anchored to the bottom of the layout viewport can reach the
+// bottom of the screen, and no amount of re-measuring the shell fixes it:
+// the shell was always exactly as tall as iOS said the viewport was. That
+// is why the nav kept floating ~60px up, plus another ~34px once
+// env(safe-area-inset-bottom) was reserved inside that already-short box.
+//
+// Measure the shortfall here and publish it as --vp-shift; index.css uses it
+// to let #root extend past the short viewport down to the window's real
+// bottom edge.
+//
+// Guarded hard, because a wrongly positive value pushes the nav off the
+// bottom instead of onto it. It only applies when:
+//   - running as an installed home-screen app (a browser tab's missing
+//     height is its own toolbars, which are real and must not be covered),
+//   - portrait (screen.width/height swap on rotation; the manifest locks
+//     the app to portrait anyway), and
+//   - the shortfall matches env(safe-area-inset-top) within a few px, which
+//     is the signature of this specific status-bar shift rather than of any
+//     other viewport we don't understand.
+function readSafeInset(side) {
+  const probe = document.createElement('div')
+  probe.style.cssText =
+    `position:fixed;bottom:0;left:0;width:1px;visibility:hidden;pointer-events:none;height:env(safe-area-inset-${side})`
+  document.body.appendChild(probe)
+  const px = probe.getBoundingClientRect().height
+  probe.remove()
+  return Math.round(px)
+}
+
+let viewportShift = 0
+function syncViewportShift() {
+  let shift = 0
+  const screenHeight = window.screen?.height ?? 0
+  const portrait = window.innerHeight >= window.innerWidth
+  if (document.documentElement.dataset.standalone === 'true' && portrait && screenHeight) {
+    const shortfall = Math.round(screenHeight - window.innerHeight)
+    // The probe forces a synchronous layout, so only reach for it once there
+    // is actually a shortfall to explain — this runs on every resize.
+    if (shortfall > 0) {
+      const topInset = readSafeInset('top')
+      if (topInset > 0 && Math.abs(shortfall - topInset) <= 4) shift = shortfall
+    }
+  }
+  viewportShift = shift
+  document.documentElement.style.setProperty('--vp-shift', `${shift}px`)
+}
+
 // The app shell is sized from --app-height rather than any viewport unit.
 // Every unit we tried misreports somewhere on iOS: svh under-reports in
 // standalone and leaves the bottom strip unpainted, dvh disagreed with the
@@ -68,6 +125,10 @@ let knownHeight = 0
 function syncAppHeight() {
   knownHeight = Math.max(knownHeight, window.innerHeight)
   document.documentElement.style.setProperty('--app-height', `${knownHeight}px`)
+  // --vp-shift is derived from the same reading, so it re-settles on exactly
+  // the same triggers instead of being measured once during a launch that
+  // may not have settled yet.
+  syncViewportShift()
 }
 function resyncAppHeight() {
   knownHeight = 0
@@ -129,6 +190,7 @@ if (localStorage.getItem('debugViewport') === '1') {
       `standalone:${document.documentElement.dataset.standalone ?? 'no'}\n` +
       `innerH:${window.innerHeight} known:${knownHeight}\n` +
       `vvH:${window.visualViewport?.height ?? 'n/a'} scrH:${window.screen.height}\n` +
+      `vpShift:${viewportShift} rawShortfall:${Math.round(window.screen.height - window.innerHeight)} topInset:${readSafeInset('top')}\n` +
       `navBottom:${navRect ? Math.round(navRect.bottom) : 'n/a'} navGap:${navRect ? Math.round(window.innerHeight - navRect.bottom) : 'n/a'}\n` +
       `ctaBottom:${ctaRect ? Math.round(ctaRect.bottom) : 'n/a'} ctaGap:${ctaRect ? Math.round(window.innerHeight - ctaRect.bottom) : 'n/a'}\n` +
       `safeBottom css:${cs.getPropertyValue('--safe-bottom')} raw:${cs.getPropertyValue('--safe-bottom') === 'env(safe-area-inset-bottom)' ? 'unresolved!' : 'ok'}\n` +
