@@ -190,6 +190,7 @@ export default function App() {
   const [authReady, setAuthReady] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
   const [authMode, setAuthMode]   = useState('signin') // passed to AuthScreen after landing
+  const [seenLanding, setSeenLanding] = useState(() => localStorage.getItem('seen-landing') === '1')
   // Track the user ID we've already bootstrapped so TOKEN_REFRESHED and
   // duplicate INITIAL_SESSION events don't re-run all Supabase queries.
   const bootstrappedUidRef = useRef(null)
@@ -819,16 +820,21 @@ export default function App() {
     </div>
   )
   if (!authUser) {
-    const seenLanding = localStorage.getItem('seen-landing')
     if (!seenLanding) {
       return (
         <LandingScreen
-          onGetStarted={() => { localStorage.setItem('seen-landing', '1'); setAuthMode('signup') }}
-          onSignIn={() => { localStorage.setItem('seen-landing', '1'); setAuthMode('signin') }}
+          onGetStarted={() => { localStorage.setItem('seen-landing', '1'); setSeenLanding(true); setAuthMode('signup') }}
+          onSignIn={() => { localStorage.setItem('seen-landing', '1'); setSeenLanding(true); setAuthMode('signin') }}
         />
       )
     }
-    return <AuthScreen onAuth={user => bootstrapUser(user)} initialMode={authMode} />
+    return (
+      <AuthScreen
+        onAuth={user => bootstrapUser(user)}
+        initialMode={authMode}
+        onBack={() => { localStorage.removeItem('seen-landing'); setSeenLanding(false) }}
+      />
+    )
   }
   if (showOnboarding === null) return (
     <div className="app-loading">

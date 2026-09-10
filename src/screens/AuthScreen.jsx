@@ -10,8 +10,12 @@ function isAccessGranted() {
   return localStorage.getItem(ACCESS_CODE_KEY) === REQUIRED_CODE
 }
 
-export default function AuthScreen({ onAuth, initialMode = 'signin' }) {
-  const [mode, setMode]         = useState(isAccessGranted() ? initialMode : 'access')
+export default function AuthScreen({ onAuth, initialMode = 'signin', onBack }) {
+  // The access code gates new signups during a private beta — it was never
+  // meant to block existing account holders from signing back in. Forcing
+  // 'access' regardless of initialMode trapped both entry points (Sign in
+  // AND Get started) behind the same code-only screen, with no way out.
+  const [mode, setMode] = useState(() => (initialMode === 'signin' || isAccessGranted()) ? initialMode : 'access')
   const [email, setEmail]               = useState('')
   const [password, setPassword]         = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -20,6 +24,13 @@ export default function AuthScreen({ onAuth, initialMode = 'signin' }) {
   const [loading, setLoading]   = useState(false)
 
   function switchMode(next) {
+    // Re-check here too: arriving via 'signin' (bypassing the gate above)
+    // shouldn't let someone reach 'signup' code-free just by switching modes
+    // from inside the form.
+    if (next === 'signup' && !isAccessGranted()) {
+      setMode('access')
+      return
+    }
     setMode(next)
     setError(null)
     setConfirmPassword('')
@@ -100,6 +111,9 @@ export default function AuthScreen({ onAuth, initialMode = 'signin' }) {
             {error && <p className="auth-error">{error}</p>}
             <button className="auth-submit" type="submit">Continue</button>
           </form>
+          {onBack && (
+            <button className="auth-link" onClick={onBack}>‹ Back</button>
+          )}
         </div>
       </div>
     )
