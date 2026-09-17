@@ -30,6 +30,8 @@ import GenerateWorkoutWizard from './screens/GenerateWorkoutWizard'
 import WhatsNewModal, { hasSeenLatest, LATEST_VERSION } from './components/WhatsNewModal'
 import { ProGateProvider } from './lib/proGate'
 import { startOfThisWeek } from './utils/streaks'
+import { playChime } from './utils/sound'
+import RestBadge from './components/RestBadge'
 import './App.css'
 
 const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -745,6 +747,34 @@ export default function App() {
     setActiveSession(updated)
   }
 
+  // restEndAt/restDuration live on activeSession itself (rather than local
+  // state inside SessionScreen) so a rest period keeps counting down — and
+  // survives a reload — while the user is off on another tab. See the
+  // away-timer effect below for what finishes it while SessionScreen isn't
+  // mounted to run its own countdown.
+  function handleRestChange(restEndAt, restDuration) {
+    if (!activeSession) return
+    const updated = { ...activeSession, restEndAt, restDuration }
+    saveActiveSession(updated)
+    setActiveSession(updated)
+  }
+
+  // SessionScreen's own RestTimer handles completion (chime/vibrate) while
+  // it's mounted. Once the user has navigated away, nothing else is ticking
+  // that countdown down, so this fires the same completion once it elapses.
+  useEffect(() => {
+    if (!activeSession?.restEndAt || screen.name === 'session') return
+    const msLeft = activeSession.restEndAt - Date.now()
+    const finish = () => {
+      handleRestChange(null, null)
+      navigator.vibrate?.([200, 100, 200])
+      playChime()
+    }
+    if (msLeft <= 0) { finish(); return }
+    const id = setTimeout(finish, msLeft)
+    return () => clearTimeout(id)
+  }, [activeSession?.restEndAt, screen.name]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleSessionFinish(session, template) {
     clearActiveSession()
     // Navigate to summary immediately so the screen is never blank
@@ -984,6 +1014,7 @@ const NavShield = () => (
             settings={settings}
             programId={activeProgram?.id ?? null}
             onUpdate={handleSessionUpdate}
+            onRestChange={handleRestChange}
             onFinish={handleSessionFinish}
             onMinimize={handleSessionMinimize}
             onAbandon={handleSessionAbandon}
@@ -1079,7 +1110,14 @@ const NavShield = () => (
         <header className="app-header">
           <span className="app-header-spacer" />
           <img src="/session.png" alt="session" className="app-logo-img" />
-          <span className="app-header-spacer" />
+          <span className="app-header-spacer app-header-spacer--end">
+            {activeSession?.restEndAt && screen.name !== 'session' && (
+              <RestBadge
+                endAt={activeSession.restEndAt}
+                onClick={() => { goSession(); setActiveTab('session') }}
+              />
+            )}
+          </span>
         </header>
       )}
 

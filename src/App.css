@@ -69,6 +69,10 @@
   align-items: center;
 }
 
+.app-header-spacer--end {
+  justify-content: flex-end;
+}
+
 .app-streak-badge {
   justify-self: start;
 }

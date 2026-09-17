@@ -44,12 +44,18 @@
   to   { opacity: 1; transform: scale(1); }
 }
 
-/* Minimized: docked at the top as a slim ribbon. Triggered by a tap or a
-   scroll anywhere outside the timer (see RestTimer.jsx) — the backdrop is
-   only a visual dim now (pointer-events: none), so the page underneath
-   stays genuinely interactive/scrollable while this is up. */
+/* Minimized: docked as a slim ribbon just under the sticky session header +
+   progress bar, rather than at the very top of the screen — SessionScreen
+   measures that header's height at runtime and exposes it via
+   --rest-ribbon-top (see .session in SessionScreen.jsx), since it depends on
+   content that can wrap/reflow. The calc() fallback approximates the app
+   header + session header + progress bar stack for the rare frame before
+   that measurement lands. Triggered by a tap or a scroll anywhere outside
+   the timer (see RestTimer.jsx) — the backdrop is only a visual dim now
+   (pointer-events: none), so the page underneath stays genuinely
+   interactive/scrollable while this is up. */
 .rest-timer--minimized {
-  top: calc(var(--safe-top) + 12px);
+  top: calc(var(--rest-ribbon-top, calc(var(--safe-top) + 136px)) + 10px);
   left: 16px;
   right: 16px;
   border-radius: 16px;
