@@ -23,8 +23,12 @@ function fmt(seconds) {
 // restTimerDuration/onChangeRestTimerDuration let the countdown digits open
 // an inline picker for the *default* rest length going forward — this never
 // retroactively changes the rest period already in progress.
-export default function RestTimer({ duration, onDone, onSkip, showFinish, onFinish, minimized, onExpand, onMinimize, restTimerDuration, onChangeRestTimerDuration }) {
-  const endAtRef = useRef(Date.now() + duration * 1000)
+// endAt (epoch ms) is the persisted end time for the rest period in progress —
+// passed down so remounting this component (e.g. leaving and returning to the
+// session screen mid-rest) resumes the actual remaining time instead of
+// restarting a fresh `duration`-length countdown.
+export default function RestTimer({ duration, endAt, onDone, onSkip, showFinish, onFinish, minimized, onExpand, onMinimize, restTimerDuration, onChangeRestTimerDuration }) {
+  const endAtRef = useRef(endAt ?? Date.now() + duration * 1000)
   const [remaining, setRemaining] = useState(duration)
   const tickedRef = useRef(new Set())
   const rootRef = useRef(null)

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { createSet } from '../data/models'
 import { defaultExercises } from '../data/exerciseLibrary'
 import { getCachedCustomExercises, getCollapsedExercises, getLastSessionForTemplate, saveCollapsedExercises, saveSession, saveTemplate } from '../storage'
@@ -48,8 +48,11 @@ function elapsedFromStart(startedAt) {
   return Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
 }
 
-export default function SessionScreen({ activeSession, settings, programId, onUpdate, onFinish, onMinimize, onAbandon, onUpdateSettings }) {
-  const { template, sessionId, startedAt, logs: initialLogs, prMap: initialPrMap, prRepsMap: initialPrRepsMap, repPRByWeightMap: initialRepPRByWeightMap, aiBreakdown } = activeSession
+export default function SessionScreen({ activeSession, settings, programId, onUpdate, onRestChange, onFinish, onMinimize, onAbandon, onUpdateSettings }) {
+  const {
+    template, sessionId, startedAt, restEndAt = null, restDuration = null,
+    logs: initialLogs, prMap: initialPrMap, prRepsMap: initialPrRepsMap, repPRByWeightMap: initialRepPRByWeightMap, aiBreakdown,
+  } = activeSession
   const hasBreakdown = !!(aiBreakdown && (aiBreakdown.headline || aiBreakdown.suggestions?.length))
   const [showBreakdown, setShowBreakdown] = useState(false)
 
@@ -61,7 +64,10 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const basePrRepsMapRef          = useRef(initialPrRepsMap ?? {})
   const baseRepPRByWeightMapRef   = useRef(initialRepPRByWeightMap ?? {})
   const [elapsed, setElapsed] = useState(() => elapsedFromStart(startedAt))
-  const [restDuration, setRestDuration] = useState(null)
+  // restEndAt/restDuration live on activeSession (see destructuring above),
+  // not local state — that's what lets the rest period survive navigating
+  // away from this screen and back (App.jsx keeps ticking it and persists it
+  // alongside the rest of the active session).
   // Forces RestTimer to remount on every new rest period, even when the
   // duration is identical to the previous one (the common case — most
   // workouts use one fixed rest length). Keying on restDuration itself
@@ -71,6 +77,12 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   // down from the set before silently did nothing.
   const restKeyRef = useRef(0)
   const [timerMinimized, setTimerMinimized] = useState(false)
+  // Measured height of the sticky header + progress bar, so the minimized
+  // rest ribbon can dock just under it (--rest-ribbon-top in RestTimer.css)
+  // instead of a hardcoded pixel guess — see the .rest-timer--minimized
+  // comment in RestTimer.css for why this needs to be measured at runtime.
+  const stickyRef = useRef(null)
+  const [ribbonTop, setRibbonTop] = useState(null)
   const [timerFlash, setTimerFlash] = useState(false)
   const [copiedBanner, setCopiedBanner] = useState(false)
   const [hasCopiedLastSession, setHasCopiedLastSession] = useState(false)
@@ -114,6 +126,18 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     if (template.isQuickStart) return
     getLastSessionForTemplate(template.id).then(setLastSession)
   }, [template.id])
+
+  // Runs before paint so the ribbon never flashes at the fallback position
+  // first. The header's content can wrap (long template names, the ✎/❄
+  // badges), so its height isn't a fixed constant worth hardcoding.
+  useLayoutEffect(() => {
+    function measure() {
+      if (stickyRef.current) setRibbonTop(stickyRef.current.getBoundingClientRect().bottom)
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [])
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -282,7 +306,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     if (settings.restTimerDuration > 0) {
       unlockChime() // primes audio now, inside this tap, so the chime can play later from the timer callback
       restKeyRef.current += 1
-      setRestDuration(settings.restTimerDuration)
+      onRestChange(Date.now() + settings.restTimerDuration * 1000, settings.restTimerDuration)
       setTimerMinimized(false) // each new rest period starts as the full modal
     }
 
@@ -550,9 +574,9 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const underHalf = totalSets > 0 && completedSets < totalSets / 2
 
   return (
-    <div className="session">
+    <div className="session" style={ribbonTop != null ? { '--rest-ribbon-top': `${ribbonTop}px` } : undefined}>
       {/* Sticky header + progress bar */}
-      <div className="session-sticky">
+      <div className="session-sticky" ref={stickyRef}>
         <div className="session-header">
           <button className="session-back" onClick={onMinimize} aria-label="Minimize">‹</button>
           <div className="session-title-wrap">
@@ -819,7 +843,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
           Finish still end it outright. The backdrop is now purely a visual
           dim (pointer-events: none) so the page underneath stays scrollable
           while the modal is up — RestTimer detects "outside" itself. */}
-      {restDuration !== null && (
+      {restEndAt !== null && (
         <>
           {!timerMinimized && (
             <div className="rest-timer-backdrop" />
@@ -827,22 +851,23 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
           <RestTimer
             key={restKeyRef.current}
             duration={restDuration}
+            endAt={restEndAt}
             minimized={timerMinimized}
             onExpand={() => setTimerMinimized(false)}
             onMinimize={() => setTimerMinimized(true)}
             restTimerDuration={settings.restTimerDuration}
             onChangeRestTimerDuration={value => onUpdateSettings?.({ ...settings, restTimerDuration: value })}
             onDone={() => {
-              setRestDuration(null)
+              onRestChange(null, null)
               setTimerFlash(true)
               navigator.vibrate?.([200, 100, 200])
               playChime()
               setTimeout(() => setTimerFlash(false), 600)
             }}
-            onSkip={() => setRestDuration(null)}
+            onSkip={() => onRestChange(null, null)}
             showFinish={allDone}
             onFinish={() => {
-              setRestDuration(null)
+              onRestChange(null, null)
               handleFinishClick()
             }}
           />
