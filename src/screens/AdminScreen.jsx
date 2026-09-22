@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
 import { getFeedback, markFeedbackReviewed, archiveFeedback, getAdminActivity, getAdminStats, getAdminUserStats, getAdminUserSessions, adminTerminateSession } from '../storage'
 import { defaultExercises } from '../data/exerciseLibrary'
 
@@ -66,10 +66,13 @@ function FeedbackModal({ item, onClose, onMarkReviewed, onArchive }) {
 
 const SWIPE_THRESHOLD = 80
 const AXIS_LOCK_THRESHOLD = 8
+const FADE_DURATION = 280     // matches .swipe-content--out transition
+const COLLAPSE_DURATION = 280 // matches .swipe-outer--collapsed transition
 
-function SwipeToArchive({ onArchive, children }) {
+const SwipeToArchive = forwardRef(function SwipeToArchive({ onArchive, children }, ref) {
   const [offsetX, setOffsetX] = useState(0)
   const [swiped, setSwiped]   = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
   // Whether the red panel behind the card is mounted. Mounting it permanently
   // bleeds red at the rounded corners — the card and the panel round the same
   // 14px, and iOS rasterizes the translated card on its own layer, so the seam
@@ -119,12 +122,34 @@ function SwipeToArchive({ onArchive, children }) {
     }
   }
 
+  async function triggerArchive() {
+    setRevealing(true)
+    setSwiped(true)
+    setOffsetX(-SWIPE_THRESHOLD * 1.5)
+    await new Promise(resolve => setTimeout(resolve, FADE_DURATION))
+    // Phase 2: collapse the row's own height so the list smoothly closes the
+    // gap, instead of the item just vanishing and snapping everything below
+    // it upward. Only unmount (via onArchive, which drops it from the parent's
+    // list) once that collapse has actually finished.
+    setCollapsed(true)
+    await new Promise(resolve => setTimeout(resolve, COLLAPSE_DURATION))
+    try {
+      await onArchive()
+    } catch {
+      // Archive didn't persist — undo the exit animation so the row doesn't
+      // sit there permanently collapsed while still showing up on reload.
+      setCollapsed(false)
+      setSwiped(false)
+      settleBack()
+    }
+  }
+
+  useImperativeHandle(ref, () => ({ archive: triggerArchive }))
+
   function onTouchEnd() {
     tracking.current = false
     if (axis.current === 'x' && offsetX <= -SWIPE_THRESHOLD) {
-      setSwiped(true)
-      setOffsetX(-SWIPE_THRESHOLD * 1.5)
-      setTimeout(() => onArchive(), 280)
+      triggerArchive()
     } else {
       settleBack()
     }
@@ -142,21 +167,25 @@ function SwipeToArchive({ onArchive, children }) {
   }
 
   return (
-    <div className="swipe-wrap">
-      {revealing && <div className="swipe-reveal"><span>Archive</span></div>}
-      <div
-        className={`swipe-content${swiped ? ' swipe-content--out' : ''}${revealing ? ' swipe-content--moving' : ''}`}
-        style={{ transform: `translateX(${offsetX}px)` }}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onTouchCancel={onTouchCancel}
-      >
-        {children}
+    <div className={`swipe-outer${collapsed ? ' swipe-outer--collapsed' : ''}`}>
+      <div className="swipe-outer-inner">
+        <div className="swipe-wrap">
+          {revealing && <div className="swipe-reveal"><span>Archive</span></div>}
+          <div
+            className={`swipe-content${swiped ? ' swipe-content--out' : ''}${revealing ? ' swipe-content--moving' : ''}`}
+            style={{ transform: `translateX(${offsetX}px)` }}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchCancel}
+          >
+            {children}
+          </div>
+        </div>
       </div>
     </div>
   )
-}
+})
 
 function fmtRelative(iso) {
   if (!iso) return '—'
@@ -478,20 +507,42 @@ export default function AdminScreen({ onReviewed }) {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter]   = useState('all')
   const [selected, setSelected] = useState(null)
+  const swipeRefs = useRef(new Map())
 
   useEffect(() => {
     getFeedback().then(data => { setItems(data); setLoading(false) })
   }, [])
 
   async function handleMarkReviewed(id) {
-    await markFeedbackReviewed(id)
-    setItems(prev => prev.map(item => item.id === id ? { ...item, status: 'reviewed' } : item))
-    onReviewed?.()
+    try {
+      await markFeedbackReviewed(id)
+      setItems(prev => prev.map(item => item.id === id ? { ...item, status: 'reviewed' } : item))
+      onReviewed?.()
+    } catch (err) {
+      console.error('Failed to mark feedback reviewed', err)
+      alert('Could not save that — the change didn\'t persist. Check the Supabase RLS policy on the feedback table.')
+      throw err
+    }
   }
 
   async function handleArchive(id) {
-    await archiveFeedback(id)
-    setItems(prev => prev.map(item => item.id === id ? { ...item, status: 'archived' } : item))
+    try {
+      await archiveFeedback(id)
+      setItems(prev => prev.map(item => item.id === id ? { ...item, status: 'archived' } : item))
+    } catch (err) {
+      console.error('Failed to archive feedback', err)
+      alert('Could not archive that — the change didn\'t persist. Check the Supabase RLS policy on the feedback table.')
+      throw err
+    }
+  }
+
+  // Routes through the row's own swipe-to-archive animation when it's mounted,
+  // so button/modal archives close out the same way a swipe does instead of
+  // just vanishing.
+  function requestArchive(id) {
+    const row = swipeRefs.current.get(id)
+    if (row) row.archive()
+    else handleArchive(id)
   }
 
   const newCount = items.filter(i => i.status === 'new').length
@@ -578,7 +629,13 @@ export default function AdminScreen({ onReviewed }) {
             <ul className="admin-list">
               {filtered.map(item => (
                 <li key={item.id}>
-                <SwipeToArchive onArchive={() => handleArchive(item.id)}>
+                <SwipeToArchive
+                  ref={el => {
+                    if (el) swipeRefs.current.set(item.id, el)
+                    else swipeRefs.current.delete(item.id)
+                  }}
+                  onArchive={() => handleArchive(item.id)}
+                >
                 <div
                   className={`admin-item${item.status === 'new' ? ' admin-item--new' : ''}`}
                   onClick={() => setSelected(item.id)}
@@ -600,7 +657,7 @@ export default function AdminScreen({ onReviewed }) {
                         </button>
                       )}
                       {item.status !== 'archived' && (
-                        <button className="admin-archive-btn" onClick={() => handleArchive(item.id)}>
+                        <button className="admin-archive-btn" onClick={() => requestArchive(item.id)}>
                           Archive
                         </button>
                       )}
@@ -620,7 +677,7 @@ export default function AdminScreen({ onReviewed }) {
           item={selectedItem}
           onClose={() => setSelected(null)}
           onMarkReviewed={handleMarkReviewed}
-          onArchive={handleArchive}
+          onArchive={requestArchive}
         />
       )}
     </div>

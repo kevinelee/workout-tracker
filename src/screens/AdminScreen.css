@@ -83,7 +83,12 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+
+/* Row spacing lives on .swipe-outer (below), not here, so an archiving row
+   can animate its own margin to 0 in step with its height collapsing. */
+.admin-list li:last-child .swipe-outer {
+  margin-bottom: 0;
 }
 
 .admin-item {
@@ -687,6 +692,27 @@
 
 /* ── Swipe to archive ───────────────────────────────────────── */
 
+/* Outer collapse: once the card has faded/slid out, this shrinks the row's
+   own height (via the 1fr → 0fr grid-row trick, which animates without
+   needing a measured pixel height) so rows below ease upward instead of
+   jumping the instant the item unmounts. */
+.swipe-outer {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin-bottom: 10px;
+  transition: grid-template-rows 0.28s ease-in-out, margin-bottom 0.28s ease-in-out;
+}
+
+.swipe-outer--collapsed {
+  grid-template-rows: 0fr;
+  margin-bottom: 0;
+}
+
+.swipe-outer-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
 .swipe-wrap {
   position: relative;
   overflow: hidden;
@@ -721,7 +747,7 @@
 }
 
 .swipe-content--out {
-  transition: transform 0.28s ease, opacity 0.28s ease;
+  transition: transform 0.28s ease-in-out, opacity 0.28s ease-in-out;
   opacity: 0;
   transform: translateX(-100%) !important;
 }
