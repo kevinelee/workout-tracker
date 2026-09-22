@@ -689,6 +689,15 @@
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+
+  &:active { transform: scale(0.93); }
+}
+
+.session-menu-btn--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 @media (prefers-reduced-motion: reduce) {
