@@ -660,10 +660,12 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
             <button className="session-menu-btn" onClick={() => setExpressMenuOpen(true)} aria-label="Workout menu">⋯</button>
           ) : (
             <button
-              className={`session-edit-btn ${editMode ? 'session-edit-btn--active' : ''}`}
+              className={`session-menu-btn${editMode ? ' session-menu-btn--active' : ''}`}
               onClick={toggleEdit}
+              aria-label={editMode ? 'Done editing' : 'Edit workout'}
+              aria-pressed={editMode}
             >
-              {editMode ? 'Done' : 'Edit'}
+              ⋯
             </button>
           )}
         </div>
