@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { createSet } from '../data/models'
 import { defaultExercises } from '../data/exerciseLibrary'
 import { getCachedCustomExercises, getCollapsedExercises, getLastSessionForTemplate, getSessionView, saveCollapsedExercises, saveSession, saveSessionView, saveTemplate } from '../storage'
@@ -93,6 +93,12 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const [editMode, setEditMode] = useState(false)
   const [editVisible, setEditVisible] = useState(false)
   const editExitRef = useRef(null)
+  // Measured so the minimized rest timer ribbon can dock below the sticky
+  // header instead of overlapping it (and its Skip/expand taps stealing
+  // clicks meant for the header) — a fixed pixel guess would drift whenever
+  // the title wraps to two lines or platform font sizing changes its height.
+  const stickyRef = useRef(null)
+  const [stickyHeight, setStickyHeight] = useState(0)
   const [warnPending, setWarnPending] = useState(false)
   const warnTimerRef = useRef(null)
   const noteRefs = useRef({})
@@ -127,6 +133,16 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     if (template.isQuickStart) return
     getLastSessionForTemplate(template.id).then(setLastSession)
   }, [template.id])
+
+  useLayoutEffect(() => {
+    const el = stickyRef.current
+    if (!el) return
+    const update = () => setStickyHeight(el.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -610,9 +626,9 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const underHalf = totalSets > 0 && completedSets < totalSets / 2
 
   return (
-    <div className="session">
+    <div className="session" style={{ '--session-sticky-height': `${stickyHeight}px` }}>
       {/* Sticky header + progress bar */}
-      <div className="session-sticky">
+      <div className="session-sticky" ref={stickyRef}>
         <div className="session-header">
           <button className="session-back" onClick={onMinimize} aria-label="Minimize">‹</button>
           <div className="session-title-wrap">
