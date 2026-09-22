@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import HoldButton from './HoldButton'
 import MuscleIcon from './MuscleIcon'
 import { exerciseKind, displayWeight, displayDistance, fmtSet, hasOpenSets, nextOpenIndex } from '../utils/express'
 import './ExpressSession.css'
 
-// A big tappable number with −/+ either side. Tapping the number opens the
+// A big tappable number with −/+ underneath. Tapping the number opens the
 // keypad; the weight field's buttons use HoldButton for long-press repeat.
 function BigValue({ label, value, onSet, step, min = 0, decimal = false, hold = false, highlight = false, small = false }) {
   const [editing, setEditing] = useState(false)
@@ -87,14 +88,47 @@ function valueFields({ exercise, set, unit, onChange }) {
   return fields
 }
 
+// Removal plays a collapse before the set actually leaves the list; this is
+// how long that takes (matches .xs-set--removing in the CSS).
+const ROW_EXIT_MS = 200
+const SHEET_EXIT_MS = 240
+
+// Bottom sheet that plays its slide-down before unmounting. Children get an
+// animated close(after) so a row tap can slide the sheet away, then act.
+function Sheet({ onClose, title, children }) {
+  const [closing, setClosing] = useState(false)
+  function close(after) {
+    if (closing) return
+    setClosing(true)
+    setTimeout(() => { onClose(); after?.() }, SHEET_EXIT_MS)
+  }
+  return (
+    <div className={`sheet-backdrop${closing ? ' sheet-backdrop--closing' : ''}`} onClick={() => close()}>
+      <div className={`sheet xs-sheet${closing ? ' sheet--closing' : ''}`} onClick={e => e.stopPropagation()}>
+        <div className="sheet-handle" />
+        <p className="sheet-title">{title}</p>
+        {children(close)}
+      </div>
+    </div>
+  )
+}
+
 function ExerciseCard({
   log, logIndex, exercise, settings, prMap, bestRepsAt, lastLog, celebrating,
-  canLater, nextName, workoutDone, finishing,
+  canLater, nextName, upNextButton, workoutDone, finishing,
   onUpdateSet, onCompleteSet, onRescindSet, onAddSet, onRemoveSet, onNotes, onLater, onNext, onFinish,
 }) {
   const [focusOverride, setFocusOverride] = useState(null)
   const [editingSets, setEditingSets] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
+  const [armedSi, setArmedSi] = useState(null)    // done set showing its "Reopen" button
+  const [removingSi, setRemovingSi] = useState(null)
+  const [seenCount, setSeenCount] = useState(log.sets.length) // rows past this just got added
+  const notesRef = useRef(null)
+
+  // Adjust-during-render (not an effect): a removal shrinks the list, so
+  // nothing at or past the new length should count as "just added".
+  if (log.sets.length < seenCount) setSeenCount(log.sets.length)
 
   const firstOpen = log.sets.findIndex(s => !s.completed)
   const focus = focusOverride != null && log.sets[focusOverride] && !log.sets[focusOverride].completed
@@ -118,20 +152,52 @@ function ExerciseCard({
     ...(set.weight > currentPR ? ['weight'] : []),
     ...(set.reps > bestRepsAt(set.weight) ? ['reps'] : []),
   ]
-  const lastTime =set && lastLog ? (lastLog.sets?.[focus] ?? lastLog.sets?.[0]) : null
+  const lastTime = set && lastLog ? (lastLog.sets?.[focus] ?? lastLog.sets?.[0]) : null
   const fields = set ? valueFields({ exercise, set, unit, onChange: s => onUpdateSet(logIndex, focus, s) }) : []
+  const canRemove = log.sets.length > 1
 
   function confirm() {
     if (!set) return
     navigator.vibrate?.([10, 30, 20])
     onCompleteSet(logIndex, focus, set)
     setFocusOverride(null)
+    setArmedSi(null)
   }
 
+  // A finished set never reopens on a plain tap — that tap only reveals a
+  // "Reopen" button, so a stray touch can't undo logged work.
   function tapRow(si) {
-    if (editingSets) return
-    if (log.sets[si].completed) onRescindSet(logIndex, si)
+    if (editingSets || removingSi != null) return
+    if (log.sets[si].completed) {
+      setArmedSi(a => a === si ? null : si)
+      return
+    }
+    setArmedSi(null)
     setFocusOverride(si)
+  }
+
+  function reopen(si) {
+    onRescindSet(logIndex, si)
+    setFocusOverride(si)
+    setArmedSi(null)
+  }
+
+  function removeRow(si) {
+    if (removingSi != null) return
+    setRemovingSi(si)
+    setTimeout(() => {
+      onRemoveSet(logIndex, si)
+      setRemovingSi(null)
+      setFocusOverride(null)
+    }, ROW_EXIT_MS)
+  }
+
+  function toggleNotes() {
+    if (showNotes) { setShowNotes(false); notesRef.current?.blur(); return }
+    // Render it open synchronously so the focus lands inside this tap —
+    // iOS only raises the keyboard for a focus made during the gesture.
+    flushSync(() => setShowNotes(true))
+    notesRef.current?.focus({ preventScroll: true })
   }
 
   return (
@@ -142,30 +208,34 @@ function ExerciseCard({
           <h3 className="xs-ex-name">{exercise.name}</h3>
           <p className="xs-ex-meta">
             {exerciseDone ? `✓ All ${log.sets.length} sets done` : `Set ${focus + 1} of ${log.sets.length}`}
-            {lastTime && <span className="xs-ex-last"> · last time {fmtSet(lastTime, exercise, unit)}</span>}
+            {lastTime && <span className="xs-ex-last"> · last {fmtSet(lastTime, exercise, unit)}</span>}
           </p>
         </div>
         <button
           className={`xs-icon-btn${showNotes || log.notes ? ' xs-icon-btn--on' : ''}`}
-          onClick={() => setShowNotes(v => !v)}
-          aria-label="Notes"
+          onClick={toggleNotes}
+          aria-label={showNotes ? 'Close notes' : 'Notes'}
+          aria-expanded={showNotes}
         >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
             <rect x="4" y="2" width="12" height="16" rx="2" /><line x1="7" y1="7" x2="13" y2="7" /><line x1="7" y1="10" x2="13" y2="10" /><line x1="7" y1="13" x2="11" y2="13" />
           </svg>
         </button>
       </div>
 
-      {showNotes && (
-        <textarea
-          className="xs-notes"
-          placeholder="Add a note for this exercise…"
-          value={log.notes ?? ''}
-          onChange={e => onNotes(logIndex, e.target.value)}
-          rows={2}
-          autoFocus
-        />
-      )}
+      <div className={`xs-collapse${showNotes ? ' xs-collapse--open' : ''}`}>
+        <div className="xs-collapse-inner">
+          <textarea
+            ref={notesRef}
+            className="xs-notes"
+            placeholder="Add a note for this exercise…"
+            value={log.notes ?? ''}
+            onChange={e => onNotes(logIndex, e.target.value)}
+            rows={2}
+            tabIndex={showNotes ? 0 : -1}
+          />
+        </div>
+      </div>
 
       {set ? (
         <div className={`xs-values xs-values--${Math.min(fields.length, 3)}`}>
@@ -185,40 +255,67 @@ function ExerciseCard({
         </div>
       )}
 
-      <div className="xs-sets">
+      <div className={`xs-sets${editingSets ? ' xs-sets--editing' : ''}`}>
         <div className="xs-sets-head">
           <span>Sets · {doneCount}/{log.sets.length}</span>
-          <button className="xs-link" onClick={() => setEditingSets(v => !v)}>{editingSets ? 'Done' : 'Edit'}</button>
+          <button className="xs-link" onClick={() => { setEditingSets(v => !v); setArmedSi(null) }}>{editingSets ? 'Done' : 'Edit'}</button>
         </div>
         {log.sets.map((s, si) => (
           <div
             key={si}
-            className={`xs-set${s.completed ? ' xs-set--done' : ''}${si === focus ? ' xs-set--focus' : ''}`}
+            className={[
+              'xs-set',
+              s.completed && 'xs-set--done',
+              si === focus && 'xs-set--focus',
+              si === armedSi && 'xs-set--armed',
+              si === removingSi && 'xs-set--removing',
+              si >= seenCount && 'xs-set--new',
+            ].filter(Boolean).join(' ')}
             onClick={() => tapRow(si)}
+            onAnimationEnd={e => { if (e.animationName === 'xs-row-in') setSeenCount(log.sets.length) }}
             role="button"
             tabIndex={0}
           >
             <span className="xs-set-index">{s.isBonus ? '+' : si + 1}</span>
             <span className="xs-set-value">{fmtSet(s, exercise, unit)}</span>
             {s.isPR && <span className="xs-set-pr">{s.prKind === 'reps' ? 'REP PR' : s.prKind === 'both' ? 'PR+' : 'PR'}</span>}
-            {editingSets ? (
-              log.sets.length > 1 && (
-                <button
-                  className="xs-set-remove"
-                  onClick={e => { e.stopPropagation(); onRemoveSet(logIndex, si) }}
-                  aria-label={`Remove set ${si + 1}`}
-                >✕</button>
-              )
-            ) : (
-              <span className="xs-set-status">{s.completed ? '✓' : si === focus ? 'now' : ''}</span>
+            <span className="xs-set-status">{s.completed ? '✓' : si === focus ? 'now' : ''}</span>
+            {s.completed && (
+              <button
+                className="xs-set-reopen"
+                onClick={e => { e.stopPropagation(); reopen(si) }}
+                tabIndex={si === armedSi ? 0 : -1}
+                aria-hidden={si !== armedSi}
+              >
+                Reopen
+              </button>
+            )}
+            {canRemove && (
+              <button
+                className="xs-set-remove"
+                onClick={e => { e.stopPropagation(); removeRow(si) }}
+                tabIndex={editingSets ? 0 : -1}
+                aria-hidden={!editingSets}
+                aria-label={`Remove set ${si + 1}`}
+              >✕</button>
             )}
           </div>
         ))}
         <button className="xs-add-set" onClick={() => onAddSet(logIndex)}>+ Add set</button>
       </div>
 
+      {/* Thumb zone, top to bottom: what's next (+ swap it in), PR hint,
+          and the Confirm button pinned to the bottom edge. */}
       <div className="xs-actions">
-        {isPRPending && <p className="xs-pr-hint">🏆 This set is a PR</p>}
+        <div className="xs-next-row">
+          {upNextButton}
+          {canLater && !exerciseDone && (
+            <button className="xs-later" onClick={() => onLater(logIndex)} aria-label="Machine taken? Do this exercise later">
+              Later
+            </button>
+          )}
+        </div>
+        <p className={`xs-pr-hint${isPRPending ? ' xs-pr-hint--on' : ''}`} aria-hidden={!isPRPending}>🏆 This set is a PR</p>
         {set ? (
           <button className={`xs-confirm${isPRPending ? ' xs-confirm--pr' : ''}`} onClick={confirm}>
             {doneCount === log.sets.length - 1 ? 'Finish Exercise' : `Complete Set ${focus + 1}`}
@@ -229,9 +326,6 @@ function ExerciseCard({
           </button>
         ) : (
           <button className="xs-confirm" onClick={onNext}>Next: {nextName} →</button>
-        )}
-        {canLater && !exerciseDone && (
-          <button className="xs-later" onClick={() => onLater(logIndex)}>Machine taken? Do this later</button>
         )}
       </div>
     </div>
@@ -247,6 +341,9 @@ export default function ExpressSession({
 }) {
   const [queueOpen, setQueueOpen] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
+  // The toast keeps its last label while it fades out after `undo` clears.
+  const [toastLabel, setToastLabel] = useState(null)
+  if (undo && undo.label !== toastLabel) setToastLabel(undo.label)
 
   if (logs.length === 0) {
     return (
@@ -266,15 +363,13 @@ export default function ExpressSession({
   const canLater = logs.some((l, i) => i > currentIndex && hasOpenSets(l))
   const workoutDone = totalSets > 0 && completedSets === totalSets
 
-  function requestFinish() {
-    onCloseMenu()
-    if (workoutDone) onFinish()
-    else setConfirmFinish(true)
-  }
-
-  function menuAction(fn) {
-    return () => { onCloseMenu(); fn() }
-  }
+  const upNextButton = (
+    <button className="xs-upnext" onClick={() => setQueueOpen(true)}>
+      <span className="xs-upnext-label">{upNext ? 'Up next' : 'Workout'}</span>
+      <span className="xs-upnext-name">{upNext ? upNext.name : workoutDone ? 'All exercises done' : 'Last exercise'}</span>
+      <span className="xs-upnext-all">All {logs.length} ›</span>
+    </button>
+  )
 
   return (
     <div className="xs">
@@ -301,6 +396,7 @@ export default function ExpressSession({
           celebrating={celebratingExercise === log.exerciseId}
           canLater={canLater}
           nextName={upNext?.name}
+          upNextButton={upNextButton}
           workoutDone={workoutDone}
           finishing={finishing}
           onUpdateSet={onUpdateSet}
@@ -314,71 +410,72 @@ export default function ExpressSession({
           onFinish={onFinish}
         />
       ) : (
-        <div className="xs-empty"><p>This exercise is no longer in your library.</p></div>
+        <>
+          <div className="xs-empty"><p>This exercise is no longer in your library.</p></div>
+          {upNextButton}
+        </>
       )}
 
-      <button className="xs-upnext" onClick={() => setQueueOpen(true)}>
-        <span className="xs-upnext-label">{upNext ? 'Up next' : 'Workout'}</span>
-        <span className="xs-upnext-name">{upNext ? upNext.name : workoutDone ? 'All exercises done' : 'Last exercise'}</span>
-        <span className="xs-upnext-all">All {logs.length} ›</span>
-      </button>
-
-      {undo && (
-        <div className="xs-toast" role="status">
-          <span>{undo.label}</span>
-          <button className="xs-toast-undo" onClick={onUndo}>Undo</button>
+      {toastLabel && (
+        <div className={`xs-toast${undo ? ' xs-toast--on' : ''}`} role="status" aria-hidden={!undo}>
+          <span>{toastLabel}</span>
+          <button className="xs-toast-undo" onClick={onUndo} tabIndex={undo ? 0 : -1}>Undo</button>
         </div>
       )}
 
       {/* Queue sheet — jump to any exercise */}
       {queueOpen && (
-        <div className="sheet-backdrop" onClick={() => setQueueOpen(false)}>
-          <div className="sheet xs-sheet" onClick={e => e.stopPropagation()}>
-            <div className="sheet-handle" />
-            <p className="sheet-title">Exercises</p>
-            <div className="xs-queue">
-              {logs.map((l, i) => {
-                const ex = findExercise(l.exerciseId)
-                const done = l.sets.filter(s => s.completed).length
-                const status = done === l.sets.length ? '✓ Done' : done > 0 ? `${done}/${l.sets.length}` : `${l.sets.length} set${l.sets.length === 1 ? '' : 's'}`
-                return (
-                  <button
-                    key={l.exerciseId}
-                    className={`xs-queue-row${i === currentIndex ? ' xs-queue-row--current' : ''}${done === l.sets.length ? ' xs-queue-row--done' : ''}`}
-                    onClick={() => { onChangeIndex(i); setQueueOpen(false) }}
-                  >
-                    <span className="xs-queue-num">{i + 1}</span>
-                    <MuscleIcon muscleGroup={ex?.muscleGroup} className="xs-queue-icon" />
-                    <span className="xs-queue-name">{ex?.name ?? 'Unknown exercise'}</span>
-                    <span className={`xs-queue-status${done > 0 && done < l.sets.length ? ' xs-queue-status--partial' : ''}`}>
-                      {i === currentIndex ? 'Now' : status}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-            <button className="xs-sheet-add" onClick={() => { setQueueOpen(false); onAddExercise() }}>+ Add exercise</button>
-          </div>
-        </div>
+        <Sheet title="Exercises" onClose={() => setQueueOpen(false)}>
+          {close => (
+            <>
+              <div className="xs-queue">
+                {logs.map((l, i) => {
+                  const ex = findExercise(l.exerciseId)
+                  const done = l.sets.filter(s => s.completed).length
+                  const status = done === l.sets.length ? '✓ Done' : done > 0 ? `${done}/${l.sets.length}` : `${l.sets.length} set${l.sets.length === 1 ? '' : 's'}`
+                  return (
+                    <button
+                      key={l.exerciseId}
+                      className={`xs-queue-row${i === currentIndex ? ' xs-queue-row--current' : ''}${done === l.sets.length ? ' xs-queue-row--done' : ''}`}
+                      onClick={() => close(() => onChangeIndex(i))}
+                    >
+                      <span className="xs-queue-num">{i + 1}</span>
+                      <MuscleIcon muscleGroup={ex?.muscleGroup} className="xs-queue-icon" />
+                      <span className="xs-queue-name">{ex?.name ?? 'Unknown exercise'}</span>
+                      <span className={`xs-queue-status${done > 0 && done < l.sets.length ? ' xs-queue-status--partial' : ''}`}>
+                        {i === currentIndex ? 'Now' : status}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              <button className="xs-sheet-add" onClick={() => close(onAddExercise)}>+ Add exercise</button>
+            </>
+          )}
+        </Sheet>
       )}
 
       {/* ⋯ menu */}
       {menuOpen && (
-        <div className="sheet-backdrop" onClick={onCloseMenu}>
-          <div className="sheet xs-sheet" onClick={e => e.stopPropagation()}>
-            <div className="sheet-handle" />
-            <p className="sheet-title">{exercise?.name ?? 'Workout'}</p>
+        <Sheet title={exercise?.name ?? 'Workout'} onClose={onCloseMenu}>
+          {close => (
             <div className="xs-menu">
-              <button className="xs-menu-item" onClick={menuAction(() => onSubstitute(currentIndex))}>⇄ Substitute exercise</button>
-              <button className="xs-menu-item" onClick={menuAction(() => onRemoveExercise(currentIndex))}>✕ Remove exercise</button>
-              <button className="xs-menu-item" onClick={menuAction(onAddExercise)}>+ Add exercise</button>
-              {onCopyLast && <button className="xs-menu-item" onClick={menuAction(onCopyLast)}>📋 Copy last session</button>}
-              {onShowBreakdown && <button className="xs-menu-item" onClick={menuAction(onShowBreakdown)}>✨ View AI breakdown</button>}
-              <button className="xs-menu-item xs-menu-item--accent" onClick={requestFinish} disabled={finishing}>Finish workout</button>
-              <button className="xs-menu-item xs-menu-item--danger" onClick={menuAction(onAbandon)}>Abandon workout</button>
+              <button className="xs-menu-item" onClick={() => close(() => onSubstitute(currentIndex))}>⇄ Substitute exercise</button>
+              <button className="xs-menu-item" onClick={() => close(() => onRemoveExercise(currentIndex))}>✕ Remove exercise</button>
+              <button className="xs-menu-item" onClick={() => close(onAddExercise)}>+ Add exercise</button>
+              {onCopyLast && <button className="xs-menu-item" onClick={() => close(onCopyLast)}>📋 Copy last session</button>}
+              {onShowBreakdown && <button className="xs-menu-item" onClick={() => close(onShowBreakdown)}>✨ View AI breakdown</button>}
+              <button
+                className="xs-menu-item xs-menu-item--accent"
+                onClick={() => close(() => workoutDone ? onFinish() : setConfirmFinish(true))}
+                disabled={finishing}
+              >
+                Finish workout
+              </button>
+              <button className="xs-menu-item xs-menu-item--danger" onClick={() => close(onAbandon)}>Abandon workout</button>
             </div>
-          </div>
-        </div>
+          )}
+        </Sheet>
       )}
 
       {confirmFinish && (
