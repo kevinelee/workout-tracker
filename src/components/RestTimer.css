@@ -280,3 +280,51 @@
 
   &:hover { background: var(--border); color: var(--text-h); }
 }
+
+/* Express: the expanded state takes over the whole screen instead of the
+   centered modal. Minimizing still morphs to the same top ribbon. */
+.rest-timer--express {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  background: var(--bg);
+  padding: calc(var(--safe-top) + 24px) 24px calc(var(--safe-bottom) + 24px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  .rest-timer-inner {
+    gap: 16px;
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+  }
+  .rest-label { font-size: 13px; }
+  .rest-ring-wrap { width: 240px; height: 240px; }
+  .rest-countdown { font-size: 64px; }
+  .rest-skip-btn, .rest-finish-btn { min-height: 56px; font-size: 17px; }
+}
+
+.rest-preview {
+  width: 100%;
+  text-align: center;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.rest-back-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 15px;
+  font-family: var(--sans);
+  padding: 10px 16px;
+  min-height: 44px;
+  cursor: pointer;
+}

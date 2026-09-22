@@ -1,0 +1,398 @@
+import { useState } from 'react'
+import HoldButton from './HoldButton'
+import MuscleIcon from './MuscleIcon'
+import { exerciseKind, displayWeight, displayDistance, fmtSet, hasOpenSets, nextOpenIndex } from '../utils/express'
+import './ExpressSession.css'
+
+// A big tappable number with −/+ either side. Tapping the number opens the
+// keypad; the weight field's buttons use HoldButton for long-press repeat.
+function BigValue({ label, value, onSet, step, min = 0, decimal = false, hold = false, highlight = false, small = false }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const Btn = hold ? HoldButton : 'button'
+  const round = v => decimal ? Math.round(v * 10) / 10 : v
+  const minus = () => onSet(Math.max(min, round(value - step)))
+  const plus  = () => onSet(round(value + step))
+  const btnProps = fn => hold ? { onTap: fn } : { onClick: fn, type: 'button' }
+
+  function commit() {
+    const n = decimal ? parseFloat(draft) : parseInt(draft, 10)
+    onSet(!isNaN(n) && n >= 0 ? n : 0)
+    setEditing(false)
+  }
+
+  return (
+    <div className={`xs-value${small ? ' xs-value--small' : ''}${highlight ? ' xs-value--pr' : ''}`}>
+      <span className="xs-value-label">{label}</span>
+      {editing ? (
+        <input
+          className="xs-value-input"
+          type="number"
+          inputMode={decimal ? 'decimal' : 'numeric'}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
+          onFocus={e => e.target.select()}
+          autoFocus
+        />
+      ) : (
+        <button
+          type="button"
+          className="xs-value-num"
+          onClick={() => { setDraft(value === 0 ? '' : String(value)); setEditing(true) }}
+          aria-label={`Edit ${label}`}
+        >
+          {value}
+        </button>
+      )}
+      <div className="xs-value-steps">
+        <Btn className="xs-step" aria-label={`Decrease ${label}`} {...btnProps(minus)}>−</Btn>
+        <Btn className="xs-step" aria-label={`Increase ${label}`} {...btnProps(plus)}>+</Btn>
+      </div>
+    </div>
+  )
+}
+
+function valueFields({ exercise, set, unit, onChange }) {
+  const distUnit = unit === 'kg' ? 'km' : 'mi'
+  const put = (field, v) => onChange({ ...set, [field]: Math.max(0, v) })
+  const storeWeight = v => put('weight', unit === 'kg' ? Math.round(v * 2.2046) : v)
+  const storeDist   = v => put('weight', unit === 'kg' ? parseFloat((v / 1.60934).toFixed(3)) : v)
+  const storeSecs   = v => onChange({ ...set, secs: Math.max(0, Math.min(59, Math.round(v))) })
+
+  const min  = { key: 'min', label: 'min', value: set.reps, step: 1, onSet: v => put('reps', v) }
+  const sec  = { key: 'sec', label: 'sec', value: set.secs ?? 0, step: 5, onSet: storeSecs }
+  const dist = { key: 'dist', label: distUnit, value: displayDistance(set.weight, unit), step: 0.1, decimal: true, onSet: storeDist }
+
+  let fields
+  switch (exerciseKind(exercise)) {
+    case 'stretch':  fields = [{ key: 'hold', label: 'sec', value: set.reps, step: 5, min: 5, onSet: v => put('reps', v) }]; break
+    case 'time':     fields = [min, sec]; break
+    case 'distance': fields = [dist]; break
+    case 'both':     fields = [min, sec, dist]; break
+    default:
+      fields = [
+        { key: 'weight', label: unit === 'kg' ? 'kg' : 'lbs', value: displayWeight(set.weight, unit), step: 1, hold: true, onSet: storeWeight },
+        { key: 'reps', label: 'reps', value: set.reps, step: 1, onSet: v => put('reps', v) },
+      ]
+  }
+  if (exercise.difficultyLabel) {
+    const step = exercise.difficultyDecimal ? 0.5 : 1
+    fields.push({
+      key: 'difficulty', label: exercise.difficultyLabel, value: set.difficulty ?? 0, step, decimal: !!exercise.difficultyDecimal,
+      onSet: v => onChange({ ...set, difficulty: exercise.difficultyDecimal ? Math.round(Math.max(0, v) / step) * step : Math.max(0, Math.round(v)) }),
+    })
+  }
+  return fields
+}
+
+function ExerciseCard({
+  log, logIndex, exercise, settings, prMap, bestRepsAt, lastLog, celebrating,
+  canLater, nextName, workoutDone, finishing,
+  onUpdateSet, onCompleteSet, onRescindSet, onAddSet, onRemoveSet, onNotes, onLater, onNext, onFinish,
+}) {
+  const [focusOverride, setFocusOverride] = useState(null)
+  const [editingSets, setEditingSets] = useState(false)
+  const [showNotes, setShowNotes] = useState(false)
+
+  const firstOpen = log.sets.findIndex(s => !s.completed)
+  const focus = focusOverride != null && log.sets[focusOverride] && !log.sets[focusOverride].completed
+    ? focusOverride
+    : firstOpen
+  const set = focus >= 0 ? log.sets[focus] : null
+  const doneCount = log.sets.filter(s => s.completed).length
+  const exerciseDone = firstOpen === -1
+  const unit = settings.unit
+  const kind = exerciseKind(exercise)
+  const prType = exercise.prType ?? 'weight'
+  const currentPR = prMap[log.exerciseId] ?? 0
+
+  const isPRPending = !!set && kind === 'strength' && (
+    prType === 'reps'
+      ? set.reps > 0 && set.reps > currentPR
+      : set.weight > 0 && (set.weight > currentPR || set.reps > bestRepsAt(set.weight))
+  )
+  // Which big number to light up: the one that's actually making the record.
+  const prFields = !isPRPending ? [] : prType === 'reps' ? ['reps'] : [
+    ...(set.weight > currentPR ? ['weight'] : []),
+    ...(set.reps > bestRepsAt(set.weight) ? ['reps'] : []),
+  ]
+  const lastTime =set && lastLog ? (lastLog.sets?.[focus] ?? lastLog.sets?.[0]) : null
+  const fields = set ? valueFields({ exercise, set, unit, onChange: s => onUpdateSet(logIndex, focus, s) }) : []
+
+  function confirm() {
+    if (!set) return
+    navigator.vibrate?.([10, 30, 20])
+    onCompleteSet(logIndex, focus, set)
+    setFocusOverride(null)
+  }
+
+  function tapRow(si) {
+    if (editingSets) return
+    if (log.sets[si].completed) onRescindSet(logIndex, si)
+    setFocusOverride(si)
+  }
+
+  return (
+    <div className={`xs-card${celebrating ? ' xs-card--celebrating' : ''}`}>
+      <div className="xs-ex-head">
+        <MuscleIcon muscleGroup={exercise.muscleGroup} className="xs-ex-icon" />
+        <div className="xs-ex-title">
+          <h3 className="xs-ex-name">{exercise.name}</h3>
+          <p className="xs-ex-meta">
+            {exerciseDone ? `✓ All ${log.sets.length} sets done` : `Set ${focus + 1} of ${log.sets.length}`}
+            {lastTime && <span className="xs-ex-last"> · last time {fmtSet(lastTime, exercise, unit)}</span>}
+          </p>
+        </div>
+        <button
+          className={`xs-icon-btn${showNotes || log.notes ? ' xs-icon-btn--on' : ''}`}
+          onClick={() => setShowNotes(v => !v)}
+          aria-label="Notes"
+        >
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+            <rect x="4" y="2" width="12" height="16" rx="2" /><line x1="7" y1="7" x2="13" y2="7" /><line x1="7" y1="10" x2="13" y2="10" /><line x1="7" y1="13" x2="11" y2="13" />
+          </svg>
+        </button>
+      </div>
+
+      {showNotes && (
+        <textarea
+          className="xs-notes"
+          placeholder="Add a note for this exercise…"
+          value={log.notes ?? ''}
+          onChange={e => onNotes(logIndex, e.target.value)}
+          rows={2}
+          autoFocus
+        />
+      )}
+
+      {set ? (
+        <div className={`xs-values xs-values--${Math.min(fields.length, 3)}`}>
+          {fields.map(f => (
+            <BigValue
+              key={f.key}
+              {...f}
+              small={fields.length > 2}
+              highlight={prFields.includes(f.key)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="xs-done">
+          <span className="xs-done-check">✓</span>
+          <p className="xs-done-text">{exercise.name} complete</p>
+        </div>
+      )}
+
+      <div className="xs-sets">
+        <div className="xs-sets-head">
+          <span>Sets · {doneCount}/{log.sets.length}</span>
+          <button className="xs-link" onClick={() => setEditingSets(v => !v)}>{editingSets ? 'Done' : 'Edit'}</button>
+        </div>
+        {log.sets.map((s, si) => (
+          <div
+            key={si}
+            className={`xs-set${s.completed ? ' xs-set--done' : ''}${si === focus ? ' xs-set--focus' : ''}`}
+            onClick={() => tapRow(si)}
+            role="button"
+            tabIndex={0}
+          >
+            <span className="xs-set-index">{s.isBonus ? '+' : si + 1}</span>
+            <span className="xs-set-value">{fmtSet(s, exercise, unit)}</span>
+            {s.isPR && <span className="xs-set-pr">{s.prKind === 'reps' ? 'REP PR' : s.prKind === 'both' ? 'PR+' : 'PR'}</span>}
+            {editingSets ? (
+              log.sets.length > 1 && (
+                <button
+                  className="xs-set-remove"
+                  onClick={e => { e.stopPropagation(); onRemoveSet(logIndex, si) }}
+                  aria-label={`Remove set ${si + 1}`}
+                >✕</button>
+              )
+            ) : (
+              <span className="xs-set-status">{s.completed ? '✓' : si === focus ? 'now' : ''}</span>
+            )}
+          </div>
+        ))}
+        <button className="xs-add-set" onClick={() => onAddSet(logIndex)}>+ Add set</button>
+      </div>
+
+      <div className="xs-actions">
+        {isPRPending && <p className="xs-pr-hint">🏆 This set is a PR</p>}
+        {set ? (
+          <button className={`xs-confirm${isPRPending ? ' xs-confirm--pr' : ''}`} onClick={confirm}>
+            {doneCount === log.sets.length - 1 ? 'Finish Exercise' : `Complete Set ${focus + 1}`}
+          </button>
+        ) : workoutDone ? (
+          <button className="xs-confirm xs-confirm--done" onClick={onFinish} disabled={finishing}>
+            {finishing ? <span className="session-spinner" /> : 'Finish Workout'}
+          </button>
+        ) : (
+          <button className="xs-confirm" onClick={onNext}>Next: {nextName} →</button>
+        )}
+        {canLater && !exerciseDone && (
+          <button className="xs-later" onClick={() => onLater(logIndex)}>Machine taken? Do this later</button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function ExpressSession({
+  logs, currentIndex, onChangeIndex, findExercise, settings, prMap, bestRepsAt, lastSession, celebratingExercise,
+  onUpdateSet, onCompleteSet, onRescindSet, onAddSet, onRemoveSet, onNotes, onLater,
+  onAddExercise, onSubstitute, onRemoveExercise, onCopyLast, onShowBreakdown, onAbandon,
+  onFinish, finishing, totalSets, completedSets,
+  undo, onUndo, menuOpen, onCloseMenu,
+}) {
+  const [queueOpen, setQueueOpen] = useState(false)
+  const [confirmFinish, setConfirmFinish] = useState(false)
+
+  if (logs.length === 0) {
+    return (
+      <div className="xs">
+        <div className="xs-empty">
+          <p>No exercises in this workout yet.</p>
+          <button className="xs-confirm" onClick={onAddExercise}>+ Add exercise</button>
+        </div>
+      </div>
+    )
+  }
+
+  const log = logs[currentIndex]
+  const exercise = findExercise(log.exerciseId)
+  const nextIdx = nextOpenIndex(logs, currentIndex)
+  const upNext = nextIdx >= 0 ? findExercise(logs[nextIdx].exerciseId) : null
+  const canLater = logs.some((l, i) => i > currentIndex && hasOpenSets(l))
+  const workoutDone = totalSets > 0 && completedSets === totalSets
+
+  function requestFinish() {
+    onCloseMenu()
+    if (workoutDone) onFinish()
+    else setConfirmFinish(true)
+  }
+
+  function menuAction(fn) {
+    return () => { onCloseMenu(); fn() }
+  }
+
+  return (
+    <div className="xs">
+      {/* Progress dots — one per exercise */}
+      <div className="xs-dots" aria-hidden="true">
+        {logs.map((l, i) => (
+          <span
+            key={l.exerciseId}
+            className={`xs-dot${!hasOpenSets(l) ? ' xs-dot--done' : ''}${i === currentIndex ? ' xs-dot--current' : ''}`}
+          />
+        ))}
+      </div>
+
+      {exercise ? (
+        <ExerciseCard
+          key={log.exerciseId}
+          log={log}
+          logIndex={currentIndex}
+          exercise={exercise}
+          settings={settings}
+          prMap={prMap}
+          bestRepsAt={w => bestRepsAt(log.exerciseId, w)}
+          lastLog={lastSession?.logs?.find(l => l.exerciseId === log.exerciseId)}
+          celebrating={celebratingExercise === log.exerciseId}
+          canLater={canLater}
+          nextName={upNext?.name}
+          workoutDone={workoutDone}
+          finishing={finishing}
+          onUpdateSet={onUpdateSet}
+          onCompleteSet={onCompleteSet}
+          onRescindSet={onRescindSet}
+          onAddSet={onAddSet}
+          onRemoveSet={onRemoveSet}
+          onNotes={onNotes}
+          onLater={onLater}
+          onNext={() => onChangeIndex(nextIdx)}
+          onFinish={onFinish}
+        />
+      ) : (
+        <div className="xs-empty"><p>This exercise is no longer in your library.</p></div>
+      )}
+
+      <button className="xs-upnext" onClick={() => setQueueOpen(true)}>
+        <span className="xs-upnext-label">{upNext ? 'Up next' : 'Workout'}</span>
+        <span className="xs-upnext-name">{upNext ? upNext.name : workoutDone ? 'All exercises done' : 'Last exercise'}</span>
+        <span className="xs-upnext-all">All {logs.length} ›</span>
+      </button>
+
+      {undo && (
+        <div className="xs-toast" role="status">
+          <span>{undo.label}</span>
+          <button className="xs-toast-undo" onClick={onUndo}>Undo</button>
+        </div>
+      )}
+
+      {/* Queue sheet — jump to any exercise */}
+      {queueOpen && (
+        <div className="sheet-backdrop" onClick={() => setQueueOpen(false)}>
+          <div className="sheet xs-sheet" onClick={e => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <p className="sheet-title">Exercises</p>
+            <div className="xs-queue">
+              {logs.map((l, i) => {
+                const ex = findExercise(l.exerciseId)
+                const done = l.sets.filter(s => s.completed).length
+                const status = done === l.sets.length ? '✓ Done' : done > 0 ? `${done}/${l.sets.length}` : `${l.sets.length} set${l.sets.length === 1 ? '' : 's'}`
+                return (
+                  <button
+                    key={l.exerciseId}
+                    className={`xs-queue-row${i === currentIndex ? ' xs-queue-row--current' : ''}${done === l.sets.length ? ' xs-queue-row--done' : ''}`}
+                    onClick={() => { onChangeIndex(i); setQueueOpen(false) }}
+                  >
+                    <span className="xs-queue-num">{i + 1}</span>
+                    <MuscleIcon muscleGroup={ex?.muscleGroup} className="xs-queue-icon" />
+                    <span className="xs-queue-name">{ex?.name ?? 'Unknown exercise'}</span>
+                    <span className={`xs-queue-status${done > 0 && done < l.sets.length ? ' xs-queue-status--partial' : ''}`}>
+                      {i === currentIndex ? 'Now' : status}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <button className="xs-sheet-add" onClick={() => { setQueueOpen(false); onAddExercise() }}>+ Add exercise</button>
+          </div>
+        </div>
+      )}
+
+      {/* ⋯ menu */}
+      {menuOpen && (
+        <div className="sheet-backdrop" onClick={onCloseMenu}>
+          <div className="sheet xs-sheet" onClick={e => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <p className="sheet-title">{exercise?.name ?? 'Workout'}</p>
+            <div className="xs-menu">
+              <button className="xs-menu-item" onClick={menuAction(() => onSubstitute(currentIndex))}>⇄ Substitute exercise</button>
+              <button className="xs-menu-item" onClick={menuAction(() => onRemoveExercise(currentIndex))}>✕ Remove exercise</button>
+              <button className="xs-menu-item" onClick={menuAction(onAddExercise)}>+ Add exercise</button>
+              {onCopyLast && <button className="xs-menu-item" onClick={menuAction(onCopyLast)}>📋 Copy last session</button>}
+              {onShowBreakdown && <button className="xs-menu-item" onClick={menuAction(onShowBreakdown)}>✨ View AI breakdown</button>}
+              <button className="xs-menu-item xs-menu-item--accent" onClick={requestFinish} disabled={finishing}>Finish workout</button>
+              <button className="xs-menu-item xs-menu-item--danger" onClick={menuAction(onAbandon)}>Abandon workout</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmFinish && (
+        <div className="session-modal-overlay" onClick={() => setConfirmFinish(false)}>
+          <div className="session-modal" onClick={e => e.stopPropagation()}>
+            <p className="session-modal-title">Finish early?</p>
+            <p className="session-modal-body">Only {completedSets}/{totalSets} sets are done. Finish anyway?</p>
+            <div className="session-modal-actions">
+              <button className="session-modal-cancel" onClick={() => setConfirmFinish(false)}>Keep going</button>
+              <button className="session-modal-confirm" onClick={() => { setConfirmFinish(false); onFinish() }}>Finish</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
