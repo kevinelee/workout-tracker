@@ -23,7 +23,11 @@ function fmt(seconds) {
 // restTimerDuration/onChangeRestTimerDuration let the countdown digits open
 // an inline picker for the *default* rest length going forward — this never
 // retroactively changes the rest period already in progress.
-export default function RestTimer({ duration, onDone, onSkip, showFinish, onFinish, minimized, onExpand, onMinimize, restTimerDuration, onChangeRestTimerDuration }) {
+// variant="express" expands to a full-screen takeover instead of the centered
+// modal, with `preview` (what's coming next) under the ring and an explicit
+// "Back to exercise" that minimizes — there's no "outside" to tap there.
+export default function RestTimer({ duration, onDone, onSkip, showFinish, onFinish, minimized, onExpand, onMinimize, restTimerDuration, onChangeRestTimerDuration, variant = 'modal', preview }) {
+  const express = variant === 'express'
   const endAtRef = useRef(Date.now() + duration * 1000)
   const [remaining, setRemaining] = useState(duration)
   const tickedRef = useRef(new Set())
@@ -68,7 +72,9 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
   // dispatches to the element the backdrop's pointer-events: none exposed
   // underneath — a subsequent tap then reaches the app normally.
   useEffect(() => {
-    if (minimized || !onMinimize) return
+    // Express fills the screen, so there is no "outside" — and the one thing
+    // floating above it is the Undo toast, which must get its tap.
+    if (minimized || !onMinimize || express) return
     function handleOutsideClick(e) {
       if (!rootRef.current?.contains(e.target)) {
         e.preventDefault()
@@ -87,7 +93,7 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
       document.removeEventListener('click', handleOutsideClick, true)
       document.removeEventListener('scroll', handleScroll, true)
     }
-  }, [minimized, onMinimize])
+  }, [minimized, onMinimize, express])
 
   // The picker only makes sense in the full modal — collapsing to the
   // ribbon (or the countdown finishing) closes it.
@@ -102,7 +108,7 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
   return (
     <div
       ref={rootRef}
-      className={`rest-timer ${minimized ? 'rest-timer--minimized' : ''}`}
+      className={`rest-timer ${minimized ? 'rest-timer--minimized' : ''} ${express && !minimized ? 'rest-timer--express' : ''}`}
       onClick={minimized ? onExpand : undefined}
       role={minimized ? 'button' : undefined}
       tabIndex={minimized ? 0 : undefined}
@@ -162,6 +168,7 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
                 </svg>
                 <span className="rest-countdown">{fmt(remaining)}</span>
               </button>
+              {express && preview && <div className="rest-preview">{preview}</div>}
               {showFinish ? (
                 <>
                   <p className="rest-all-done">All sets complete!</p>
@@ -169,7 +176,10 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
                   <button className="rest-skip-btn rest-skip-btn--secondary" onClick={onSkip}>Not yet</button>
                 </>
               ) : (
-                <button className="rest-skip-btn" onClick={onSkip}>Skip</button>
+                <button className="rest-skip-btn" onClick={onSkip}>{express ? 'Skip rest' : 'Skip'}</button>
+              )}
+              {express && onMinimize && (
+                <button className="rest-back-btn" onClick={onMinimize}>Back to exercise</button>
               )}
             </>
           )}

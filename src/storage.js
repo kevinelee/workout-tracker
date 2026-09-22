@@ -754,6 +754,20 @@ export function saveCollapsedExercises(sessionId, ids) {
   } catch { /* quota — a lost view preference isn't worth surfacing */ }
 }
 
+// List vs Express session layout. Per device, like the collapsed set above —
+// whether it's actually allowed is decided by the pro gate at render time,
+// so a stored 'express' quietly falls back to 'list' if Pro is revoked.
+const SESSION_VIEW_KEY = 'wt_session_view'
+
+export function getSessionView() {
+  try { return localStorage.getItem(SESSION_VIEW_KEY) === 'express' ? 'express' : 'list' }
+  catch { return 'list' }
+}
+
+export function saveSessionView(view) {
+  try { localStorage.setItem(SESSION_VIEW_KEY, view) } catch { /* private mode — falls back to list */ }
+}
+
 export async function abandonSession(sessionId) {
   if (!sessionId || !_uid) return
   await supabase.from('sessions').delete().eq('id', sessionId).eq('user_id', _uid)

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { getCachedCustomExercises, getCustomExercises, saveCustomExercise, deleteCustomExercise, clearAll } from '../storage'
+import { getCachedCustomExercises, getCustomExercises, saveCustomExercise, deleteCustomExercise, clearAll, getSessionView, saveSessionView } from '../storage'
+import { useProGate } from '../lib/proGate'
 import { exportJSON, exportCSV } from '../utils/export'
 import { updatePassword, supabase, callFunction } from '../lib/supabase'
 import FeedbackModal from '../components/FeedbackModal'
@@ -50,6 +51,9 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
   const [pwSuccess, setPwSuccess] = useState(false)
   const [pwLoading, setPwLoading] = useState(false)
   const [exportRange, setExportRange] = useState('all')
+  const { canUse } = useProGate()
+  const expressAllowed = canUse('expressMode')
+  const [sessionView, setSessionView] = useState(() => expressAllowed ? getSessionView() : 'list')
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -178,6 +182,22 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
           options={[{ label: 'lbs', value: 'lbs' }, { label: 'kg', value: 'kg' }]}
           value={s.unit}
           onChange={v => update('unit', v)}
+        />
+      </Section>
+
+      {/* Session layout — same preference as the toggle in the workout header */}
+      <Section
+        title="Workout View"
+        hint={expressAllowed ? 'Express shows one exercise at a time. You can also switch from the workout header.' : 'Express mode is a Pro feature.'}
+      >
+        <SegmentedControl
+          options={[{ label: 'List', value: 'list' }, { label: expressAllowed ? '⚡ Express' : '🔒 Express', value: 'express' }]}
+          value={sessionView}
+          onChange={v => {
+            if (v === 'express' && !expressAllowed) return
+            setSessionView(v)
+            saveSessionView(v)
+          }}
         />
       </Section>
 

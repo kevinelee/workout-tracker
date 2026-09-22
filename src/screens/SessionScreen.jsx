@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createSet } from '../data/models'
 import { defaultExercises } from '../data/exerciseLibrary'
-import { getCachedCustomExercises, getCollapsedExercises, getLastSessionForTemplate, saveCollapsedExercises, saveSession, saveTemplate } from '../storage'
+import { getCachedCustomExercises, getCollapsedExercises, getLastSessionForTemplate, getSessionView, saveCollapsedExercises, saveSession, saveSessionView, saveTemplate } from '../storage'
 import { initLogsFromSession } from '../App'
 import { createTemplateExercise } from '../data/models'
 import MuscleIcon from '../components/MuscleIcon'
 import SessionSetRow from '../components/SessionSetRow'
 import ExerciseSearch from '../components/ExerciseSearch'
 import RestTimer from '../components/RestTimer'
+import ExpressSession from '../components/ExpressSession'
+import { useProGate } from '../lib/proGate'
+import { fmtSet, nextOpenIndex } from '../utils/express'
 import { unlockChime, playChime } from '../utils/sound'
 import './SessionScreen.css'
 
@@ -109,6 +112,18 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const [newWorkoutName, setNewWorkoutName] = useState('')
   const [modalSaving, setModalSaving] = useState(false)
 
+  // Express view: one exercise at a time. The stored preference only counts
+  // while the user can actually use it — revoking Pro drops them back to List.
+  const { canUse } = useProGate()
+  const [viewPref, setViewPref]     = useState(getSessionView)
+  const express                     = viewPref === 'express' && canUse('expressMode')
+  const [showProLock, setShowProLock] = useState(false)
+  const [expressIndex, setExpressIndex] = useState(() => Math.max(0, initialLogs.findIndex(l => l.sets.some(s => !s.completed))))
+  const [expressMenuOpen, setExpressMenuOpen] = useState(false)
+  const [undo, setUndo]             = useState(null) // { label, snap, index, restStarted }
+  const undoTimerRef                = useRef(null)
+  const currentExpressIndex         = Math.min(expressIndex, Math.max(0, logs.length - 1))
+
   const [lastSession, setLastSession] = useState(null)
   useEffect(() => {
     if (template.isQuickStart) return
@@ -164,6 +179,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     clearTimeout(warnTimerRef.current)
     clearTimeout(celebrateTimerRef.current)
     clearTimeout(editExitRef.current)
+    clearTimeout(undoTimerRef.current)
   }, [])
 
   // Track whether the in-flow Finish button is on-screen, so the sticky
@@ -177,7 +193,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [])
+  }, [express]) // the in-flow button only exists in List view
 
 
   function updateLogsAndSync(newLogs, newPrMap, newPrRepsMap, newRepPRByWeightMap) {
@@ -380,6 +396,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
 
   function addExerciseToSession(exercise) {
     if (logs.some(l => l.exerciseId === exercise.id)) return
+    if (express) setExpressIndex(logs.length) // jump straight to what was just added
     const newLog = {
       exerciseId: exercise.id,
       targetCount: 3,
@@ -527,6 +544,93 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
 
   const editExiting = editVisible && !editMode
 
+  function switchView(view) {
+    if (view === 'express' && !canUse('expressMode')) { setShowProLock(true); return }
+    if (view === 'express' && editMode) toggleEdit()
+    if (view === 'list') { setExpressMenuOpen(false); setUndo(null) }
+    setViewPref(view)
+    saveSessionView(view)
+  }
+
+  // Express undo: snapshot the whole session before the action and restore it
+  // wholesale. One step deep; any other change drops it, so Undo never
+  // silently reverts something the user did afterwards.
+  function offerUndo(label, extra = {}) {
+    clearTimeout(undoTimerRef.current)
+    setUndo({ label, snap: { logs, prMap, prRepsMap, repPRByWeightMap }, index: currentExpressIndex, ...extra })
+    undoTimerRef.current = setTimeout(() => setUndo(null), 5000)
+  }
+
+  function clearUndo() {
+    if (!undo) return
+    clearTimeout(undoTimerRef.current)
+    setUndo(null)
+  }
+
+  function doUndo() {
+    if (!undo) return
+    const { snap, index, restStarted } = undo
+    updateLogsAndSync(snap.logs, snap.prMap, snap.prRepsMap, snap.repPRByWeightMap)
+    setExpressIndex(index)
+    if (restStarted) setRestDuration(null)
+    clearTimeout(undoTimerRef.current)
+    setUndo(null)
+  }
+
+  function expressCompleteSet(logIndex, setIndex, set) {
+    offerUndo(`Set ${setIndex + 1} logged`, { restStarted: settings.restTimerDuration > 0 })
+    completeSet(logIndex, setIndex, set)
+  }
+
+  function expressRemoveSet(logIndex, setIndex) {
+    if (logs[logIndex].sets.length <= 1) return
+    offerUndo(`Set ${setIndex + 1} removed`)
+    removeSet(logIndex, setIndex)
+  }
+
+  // "Machine taken": move this exercise to just after the next unfinished one
+  // and show that one now. Today's session only; the template order is left
+  // alone unless they pick "Update workout" at the end.
+  function pushLater(logIndex) {
+    const target = logs.findIndex((l, i) => i > logIndex && l.sets.some(s => !s.completed))
+    if (target === -1) return
+    const name = findExercise(logs[logIndex].exerciseId)?.name ?? 'Exercise'
+    offerUndo(`${name} moved back`)
+    const reordered = logs.filter((_, i) => i !== logIndex)
+    reordered.splice(target, 0, logs[logIndex])
+    updateLogsAndSync(reordered, null)
+    setExpressIndex(target - 1)
+  }
+
+  function expressChangeIndex(i) {
+    clearUndo()
+    setExpressIndex(i)
+  }
+
+  // What the full-screen rest shows under the countdown.
+  function expressRestPreview() {
+    const log = logs[currentExpressIndex]
+    if (!log) return null
+    const exercise = findExercise(log.exerciseId)
+    const nextSet = log.sets.findIndex(s => !s.completed)
+    if (nextSet >= 0) {
+      return (
+        <>
+          <p className="rest-label">Next · Set {nextSet + 1} of {log.sets.length}</p>
+          <p className="xs-rest-next">{exercise?.name} · {fmtSet(log.sets[nextSet], exercise, settings.unit)}</p>
+        </>
+      )
+    }
+    const ni = nextOpenIndex(logs, currentExpressIndex)
+    if (ni === -1) return null
+    return (
+      <>
+        <p className="rest-label">Up next</p>
+        <p className="xs-rest-next">{findExercise(logs[ni].exerciseId)?.name}</p>
+      </>
+    )
+  }
+
   function toggleEdit() {
     if (editMode) {
       setEditMode(false)
@@ -573,12 +677,39 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
               {timerFrozen && manualDuration == null && <span className="session-timer-frozen">❄</span>}
             </button>
           </div>
-          <button
-            className={`session-edit-btn ${editMode ? 'session-edit-btn--active' : ''}`}
-            onClick={toggleEdit}
-          >
-            {editMode ? 'Done' : 'Edit'}
-          </button>
+          <div className="session-view-toggle" role="group" aria-label="Session view">
+            <button
+              className={`session-view-btn${!express ? ' session-view-btn--active' : ''}`}
+              onClick={() => switchView('list')}
+              aria-label="List view"
+              aria-pressed={!express}
+            >
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" width="16" height="16">
+                <line x1="4" y1="5" x2="16" y2="5" /><line x1="4" y1="10" x2="16" y2="10" /><line x1="4" y1="15" x2="16" y2="15" />
+              </svg>
+            </button>
+            <button
+              className={`session-view-btn${express ? ' session-view-btn--active' : ''}`}
+              onClick={() => switchView('express')}
+              aria-label={canUse('expressMode') ? 'Express view' : 'Express view (Pro)'}
+              aria-pressed={express}
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                <path d="M11.5 1.5 4 11h5l-1.5 7.5L15 9h-5z" />
+              </svg>
+              {!canUse('expressMode') && <span className="session-view-lock">🔒</span>}
+            </button>
+          </div>
+          {express ? (
+            <button className="session-menu-btn" onClick={() => setExpressMenuOpen(true)} aria-label="Workout menu">⋯</button>
+          ) : (
+            <button
+              className={`session-edit-btn ${editMode ? 'session-edit-btn--active' : ''}`}
+              onClick={toggleEdit}
+            >
+              {editMode ? 'Done' : 'Edit'}
+            </button>
+          )}
         </div>
 
         <div className="session-progress-bar">
@@ -589,6 +720,40 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
         </div>
       </div>
 
+      {express ? (
+        <ExpressSession
+          logs={logs}
+          currentIndex={currentExpressIndex}
+          onChangeIndex={expressChangeIndex}
+          findExercise={findExercise}
+          settings={settings}
+          prMap={prMap}
+          bestRepsAt={(exerciseId, weight) => bestRepsAtOrAboveWeight(repPRByWeightMap[exerciseId] ?? {}, weight)}
+          lastSession={lastSession}
+          celebratingExercise={celebratingExercise}
+          onUpdateSet={(li, si, s) => { clearUndo(); updateSet(li, si, s) }}
+          onCompleteSet={expressCompleteSet}
+          onRescindSet={(li, si) => { clearUndo(); rescindSet(li, si) }}
+          onAddSet={li => { clearUndo(); addSet(li) }}
+          onRemoveSet={expressRemoveSet}
+          onNotes={updateNotes}
+          onLater={pushLater}
+          onAddExercise={() => { clearUndo(); setShowAddExercise(true) }}
+          onSubstitute={li => { clearUndo(); handleSubstituteExercise(li) }}
+          onRemoveExercise={li => { clearUndo(); handleRemoveExercise(li) }}
+          onCopyLast={lastSession && !hasCopiedLastSession ? () => { clearUndo(); copyLastSession() } : null}
+          onShowBreakdown={hasBreakdown ? () => setShowBreakdown(true) : null}
+          onAbandon={() => setShowAbandon(true)}
+          onFinish={handleFinish}
+          finishing={finishing}
+          totalSets={totalSets}
+          completedSets={completedSets}
+          undo={undo}
+          onUndo={doUndo}
+          menuOpen={expressMenuOpen}
+          onCloseMenu={() => setExpressMenuOpen(false)}
+        />
+      ) : (
       <div className="session-body">
         {/* Copy last session banner */}
         {lastSession && !hasCopiedLastSession && !copiedBanner && (
@@ -790,6 +955,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
           </button>
         </div>
       </div>
+      )}
 
       {/* Sticky Finish — mirrors the in-flow button, shown only once the workout
           is actually done and that in-flow button is scrolled off-screen. Not
@@ -797,7 +963,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
           exercise, so for any multi-exercise workout it's off-screen almost
           the entire time — showing the sticky version the whole workout,
           not just once there's something to finish. */}
-      {!finishInlineVisible && allDone && (
+      {!express && !finishInlineVisible && allDone && (
         <div className="session-finish-sticky">
           <button
             className={`session-finish-main session-finish-sticky-btn ${allDone ? 'session-finish-main--done' : ''} ${warnPending ? 'session-finish-main--warn' : ''}`}
@@ -821,12 +987,14 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
           while the modal is up — RestTimer detects "outside" itself. */}
       {restDuration !== null && (
         <>
-          {!timerMinimized && (
+          {!timerMinimized && !express && (
             <div className="rest-timer-backdrop" />
           )}
           <RestTimer
             key={restKeyRef.current}
             duration={restDuration}
+            variant={express ? 'express' : 'modal'}
+            preview={express ? expressRestPreview() : null}
             minimized={timerMinimized}
             onExpand={() => setTimerMinimized(false)}
             onMinimize={() => setTimerMinimized(true)}
@@ -850,6 +1018,19 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
       )}
 
       {timerFlash && <div className="session-timer-flash" />}
+
+      {/* Express is Pro: shown when a non-Pro user taps the locked toggle */}
+      {showProLock && (
+        <div className="session-modal-overlay" onClick={() => setShowProLock(false)}>
+          <div className="session-modal" onClick={e => e.stopPropagation()}>
+            <p className="session-modal-title">⚡ Express mode is Pro</p>
+            <p className="session-modal-body">See one exercise at a time with big, tappable numbers and a single Confirm button.</p>
+            <div className="session-modal-actions">
+              <button className="session-modal-cancel" onClick={() => setShowProLock(false)}>Got it</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick start save prompt */}
       {pendingQuickStart && (
