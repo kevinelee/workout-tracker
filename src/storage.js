@@ -797,11 +797,17 @@ export async function getFeedback() {
 }
 
 export async function markFeedbackReviewed(id) {
-  await supabase.from('feedback').update({ status: 'reviewed' }).eq('id', id)
+  const { data, error } = await supabase.from('feedback').update({ status: 'reviewed' }).eq('id', id).select()
+  if (error) throw error
+  // A blocked RLS policy makes Supabase report success on 0 matched rows
+  // instead of an error, so the only way to catch it is an empty result.
+  if (!data?.length) throw new Error('Feedback row was not updated — check RLS policy on the feedback table')
 }
 
 export async function archiveFeedback(id) {
-  await supabase.from('feedback').update({ status: 'archived' }).eq('id', id)
+  const { data, error } = await supabase.from('feedback').update({ status: 'archived' }).eq('id', id).select()
+  if (error) throw error
+  if (!data?.length) throw new Error('Feedback row was not updated — check RLS policy on the feedback table')
 }
 
 // ── Admin: Activity feed ──────────────────────────────────────
