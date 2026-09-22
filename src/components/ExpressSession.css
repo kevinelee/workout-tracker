@@ -6,7 +6,9 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 8px 16px calc(var(--safe-bottom) + 10px);
+  /* No var(--safe-bottom) here: #root already reserves it (index.css), and
+     adding it again doubled the gap under Finish. */
+  padding: 8px 16px 10px;
   gap: 8px;
   min-height: 0;
 }
