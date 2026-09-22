@@ -120,8 +120,6 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const [showProLock, setShowProLock] = useState(false)
   const [expressIndex, setExpressIndex] = useState(() => Math.max(0, initialLogs.findIndex(l => l.sets.some(s => !s.completed))))
   const [expressMenuOpen, setExpressMenuOpen] = useState(false)
-  const [undo, setUndo]             = useState(null) // { label, snap, index, restStarted }
-  const undoTimerRef                = useRef(null)
   const currentExpressIndex         = Math.min(expressIndex, Math.max(0, logs.length - 1))
 
   const [lastSession, setLastSession] = useState(null)
@@ -179,7 +177,6 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     clearTimeout(warnTimerRef.current)
     clearTimeout(celebrateTimerRef.current)
     clearTimeout(editExitRef.current)
-    clearTimeout(undoTimerRef.current)
   }, [])
 
   // Track whether the in-flow Finish button is on-screen, so the sticky
@@ -547,64 +544,23 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   function switchView(view) {
     if (view === 'express' && !canUse('expressMode')) { setShowProLock(true); return }
     if (view === 'express' && editMode) toggleEdit()
-    if (view === 'list') { setExpressMenuOpen(false); setUndo(null) }
+    if (view === 'list') setExpressMenuOpen(false)
     setViewPref(view)
     saveSessionView(view)
   }
 
-  // Express undo: snapshot the whole session before the action and restore it
-  // wholesale. One step deep; any other change drops it, so Undo never
-  // silently reverts something the user did afterwards.
-  function offerUndo(label, extra = {}) {
-    clearTimeout(undoTimerRef.current)
-    setUndo({ label, snap: { logs, prMap, prRepsMap, repPRByWeightMap }, index: currentExpressIndex, ...extra })
-    undoTimerRef.current = setTimeout(() => setUndo(null), 5000)
-  }
-
-  function clearUndo() {
-    if (!undo) return
-    clearTimeout(undoTimerRef.current)
-    setUndo(null)
-  }
-
-  function doUndo() {
-    if (!undo) return
-    const { snap, index, restStarted } = undo
-    updateLogsAndSync(snap.logs, snap.prMap, snap.prRepsMap, snap.repPRByWeightMap)
-    setExpressIndex(index)
-    if (restStarted) setRestDuration(null)
-    clearTimeout(undoTimerRef.current)
-    setUndo(null)
-  }
-
-  function expressCompleteSet(logIndex, setIndex, set) {
-    offerUndo(`Set ${setIndex + 1} logged`, { restStarted: settings.restTimerDuration > 0 })
-    completeSet(logIndex, setIndex, set)
-  }
-
-  function expressRemoveSet(logIndex, setIndex) {
-    if (logs[logIndex].sets.length <= 1) return
-    offerUndo(`Set ${setIndex + 1} removed`)
-    removeSet(logIndex, setIndex)
-  }
-
   // "Machine taken": move this exercise to just after the next unfinished one
-  // and show that one now. Today's session only; the template order is left
+  // and show that one now. Only before any of its sets are logged — once
+  // started, it stays put. Today's session only; the template order is left
   // alone unless they pick "Update workout" at the end.
   function pushLater(logIndex) {
+    if (logs[logIndex].sets.some(s => s.completed)) return
     const target = logs.findIndex((l, i) => i > logIndex && l.sets.some(s => !s.completed))
     if (target === -1) return
-    const name = findExercise(logs[logIndex].exerciseId)?.name ?? 'Exercise'
-    offerUndo(`${name} moved back`)
     const reordered = logs.filter((_, i) => i !== logIndex)
     reordered.splice(target, 0, logs[logIndex])
     updateLogsAndSync(reordered, null)
     setExpressIndex(target - 1)
-  }
-
-  function expressChangeIndex(i) {
-    clearUndo()
-    setExpressIndex(i)
   }
 
   // What the full-screen rest shows under the countdown.
@@ -724,32 +680,31 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
         <ExpressSession
           logs={logs}
           currentIndex={currentExpressIndex}
-          onChangeIndex={expressChangeIndex}
+          onChangeIndex={setExpressIndex}
           findExercise={findExercise}
           settings={settings}
           prMap={prMap}
           bestRepsAt={(exerciseId, weight) => bestRepsAtOrAboveWeight(repPRByWeightMap[exerciseId] ?? {}, weight)}
           lastSession={lastSession}
           celebratingExercise={celebratingExercise}
-          onUpdateSet={(li, si, s) => { clearUndo(); updateSet(li, si, s) }}
-          onCompleteSet={expressCompleteSet}
-          onRescindSet={(li, si) => { clearUndo(); rescindSet(li, si) }}
-          onAddSet={li => { clearUndo(); addSet(li) }}
-          onRemoveSet={expressRemoveSet}
+          onUpdateSet={updateSet}
+          onCompleteSet={completeSet}
+          onRescindSet={rescindSet}
+          onAddSet={addSet}
+          onRemoveSet={removeSet}
+          onConfirmRemoveSet={(li, si) => setConfirmRemoveSet({ logIndex: li, setIndex: si })}
           onNotes={updateNotes}
           onLater={pushLater}
-          onAddExercise={() => { clearUndo(); setShowAddExercise(true) }}
-          onSubstitute={li => { clearUndo(); handleSubstituteExercise(li) }}
-          onRemoveExercise={li => { clearUndo(); handleRemoveExercise(li) }}
-          onCopyLast={lastSession && !hasCopiedLastSession ? () => { clearUndo(); copyLastSession() } : null}
+          onAddExercise={() => setShowAddExercise(true)}
+          onSubstitute={handleSubstituteExercise}
+          onRemoveExercise={handleRemoveExercise}
+          onCopyLast={lastSession && !hasCopiedLastSession ? copyLastSession : null}
           onShowBreakdown={hasBreakdown ? () => setShowBreakdown(true) : null}
           onAbandon={() => setShowAbandon(true)}
           onFinish={handleFinish}
           finishing={finishing}
           totalSets={totalSets}
           completedSets={completedSets}
-          undo={undo}
-          onUndo={doUndo}
           menuOpen={expressMenuOpen}
           onCloseMenu={() => setExpressMenuOpen(false)}
         />

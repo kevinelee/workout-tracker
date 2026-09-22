@@ -92,6 +92,7 @@ function valueFields({ exercise, set, unit, onChange }) {
 // how long that takes (matches .xs-set--removing in the CSS).
 const ROW_EXIT_MS = 200
 const SHEET_EXIT_MS = 240
+const CARD_EXIT_MS = 150 // matches .xs-card--out
 
 // Bottom sheet that plays its slide-down before unmounting. Children get an
 // animated close(after) so a row tap can slide the sheet away, then act.
@@ -114,9 +115,9 @@ function Sheet({ onClose, title, children }) {
 }
 
 function ExerciseCard({
-  log, logIndex, exercise, settings, prMap, bestRepsAt, lastLog, celebrating,
+  log, logIndex, exercise, settings, prMap, bestRepsAt, lastLog, celebrating, leaving,
   canLater, nextName, upNextButton, workoutDone, finishing,
-  onUpdateSet, onCompleteSet, onRescindSet, onAddSet, onRemoveSet, onNotes, onLater, onNext, onFinish,
+  onUpdateSet, onCompleteSet, onRescindSet, onAddSet, onRemoveSet, onConfirmRemoveSet, onNotes, onLater, onNext, onFinish,
 }) {
   const [focusOverride, setFocusOverride] = useState(null)
   const [editingSets, setEditingSets] = useState(false)
@@ -184,6 +185,8 @@ function ExerciseCard({
 
   function removeRow(si) {
     if (removingSi != null) return
+    // A logged set is real data — ask first (SessionScreen's confirm modal).
+    if (log.sets[si].completed) { onConfirmRemoveSet(logIndex, si); return }
     setRemovingSi(si)
     setTimeout(() => {
       onRemoveSet(logIndex, si)
@@ -201,7 +204,7 @@ function ExerciseCard({
   }
 
   return (
-    <div className={`xs-card${celebrating ? ' xs-card--celebrating' : ''}`}>
+    <div className={`xs-card${celebrating ? ' xs-card--celebrating' : ''}${leaving ? ' xs-card--out' : ''}`}>
       <div className="xs-ex-head">
         <MuscleIcon muscleGroup={exercise.muscleGroup} className="xs-ex-icon" />
         <div className="xs-ex-title">
@@ -309,7 +312,7 @@ function ExerciseCard({
       <div className="xs-actions">
         <div className="xs-next-row">
           {upNextButton}
-          {canLater && !exerciseDone && (
+          {canLater && doneCount === 0 && (
             <button className="xs-later" onClick={() => onLater(logIndex)} aria-label="Machine taken? Do this exercise later">
               Later
             </button>
@@ -334,16 +337,22 @@ function ExerciseCard({
 
 export default function ExpressSession({
   logs, currentIndex, onChangeIndex, findExercise, settings, prMap, bestRepsAt, lastSession, celebratingExercise,
-  onUpdateSet, onCompleteSet, onRescindSet, onAddSet, onRemoveSet, onNotes, onLater,
+  onUpdateSet, onCompleteSet, onRescindSet, onAddSet, onRemoveSet, onConfirmRemoveSet, onNotes, onLater,
   onAddExercise, onSubstitute, onRemoveExercise, onCopyLast, onShowBreakdown, onAbandon,
   onFinish, finishing, totalSets, completedSets,
-  undo, onUndo, menuOpen, onCloseMenu,
+  menuOpen, onCloseMenu,
 }) {
   const [queueOpen, setQueueOpen] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
-  // The toast keeps its last label while it fades out after `undo` clears.
-  const [toastLabel, setToastLabel] = useState(null)
-  if (undo && undo.label !== toastLabel) setToastLabel(undo.label)
+  const [switching, setSwitching] = useState(false)
+
+  // Changing exercise: fade the current card out, then swap in the new one
+  // (which fades in on mount) — a crossfade rather than a slide.
+  function switchExercise(change) {
+    if (switching) return
+    setSwitching(true)
+    setTimeout(() => { change(); setSwitching(false) }, CARD_EXIT_MS)
+  }
 
   if (logs.length === 0) {
     return (
@@ -394,6 +403,7 @@ export default function ExpressSession({
           bestRepsAt={w => bestRepsAt(log.exerciseId, w)}
           lastLog={lastSession?.logs?.find(l => l.exerciseId === log.exerciseId)}
           celebrating={celebratingExercise === log.exerciseId}
+          leaving={switching}
           canLater={canLater}
           nextName={upNext?.name}
           upNextButton={upNextButton}
@@ -404,9 +414,10 @@ export default function ExpressSession({
           onRescindSet={onRescindSet}
           onAddSet={onAddSet}
           onRemoveSet={onRemoveSet}
+          onConfirmRemoveSet={onConfirmRemoveSet}
           onNotes={onNotes}
-          onLater={onLater}
-          onNext={() => onChangeIndex(nextIdx)}
+          onLater={li => switchExercise(() => onLater(li))}
+          onNext={() => switchExercise(() => onChangeIndex(nextIdx))}
           onFinish={onFinish}
         />
       ) : (
@@ -414,13 +425,6 @@ export default function ExpressSession({
           <div className="xs-empty"><p>This exercise is no longer in your library.</p></div>
           {upNextButton}
         </>
-      )}
-
-      {toastLabel && (
-        <div className={`xs-toast${undo ? ' xs-toast--on' : ''}`} role="status" aria-hidden={!undo}>
-          <span>{toastLabel}</span>
-          <button className="xs-toast-undo" onClick={onUndo} tabIndex={undo ? 0 : -1}>Undo</button>
-        </div>
       )}
 
       {/* Queue sheet — jump to any exercise */}
@@ -437,7 +441,7 @@ export default function ExpressSession({
                     <button
                       key={l.exerciseId}
                       className={`xs-queue-row${i === currentIndex ? ' xs-queue-row--current' : ''}${done === l.sets.length ? ' xs-queue-row--done' : ''}`}
-                      onClick={() => close(() => onChangeIndex(i))}
+                      onClick={() => close(() => { if (i !== currentIndex) switchExercise(() => onChangeIndex(i)) })}
                     >
                       <span className="xs-queue-num">{i + 1}</span>
                       <MuscleIcon muscleGroup={ex?.muscleGroup} className="xs-queue-icon" />
