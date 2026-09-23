@@ -767,7 +767,9 @@ export default function App() {
     const sessionId = activeSession?.sessionId
     clearActiveSession()
     setActiveSession(null)
-    if (sessionId) abandonSession(sessionId)
+    // Already cleared locally; a leftover 'active' row is never shown, so
+    // don't alert the user about a workout they chose to throw away.
+    if (sessionId) abandonSession(sessionId).catch(console.error)
     goHome()
     setActiveTab('home')
   }

@@ -5,6 +5,7 @@ import { sessionVolume, sessionPRCount, volumeChangePercent, fmtVolume, fmtDurat
 import { estimateCalories } from '../utils/calories'
 import { defaultExercises } from '../data/exerciseLibrary'
 import { getCachedCustomExercises, updateSessionDuration } from '../storage'
+import { alertSaveError } from '../lib/saveError'
 import './PostWorkoutSummary.css'
 
 function fmtTime(iso) {
@@ -247,9 +248,16 @@ export default function PostWorkoutSummary({ session, template, prevSession, onD
                 className="pws-modal-confirm"
                 onClick={async () => {
                   const secs = (parseInt(durationEditH) || 0) * 3600 + (parseInt(durationEditM) || 0) * 60 + (parseInt(durationEditS) || 0)
+                  const prevSecs = durationSecs
                   setDurationSecs(secs)
                   setShowDurationEdit(false)
-                  if (session.id) await updateSessionDuration(session.id, secs)
+                  if (!session.id) return
+                  try {
+                    await updateSessionDuration(session.id, secs)
+                  } catch (err) {
+                    setDurationSecs(prevSecs)
+                    alertSaveError(err)
+                  }
                 }}
               >
                 Save

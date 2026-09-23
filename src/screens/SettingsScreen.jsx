@@ -114,16 +114,19 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
   async function handleSaveEditExercise() {
     if (!editExercise || !editName.trim()) return
     setEditSaving(true)
-    await saveCustomExercise({
-      id:          editExercise.id,
-      name:        editName.trim(),
-      category:    editCategory,
-      muscleGroup: editMuscleGroup.trim(),
-    })
-    await getCustomExercises()
-    setCustomExercises(getCachedCustomExercises())
-    setEditExercise(null)
-    setEditSaving(false)
+    try {
+      await saveCustomExercise({
+        id:          editExercise.id,
+        name:        editName.trim(),
+        category:    editCategory,
+        muscleGroup: editMuscleGroup.trim(),
+      })
+      await getCustomExercises()
+      setCustomExercises(getCachedCustomExercises())
+      setEditExercise(null)
+    } finally {
+      setEditSaving(false)
+    }
   }
 
   function update(key, value) {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { saveFeedback } from '../storage'
+import { alertSaveError } from '../lib/saveError'
 import './FeedbackModal.css'
 
 export default function FeedbackModal({ authUser, defaultType = 'bug', onClose }) {
@@ -39,7 +40,7 @@ export default function FeedbackModal({ authUser, defaultType = 'bug', onClose }
       setDone(true)
       setTimeout(onClose, 1400)
     } catch (err) {
-      console.error('Feedback submit failed:', err)
+      alertSaveError(err)
       setSubmitting(false)
     }
   }

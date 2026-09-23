@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import BuildTag from './components/BuildTag.jsx'
+import { SaveError, alertSaveError } from './lib/saveError'
 
 if (import.meta.env.VITE_SENTRY_DSN) {
   Sentry.init({
@@ -208,6 +209,13 @@ if (import.meta.env.DEV && 'serviceWorker' in navigator) {
   // Also clear the workbox precache so stale assets don't linger
   caches.keys().then(keys => keys.forEach(k => caches.delete(k)))
 }
+
+// Safety net for storage writes that no screen catches itself.
+window.addEventListener('unhandledrejection', e => {
+  if (!(e.reason instanceof SaveError)) return
+  e.preventDefault()
+  alertSaveError(e.reason)
+})
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

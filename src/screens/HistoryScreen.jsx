@@ -3,6 +3,7 @@ import { sessionVolume, sessionPRCount, logVolume, fmtVolume, fmtDuration } from
 import { estimateCalories } from '../utils/calories'
 import { calcStreak } from '../utils/streaks'
 import { getCachedCustomExercises } from '../storage'
+import { alertSaveError } from '../lib/saveError'
 import { defaultExercises } from '../data/exerciseLibrary'
 import VolumeChart from '../components/VolumeChart'
 import CalendarHeatmap from '../components/CalendarHeatmap'
@@ -221,7 +222,7 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
     try {
       await onDeleteSession(id)
     } catch (err) {
-      console.error('Failed to delete session:', err)
+      alertSaveError(err)
       setDeletingId(null)
     }
   }

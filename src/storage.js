@@ -3,6 +3,16 @@
 
 import { nanoid } from 'nanoid'
 import { supabase } from './lib/supabase'
+import { SaveError } from './lib/saveError'
+
+// Throws on a failed write. With requireRows (the query must end in .select()),
+// also throws when nothing matched, which RLS or a stale id reports as success.
+async function check(what, query, { requireRows = false } = {}) {
+  const { data, error } = await query
+  if (error) throw new SaveError(what, error)
+  if (requireRows && !data?.length) throw new SaveError(what)
+  return data
+}
 
 // ── User context ─────────────────────────────────────────────
 let _uid = null
@@ -178,18 +188,18 @@ export async function getCustomExercises() {
 }
 
 export async function saveCustomExercise(exercise) {
-  await supabase.from('custom_exercises').upsert({
+  await check('your exercise', supabase.from('custom_exercises').upsert({
     id:           exercise.id,
     user_id:      _uid,
     name:         exercise.name,
     category:     exercise.category,
     muscle_group: exercise.muscleGroup,
-  })
+  }))
   await getCustomExercises() // refresh cache
 }
 
 export async function deleteCustomExercise(id) {
-  await supabase.from('custom_exercises').delete().eq('id', id)
+  await check('that deletion', supabase.from('custom_exercises').delete().eq('id', id))
   _customExercisesCache = _customExercisesCache.filter(e => e.id !== id)
 }
 
@@ -257,9 +267,9 @@ export async function saveTemplate(template) {
     name:       template.name,
     program_id: template.programId ?? null,
   })
-  if (upsertErr) throw upsertErr
+  if (upsertErr) throw new SaveError('your workout', upsertErr)
 
-  await supabase.from('template_exercises').delete().eq('template_id', template.id)
+  await check('your workout', supabase.from('template_exercises').delete().eq('template_id', template.id))
 
   for (let i = 0; i < template.exercises.length; i++) {
     const ex = template.exercises[i]
@@ -272,7 +282,7 @@ export async function saveTemplate(template) {
       position:    i,
       notes:       ex.notes ?? '',
     })
-    if (teErr) throw teErr
+    if (teErr) throw new SaveError('your workout', teErr)
 
     for (let j = 0; j < ex.sets.length; j++) {
       const { error: tsErr } = await supabase.from('template_sets').insert({
@@ -282,14 +292,13 @@ export async function saveTemplate(template) {
         reps:                 ex.sets[j].reps,
         weight:               ex.sets[j].weight,
       })
-      if (tsErr) throw tsErr
+      if (tsErr) throw new SaveError('your workout', tsErr)
     }
   }
 }
 
 export async function deleteTemplate(id) {
-  const { error } = await supabase.from('workout_templates').delete().eq('id', id)
-  if (error) throw error
+  await check('that deletion', supabase.from('workout_templates').delete().eq('id', id))
 }
 
 export function getTemplateOrder() {
@@ -327,30 +336,33 @@ export async function createProgram(name) {
     .insert({ id: crypto.randomUUID(), user_id: _uid, name, is_active: false })
     .select()
     .single()
-  if (error) throw error
+  if (error) throw new SaveError('your program', error)
   return dbProgramToApp(data)
 }
 
 export async function renameProgram(id, name) {
-  await supabase.from('programs').update({ name }).eq('id', id).eq('user_id', _uid)
+  await check('the new name',
+    supabase.from('programs').update({ name }).eq('id', id).eq('user_id', _uid).select('id'),
+    { requireRows: true })
 }
 
 export async function deleteProgram(id) {
-  const { error } = await supabase.from('programs').delete().eq('id', id).eq('user_id', _uid)
-  if (error) throw error
+  await check('that deletion', supabase.from('programs').delete().eq('id', id).eq('user_id', _uid))
 }
 
 export async function setActiveProgram(id) {
-  await supabase.from('programs').update({ is_active: false }).eq('user_id', _uid)
-  await supabase.from('programs').update({ is_active: true }).eq('id', id).eq('user_id', _uid)
+  await check('your program switch', supabase.from('programs').update({ is_active: false }).eq('user_id', _uid))
+  await check('your program switch',
+    supabase.from('programs').update({ is_active: true }).eq('id', id).eq('user_id', _uid).select('id'),
+    { requireRows: true })
 }
 
 export async function reassignProgramTemplates(fromProgramId, toProgramId) {
-  await supabase
+  await check('that deletion', supabase
     .from('workout_templates')
     .update({ program_id: toProgramId })
     .eq('user_id', _uid)
-    .eq('program_id', fromProgramId)
+    .eq('program_id', fromProgramId))
 }
 
 export async function ensureDefaultProgram() {
@@ -364,11 +376,11 @@ export async function ensureDefaultProgram() {
     .select().single()
   if (error || !program) return null
 
-  await supabase
+  await check('your workouts', supabase
     .from('workout_templates')
     .update({ program_id: program.id })
     .eq('user_id', _uid)
-    .is('program_id', null)
+    .is('program_id', null))
 
   return dbProgramToApp(program)
 }
@@ -427,35 +439,41 @@ export async function saveSession(session) {
     pr_map:           session.prMap ?? {},
   }).eq('id', session.id).eq('user_id', _uid).select('id')
 
-  if (sessionErr) console.error('[saveSession] update session:', sessionErr)
+  if (sessionErr) throw new SaveError('your workout', sessionErr)
 
   // If 0 rows were updated the session is likely orphaned (null user_id).
   // Fall back to the edge function which uses the service role to claim + update it.
-  if (!sessionErr && (!updated || updated.length === 0)) {
-    await saveSessionViaEdgeFunction(session)
+  if (!updated || updated.length === 0) {
+    try {
+      await saveSessionViaEdgeFunction(session)
+    } catch (err) {
+      throw new SaveError('your workout', err)
+    }
     return
   }
 
   if (!session.logs?.length) return
 
-  // 2. Replace logs: delete existing, re-insert
-  await supabase.from('session_logs').delete().eq('session_id', session.id)
+  // 2. Replace logs: delete existing, re-insert. A failure partway through
+  //    leaves the logs incomplete, so it has to throw: the caller keeps the
+  //    workout in memory and a retry deletes and rewrites them all again.
+  await check('your workout', supabase.from('session_logs').delete().eq('session_id', session.id))
 
   for (let i = 0; i < session.logs.length; i++) {
     const log = session.logs[i]
     const logId = nanoid()
 
-    await supabase.from('session_logs').insert({
+    await check('your workout', supabase.from('session_logs').insert({
       id:          logId,
       session_id:  session.id,
       exercise_id: log.exerciseId,
       position:    i,
       notes:       log.notes ?? '',
-    })
+    }))
 
     for (let j = 0; j < log.sets.length; j++) {
       const s = log.sets[j]
-      await supabase.from('session_sets').insert({
+      await check('your workout', supabase.from('session_sets').insert({
         id:             nanoid(),
         session_log_id: logId,
         position:       j,
@@ -464,7 +482,7 @@ export async function saveSession(session) {
         completed:      s.completed,
         is_pr:          s.isPR ?? false,
         pr_kind:        s.prKind ?? null,
-      })
+      }))
     }
   }
 }
@@ -476,14 +494,14 @@ export async function deleteSession(id) {
 
   if (logs?.length) {
     const logIds = logs.map(l => l.id)
-    await supabase.from('session_sets').delete().in('session_log_id', logIds)
-    await supabase.from('session_logs').delete().eq('session_id', id)
+    await check('that deletion', supabase.from('session_sets').delete().in('session_log_id', logIds))
+    await check('that deletion', supabase.from('session_logs').delete().eq('session_id', id))
   }
 
   const { data: deleted, error } = await supabase
     .from('sessions').delete().eq('id', id).select('id')
 
-  if (error) throw error
+  if (error) throw new SaveError('that deletion', error)
   // If 0 rows were deleted the session either doesn't exist or RLS blocked it.
   // Treat as success only if the select above already confirmed no logs existed
   // (i.e. the session was already gone). If logs existed but sessions returned
@@ -492,12 +510,14 @@ export async function deleteSession(id) {
     // Re-check: if no session row exists at all, it was already gone — OK.
     const { count } = await supabase
       .from('sessions').select('id', { count: 'exact', head: true }).eq('id', id)
-    if (count && count > 0) throw new Error('Could not delete session — permission denied')
+    if (count && count > 0) throw new SaveError('that deletion', new Error('permission denied'))
   }
 }
 
 export async function updateSessionDuration(id, durationSeconds) {
-  await supabase.from('sessions').update({ duration_seconds: durationSeconds }).eq('id', id)
+  await check('the new duration',
+    supabase.from('sessions').update({ duration_seconds: durationSeconds }).eq('id', id).select('id'),
+    { requireRows: true })
 }
 
 export async function getLastSessionForTemplate(templateId) {
@@ -526,13 +546,13 @@ export async function getSettings() {
 }
 
 export async function saveSettings(settings) {
-  await supabase.from('settings').upsert({
+  await check('your settings', supabase.from('settings').upsert({
     user_id:             _uid,
     unit:                settings.unit,
     theme:               encodeTheme(settings.colorScheme, settings.themeMode),
     controller_side:     settings.controllerSide,
     rest_timer_duration: settings.restTimerDuration,
-  })
+  }))
 }
 
 
@@ -576,7 +596,7 @@ export async function getProfile() {
 }
 
 export async function saveProfile(profile) {
-  await supabase.from('profiles').upsert({
+  await check('your profile', supabase.from('profiles').upsert({
     id:                    _uid,
     display_name:          profile.displayName        ?? null,
     height_cm:             profile.heightCm           ?? null,
@@ -589,7 +609,7 @@ export async function saveProfile(profile) {
     target_days_per_week:     profile.targetDaysPerWeek     ?? 3,
     onboarding_complete:      profile.onboardingComplete    ?? false,
     fitness_profile_summary:  profile.fitnessProfileSummary ?? null,
-  })
+  }))
 }
 
 
@@ -609,18 +629,18 @@ export async function getBodyWeightLogs() {
 }
 
 export async function saveBodyWeightLog(weightKg) {
-  const { data } = await supabase
+  const data = await check('your weight', supabase
     .from('body_weight_logs')
     .insert({ id: nanoid(), user_id: _uid, weight_kg: weightKg })
     .select()
-    .single()
+    .single())
   // Also keep profiles.weight_kg in sync with the latest entry
-  await supabase.from('profiles').upsert({ id: _uid, weight_kg: weightKg })
+  await check('your weight', supabase.from('profiles').upsert({ id: _uid, weight_kg: weightKg }))
   return { id: data.id, weightKg: Number(data.weight_kg), loggedAt: data.logged_at }
 }
 
 export async function deleteBodyWeightLog(id) {
-  await supabase.from('body_weight_logs').delete().eq('id', id)
+  await check('that deletion', supabase.from('body_weight_logs').delete().eq('id', id))
 }
 
 
@@ -637,9 +657,9 @@ export async function getCheckIns() {
 
 export async function saveCheckIn() {
   const today = new Date().toISOString().slice(0, 10)
-  await supabase
+  await check('your check-in', supabase
     .from('check_ins')
-    .upsert({ user_id: _uid, date: today }, { onConflict: 'user_id,date' })
+    .upsert({ user_id: _uid, date: today }, { onConflict: 'user_id,date' }))
 }
 
 export async function hasCheckedInToday() {
@@ -712,7 +732,9 @@ export function getActiveSession() {
 
 export function saveActiveSession(data) {
   localStorage.setItem(ACTIVE_KEY, JSON.stringify(data))
-  // Persist to DB in background (non-blocking)
+  // Persist to DB in background (non-blocking). Called on every set change,
+  // and localStorage already holds the workout, so a failure here is logged
+  // rather than alerted — saveSession on Finish is the write that has to land.
   if (_uid && data) {
     supabase.from('sessions').upsert({
       id:          data.sessionId,
@@ -721,7 +743,9 @@ export function saveActiveSession(data) {
       started_at:  data.startedAt,
       status:      'active',
       pr_map:      data.prMap ?? {},
-    }).then()
+    }).then(({ error }) => {
+      if (error) console.error('[saveActiveSession] background sync failed:', error)
+    })
   }
 }
 
@@ -770,14 +794,14 @@ export function saveSessionView(view) {
 
 export async function abandonSession(sessionId) {
   if (!sessionId || !_uid) return
-  await supabase.from('sessions').delete().eq('id', sessionId).eq('user_id', _uid)
+  await check('that change', supabase.from('sessions').delete().eq('id', sessionId).eq('user_id', _uid))
 }
 
 
 // ── Feedback ──────────────────────────────────────────────────
 
 export async function saveFeedback(type, message, userEmail) {
-  await supabase.from('feedback').insert({
+  await check('your feedback', supabase.from('feedback').insert({
     id:         nanoid(),
     user_id:    _uid,
     user_email: userEmail ?? null,
@@ -785,7 +809,7 @@ export async function saveFeedback(type, message, userEmail) {
     message,
     status:   'new',
     metadata: { userAgent: navigator.userAgent },
-  })
+  }))
 }
 
 export async function getFeedback() {
@@ -797,17 +821,15 @@ export async function getFeedback() {
 }
 
 export async function markFeedbackReviewed(id) {
-  const { data, error } = await supabase.from('feedback').update({ status: 'reviewed' }).eq('id', id).select()
-  if (error) throw error
-  // A blocked RLS policy makes Supabase report success on 0 matched rows
-  // instead of an error, so the only way to catch it is an empty result.
-  if (!data?.length) throw new Error('Feedback row was not updated — check RLS policy on the feedback table')
+  await check('that change',
+    supabase.from('feedback').update({ status: 'reviewed' }).eq('id', id).select('id'),
+    { requireRows: true })
 }
 
 export async function archiveFeedback(id) {
-  const { data, error } = await supabase.from('feedback').update({ status: 'archived' }).eq('id', id).select()
-  if (error) throw error
-  if (!data?.length) throw new Error('Feedback row was not updated — check RLS policy on the feedback table')
+  await check('that change',
+    supabase.from('feedback').update({ status: 'archived' }).eq('id', id).select('id'),
+    { requireRows: true })
 }
 
 // ── Admin: Activity feed ──────────────────────────────────────
@@ -985,11 +1007,11 @@ export async function clearAll() {
   localStorage.removeItem(ACTIVE_KEY)
   // Delete from all tables — cascade handles children
   await Promise.all([
-    supabase.from('workout_templates').delete().eq('user_id', _uid),
-    supabase.from('sessions').delete().eq('user_id', _uid),
-    supabase.from('check_ins').delete().eq('user_id', _uid),
-    supabase.from('custom_exercises').delete().eq('user_id', _uid),
-    supabase.from('settings').delete().eq('user_id', _uid),
+    check('that deletion', supabase.from('workout_templates').delete().eq('user_id', _uid)),
+    check('that deletion', supabase.from('sessions').delete().eq('user_id', _uid)),
+    check('that deletion', supabase.from('check_ins').delete().eq('user_id', _uid)),
+    check('that deletion', supabase.from('custom_exercises').delete().eq('user_id', _uid)),
+    check('that deletion', supabase.from('settings').delete().eq('user_id', _uid)),
   ])
 }
 
