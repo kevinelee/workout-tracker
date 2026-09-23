@@ -4,6 +4,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities'
 import { createWorkoutTemplate, createTemplateExercise, createSet } from '../data/models'
 import { saveTemplate, deleteTemplate, getCachedCustomExercises } from '../storage'
+import { alertSaveError } from '../lib/saveError'
 import { defaultExercises } from '../data/exerciseLibrary'
 import ExerciseSearch from '../components/ExerciseSearch'
 import ExerciseRow from '../components/ExerciseRow'
@@ -86,7 +87,7 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
       await saveTemplate(template)
       onSave(template)
     } catch (err) {
-      console.error('Failed to save template:', err)
+      alertSaveError(err)
       setSaving(false)
     }
   }

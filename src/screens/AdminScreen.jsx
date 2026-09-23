@@ -5,6 +5,7 @@ import { defaultExercises } from '../data/exerciseLibrary'
 const EXERCISE_MAP = Object.fromEntries(defaultExercises.map(e => [e.id, e.name]))
 function exName(id) { return EXERCISE_MAP[id] ?? id }
 import { CHANGELOG } from '../data/changelog'
+import { alertSaveError } from '../lib/saveError'
 import './AdminScreen.css'
 
 function fmtDate(iso) {
@@ -519,19 +520,17 @@ export default function AdminScreen({ onReviewed }) {
       setItems(prev => prev.map(item => item.id === id ? { ...item, status: 'reviewed' } : item))
       onReviewed?.()
     } catch (err) {
-      console.error('Failed to mark feedback reviewed', err)
-      alert('Could not save that — the change didn\'t persist. Check the Supabase RLS policy on the feedback table.')
-      throw err
+      alertSaveError(err)
     }
   }
 
+  // Rethrows after alerting so SwipeToArchive can undo its exit animation.
   async function handleArchive(id) {
     try {
       await archiveFeedback(id)
       setItems(prev => prev.map(item => item.id === id ? { ...item, status: 'archived' } : item))
     } catch (err) {
-      console.error('Failed to archive feedback', err)
-      alert('Could not archive that — the change didn\'t persist. Check the Supabase RLS policy on the feedback table.')
+      alertSaveError(err)
       throw err
     }
   }
@@ -542,7 +541,7 @@ export default function AdminScreen({ onReviewed }) {
   function requestArchive(id) {
     const row = swipeRefs.current.get(id)
     if (row) row.archive()
-    else handleArchive(id)
+    else handleArchive(id).catch(() => {}) // already alerted
   }
 
   const newCount = items.filter(i => i.status === 'new').length

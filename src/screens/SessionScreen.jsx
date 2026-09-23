@@ -12,6 +12,7 @@ import ExpressSession from '../components/ExpressSession'
 import { useProGate } from '../lib/proGate'
 import { fmtSet, nextOpenIndex } from '../utils/express'
 import { unlockChime, playChime } from '../utils/sound'
+import { alertSaveError } from '../lib/saveError'
 import './SessionScreen.css'
 
 function NotesIcon() {
@@ -498,7 +499,9 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
         onFinish(session, template)
       }
     } catch (err) {
-      console.error('Failed to save session:', err)
+      // The workout is still in memory and localStorage, so tapping Finish
+      // again retries the whole save.
+      alertSaveError(err)
       setFinishing(false)
     }
   }
@@ -528,7 +531,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
       })
     })
     const savedTemplate = { ...template, name: name.trim(), isQuickStart: false, exercises: savedExercises, programId: programId ?? null }
-    try { await saveTemplate(savedTemplate) } catch (err) { console.error(err); setModalSaving(false); return }
+    try { await saveTemplate(savedTemplate) } catch (err) { alertSaveError(err); setModalSaving(false); return }
     onFinish(session, savedTemplate)
   }
 
@@ -551,7 +554,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
       })
     })
     const updatedTemplate = { ...template, exercises: updatedExercises }
-    try { await saveTemplate(updatedTemplate) } catch (err) { console.error(err); setModalSaving(false); return }
+    try { await saveTemplate(updatedTemplate) } catch (err) { alertSaveError(err); setModalSaving(false); return }
     onFinish(session, updatedTemplate)
   }
 
