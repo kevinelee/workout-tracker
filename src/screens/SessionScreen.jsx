@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { createSet } from '../data/models'
 import { defaultExercises } from '../data/exerciseLibrary'
-import { getCachedCustomExercises, getCollapsedExercises, getLastSessionForTemplate, getSessionView, saveCollapsedExercises, saveSession, saveSessionView, saveTemplate } from '../storage'
+import { getCachedCustomExercises, getCollapsedExercises, getExpressPosition, getLastSessionForTemplate, getSessionView, saveCollapsedExercises, saveExpressPosition, saveSession, saveSessionView, saveTemplate } from '../storage'
 import { initLogsFromSession } from '../App'
 import { createTemplateExercise } from '../data/models'
 import MuscleIcon from '../components/MuscleIcon'
@@ -10,7 +10,7 @@ import ExerciseSearch from '../components/ExerciseSearch'
 import RestTimer from '../components/RestTimer'
 import ExpressSession from '../components/ExpressSession'
 import { useProGate } from '../lib/proGate'
-import { fmtSet, nextOpenIndex } from '../utils/express'
+import { fmtSet, upNextIndex } from '../utils/express'
 import { unlockChime, playChime } from '../utils/sound'
 import { alertSaveError } from '../lib/saveError'
 import './SessionScreen.css'
@@ -125,9 +125,20 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const [viewPref, setViewPref]     = useState(getSessionView)
   const express                     = viewPref === 'express' && canUse('expressMode')
   const [showProLock, setShowProLock] = useState(false)
-  const [expressIndex, setExpressIndex] = useState(() => Math.max(0, initialLogs.findIndex(l => l.sets.some(s => !s.completed))))
+  const [savedExpressPos]           = useState(() => getExpressPosition(sessionId))
+  const [expressIndex, setExpressIndex] = useState(() => {
+    const saved = initialLogs.findIndex(l => l.exerciseId === savedExpressPos.currentId)
+    if (saved >= 0 && initialLogs[saved].sets.some(s => !s.completed)) return saved
+    return Math.max(0, initialLogs.findIndex(l => l.sets.some(s => !s.completed)))
+  })
+  const [deferredId, setDeferredId] = useState(savedExpressPos.deferredId ?? null)
   const [expressMenuOpen, setExpressMenuOpen] = useState(false)
   const currentExpressIndex         = Math.min(expressIndex, Math.max(0, logs.length - 1))
+  const currentExpressId            = logs[currentExpressIndex]?.exerciseId
+
+  useEffect(() => {
+    saveExpressPosition(sessionId, { currentId: currentExpressId, deferredId })
+  }, [sessionId, currentExpressId, deferredId])
 
   const [lastSession, setLastSession] = useState(null)
   useEffect(() => {
@@ -568,18 +579,16 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     saveSessionView(view)
   }
 
-  // "Machine taken": move this exercise to just after the next unfinished one
-  // and show that one now. Only before any of its sets are logged — once
-  // started, it stays put. Today's session only; the template order is left
-  // alone unless they pick "Update workout" at the end.
+  // "Machine taken": jump to what's up next and bring this exercise back right
+  // after it. Only before any of its sets are logged — once started, it stays
+  // put. The logs aren't reordered (see upNextIndex), so the progress dots
+  // move to the exercise you're actually on.
   function pushLater(logIndex) {
     if (logs[logIndex].sets.some(s => s.completed)) return
-    const target = logs.findIndex((l, i) => i > logIndex && l.sets.some(s => !s.completed))
+    const target = upNextIndex(logs, logIndex, deferredId)
     if (target === -1) return
-    const reordered = logs.filter((_, i) => i !== logIndex)
-    reordered.splice(target, 0, logs[logIndex])
-    updateLogsAndSync(reordered, null)
-    setExpressIndex(target - 1)
+    setDeferredId(logs[logIndex].exerciseId)
+    setExpressIndex(target)
   }
 
   // What the full-screen rest shows under the countdown.
@@ -596,7 +605,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
         </>
       )
     }
-    const ni = nextOpenIndex(logs, currentExpressIndex)
+    const ni = upNextIndex(logs, currentExpressIndex, deferredId)
     if (ni === -1) return null
     return (
       <>
@@ -701,6 +710,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
         <ExpressSession
           logs={logs}
           currentIndex={currentExpressIndex}
+          deferredId={deferredId}
           onChangeIndex={setExpressIndex}
           findExercise={findExercise}
           settings={settings}

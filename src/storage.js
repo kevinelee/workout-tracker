@@ -756,9 +756,15 @@ export function saveActiveSession(data) {
 // starts fresh instead of inheriting the last one's collapsed rows.
 const COLLAPSED_KEY = 'wt:collapsedExercises'
 
+// Express view's current exercise and the one pushed back with Later. Same
+// reasoning as the collapsed set: SessionScreen unmounts on every tab switch,
+// and without this you'd come back to the exercise you just skipped.
+const EXPRESS_POS_KEY = 'wt:expressPosition'
+
 export function clearActiveSession() {
   localStorage.removeItem(ACTIVE_KEY)
   localStorage.removeItem(COLLAPSED_KEY)
+  localStorage.removeItem(EXPRESS_POS_KEY)
   // The session row in DB will be updated to 'finished' by saveSession()
 }
 
@@ -776,6 +782,22 @@ export function saveCollapsedExercises(sessionId, ids) {
   try {
     localStorage.setItem(COLLAPSED_KEY, JSON.stringify({ sessionId, ids: [...ids] }))
   } catch { /* quota — a lost view preference isn't worth surfacing */ }
+}
+
+export function getExpressPosition(sessionId) {
+  try {
+    const raw = localStorage.getItem(EXPRESS_POS_KEY)
+    if (!raw) return {}
+    const { sessionId: savedId, currentId, deferredId } = JSON.parse(raw)
+    return savedId === sessionId ? { currentId, deferredId } : {}
+  } catch { return {} }
+}
+
+export function saveExpressPosition(sessionId, { currentId, deferredId }) {
+  if (!sessionId) return
+  try {
+    localStorage.setItem(EXPRESS_POS_KEY, JSON.stringify({ sessionId, currentId, deferredId }))
+  } catch { /* quota — worst case you land on the first open exercise */ }
 }
 
 // List vs Express session layout. Per device, like the collapsed set above —

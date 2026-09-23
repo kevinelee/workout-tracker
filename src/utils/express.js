@@ -50,3 +50,13 @@ export function nextOpenIndex(logs, from) {
   }
   return -1
 }
+
+// Where "next" goes from `from`: the exercise last pushed back with Later
+// comes up first, as long as it still has sets left — otherwise the next open
+// one in order. Later never reorders the logs, so the dots, the queue and the
+// list view all keep the planned order.
+export function upNextIndex(logs, from, deferredId) {
+  const d = deferredId ? logs.findIndex(l => l.exerciseId === deferredId) : -1
+  if (d >= 0 && d !== from && hasOpenSets(logs[d])) return d
+  return nextOpenIndex(logs, from)
+}
