@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import HoldButton from './HoldButton'
 import MuscleIcon from './MuscleIcon'
-import { exerciseKind, displayWeight, displayDistance, fmtSet, hasOpenSets, nextOpenIndex } from '../utils/express'
+import { exerciseKind, displayWeight, displayDistance, fmtSet, hasOpenSets, upNextIndex } from '../utils/express'
 import './ExpressSession.css'
 
 // A big tappable number with −/+ underneath. Tapping the number opens the
@@ -336,7 +336,7 @@ function ExerciseCard({
 }
 
 export default function ExpressSession({
-  logs, currentIndex, onChangeIndex, findExercise, settings, prMap, bestRepsAt, lastSession, celebratingExercise,
+  logs, currentIndex, deferredId, onChangeIndex, findExercise, settings, prMap, bestRepsAt, lastSession, celebratingExercise,
   onUpdateSet, onCompleteSet, onRescindSet, onAddSet, onRemoveSet, onConfirmRemoveSet, onNotes, onLater,
   onAddExercise, onSubstitute, onRemoveExercise, onCopyLast, onShowBreakdown, onAbandon,
   onFinish, finishing, totalSets, completedSets,
@@ -367,9 +367,9 @@ export default function ExpressSession({
 
   const log = logs[currentIndex]
   const exercise = findExercise(log.exerciseId)
-  const nextIdx = nextOpenIndex(logs, currentIndex)
+  const nextIdx = upNextIndex(logs, currentIndex, deferredId)
   const upNext = nextIdx >= 0 ? findExercise(logs[nextIdx].exerciseId) : null
-  const canLater = logs.some((l, i) => i > currentIndex && hasOpenSets(l))
+  const canLater = nextIdx >= 0
   const workoutDone = totalSets > 0 && completedSets === totalSets
 
   const upNextButton = (

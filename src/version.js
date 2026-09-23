@@ -5,4 +5,4 @@
 //   MAJOR  a big overhaul (rare)          (resets MINOR and PATCH to 0)
 //   MINOR  a new feature                  (resets PATCH to 0)
 //   PATCH  a bug fix, tweak or polish
-export const APP_VERSION = '1.1.4'
+export const APP_VERSION = '1.1.5'
