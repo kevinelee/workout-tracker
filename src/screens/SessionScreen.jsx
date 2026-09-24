@@ -9,6 +9,7 @@ import SessionSetRow from '../components/SessionSetRow'
 import ExerciseSearch from '../components/ExerciseSearch'
 import RestTimer from '../components/RestTimer'
 import ExpressSession from '../components/ExpressSession'
+import CircuitSession from '../components/CircuitSession'
 import { useProGate } from '../lib/proGate'
 import { fmtSet, upNextIndex } from '../utils/express'
 import { unlockChime, playChime } from '../utils/sound'
@@ -123,7 +124,9 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   // while the user can actually use it — revoking Pro drops them back to List.
   const { canUse } = useProGate()
   const [viewPref, setViewPref]     = useState(getSessionView)
-  const express                     = viewPref === 'express' && canUse('expressMode')
+  // A circuit has its own timer-driven view and ignores the List/Express pick.
+  const circuit                     = template.circuit ?? null
+  const express                     = !circuit && viewPref === 'express' && canUse('expressMode')
   const [showProLock, setShowProLock] = useState(false)
   const [savedExpressPos]           = useState(() => getExpressPosition(sessionId))
   const [expressIndex, setExpressIndex] = useState(() => {
@@ -335,6 +338,21 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
       setCelebratingExercise(exerciseId)
       celebrateTimerRef.current = setTimeout(() => setCelebratingExercise(null), 1200)
     }
+  }
+
+  // Circuit intervals that ran to the end, as [logIndex, setIndex] pairs —
+  // several at once when the timer catches up after the screen was away. No
+  // PR check: the sets are timed intervals, not lifts (see circuitSetReps).
+  function completeCircuitSets(pairs) {
+    const todo = pairs.filter(([li, si]) => logs[li]?.sets[si] && !logs[li].sets[si].completed)
+    if (todo.length === 0) return
+    const newLogs = logs.map((log, li) => {
+      const sis = todo.filter(([l]) => l === li).map(([, si]) => si)
+      if (sis.length === 0) return log
+      return { ...log, sets: log.sets.map((s, si) => sis.includes(si) ? { ...s, completed: true, isPR: false, prKind: null } : s) }
+    })
+    lastActivityAt.current = Date.now()
+    updateLogsAndSync(newLogs, null)
   }
 
   function updateNotes(logIndex, text) {
@@ -661,6 +679,9 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
               {timerFrozen && manualDuration == null && <span className="session-timer-frozen">❄</span>}
             </button>
           </div>
+          {circuit ? (
+            <span className="session-circuit-badge">Circuit</span>
+          ) : (
           <div className="session-view-toggle" role="group" aria-label="Session view">
             <button
               className={`session-view-btn${!express ? ' session-view-btn--active' : ''}`}
@@ -684,7 +705,8 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
               {!canUse('expressMode') && <span className="session-view-lock">🔒</span>}
             </button>
           </div>
-          {express ? (
+          )}
+          {express || circuit ? (
             <button className="session-menu-btn" onClick={() => setExpressMenuOpen(true)} aria-label="Workout menu">⋯</button>
           ) : (
             <button
@@ -706,7 +728,22 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
         </div>
       </div>
 
-      {express ? (
+      {circuit ? (
+        <CircuitSession
+          sessionId={sessionId}
+          circuit={circuit}
+          logs={logs}
+          findExercise={findExercise}
+          onCompleteSets={completeCircuitSets}
+          onFinish={handleFinish}
+          finishing={finishing}
+          onAbandon={() => setShowAbandon(true)}
+          totalSets={totalSets}
+          completedSets={completedSets}
+          menuOpen={expressMenuOpen}
+          onCloseMenu={() => setExpressMenuOpen(false)}
+        />
+      ) : express ? (
         <ExpressSession
           logs={logs}
           currentIndex={currentExpressIndex}
@@ -949,7 +986,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
           exercise, so for any multi-exercise workout it's off-screen almost
           the entire time — showing the sticky version the whole workout,
           not just once there's something to finish. */}
-      {!express && !finishInlineVisible && allDone && (
+      {!express && !circuit && !finishInlineVisible && allDone && (
         <div className="session-finish-sticky">
           <button
             className={`session-finish-main session-finish-sticky-btn ${allDone ? 'session-finish-main--done' : ''} ${warnPending ? 'session-finish-main--warn' : ''}`}

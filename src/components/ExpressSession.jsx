@@ -96,7 +96,7 @@ const CARD_EXIT_MS = 150 // matches .xs-card--out
 
 // Bottom sheet that plays its slide-down before unmounting. Children get an
 // animated close(after) so a row tap can slide the sheet away, then act.
-function Sheet({ onClose, title, children }) {
+export function Sheet({ onClose, title, children }) {
   const [closing, setClosing] = useState(false)
   function close(after) {
     if (closing) return

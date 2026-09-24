@@ -4,6 +4,7 @@ import { getCachedCustomExercises } from '../storage'
 import { createSet } from '../data/models'
 import MuscleIcon from './MuscleIcon'
 import SetRow from './SetRow'
+import { fmtShort } from '../utils/circuit'
 import './ExerciseRow.css'
 
 function NotesIcon() {
@@ -21,7 +22,9 @@ function findExercise(id) {
   return defaultExercises.find(e => e.id === id) ?? getCachedCustomExercises().find(e => e.id === id) ?? null
 }
 
-export default function ExerciseRow({ templateExercise, onChange, onRemove, dragHandleListeners, dragHandleAttributes, unit }) {
+// circuitWork (seconds) marks a circuit workout: the timer sets the pace, so
+// there are no per-set targets to edit — just the exercise and its notes.
+export default function ExerciseRow({ templateExercise, onChange, onRemove, dragHandleListeners, dragHandleAttributes, unit, circuitWork }) {
   const [notesOpen, setNotesOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const notesRef = useRef(null)
@@ -69,7 +72,11 @@ export default function ExerciseRow({ templateExercise, onChange, onRemove, drag
         <MuscleIcon muscleGroup={exercise.muscleGroup} className="ex-row-icon" />
         <div className="ex-row-info">
           <p className="ex-row-name">{exercise.name}</p>
-          <p className="ex-row-meta">{exercise.muscleGroup} · {exercise.category} · {sets.length} set{sets.length !== 1 ? 's' : ''}</p>
+          <p className="ex-row-meta">
+            {exercise.muscleGroup} · {exercise.category} · {circuitWork
+              ? `${fmtShort(circuitWork)} per round`
+              : `${sets.length} set${sets.length !== 1 ? 's' : ''}`}
+          </p>
         </div>
         <div className="ex-row-actions" onClick={e => e.stopPropagation()}>
           <button
@@ -96,7 +103,7 @@ export default function ExerciseRow({ templateExercise, onChange, onRemove, drag
       </div>
 
       <div className={`ex-body ${collapsed ? 'ex-body--collapsed' : ''}`}>
-        <div className="ex-sets">
+        {!circuitWork && <div className="ex-sets">
           {sets.map((set, i) => (
             <SetRow
               key={i}
@@ -115,7 +122,7 @@ export default function ExerciseRow({ templateExercise, onChange, onRemove, drag
           <button className="ex-add-set-btn" onClick={addSet}>
             + Add set
           </button>
-        </div>
+        </div>}
 
         <div className={`ex-notes-wrap ${notesOpen ? 'ex-notes-wrap--open' : ''}`} ref={notesRef}>
           <textarea

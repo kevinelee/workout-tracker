@@ -30,6 +30,7 @@ import GenerateWorkoutWizard from './screens/GenerateWorkoutWizard'
 import WhatsNewModal, { hasSeenLatest, LATEST_VERSION } from './components/WhatsNewModal'
 import { ProGateProvider } from './lib/proGate'
 import { startOfThisWeek } from './utils/streaks'
+import { DEFAULT_CIRCUIT, circuitSummary, fmtShort } from './utils/circuit'
 import './App.css'
 
 const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -689,8 +690,9 @@ export default function App() {
       setStartSheetOpen(false)
       return
     }
-    // Show overload sheet for templates that have prior session history
-    const hasHistory = !template.isQuickStart && sessions.some(s => s.templateId === template.id && s.finishedAt)
+    // Show overload sheet for templates that have prior session history.
+    // Not for circuits: the timer sets the pace, there's no load to progress.
+    const hasHistory = !template.isQuickStart && !template.circuit && sessions.some(s => s.templateId === template.id && s.finishedAt)
     if (hasHistory) {
       closeStartSheet()
       showOverloadSheet(template)
@@ -938,6 +940,7 @@ const NavShield = () => (
             settings={settings}
             activeSession={activeSession}
             onNew={() => goWizard()}
+            onNewCircuit={() => goBuilder({ circuit: DEFAULT_CIRCUIT, exercises: [] })}
             onEdit={t => goBuilder(t)}
             onStart={handleStartSession}
             startingTemplateId={startingTemplateId}
@@ -1147,9 +1150,15 @@ const NavShield = () => (
             <div className="review-header">
               <p className="review-title">{reviewSheet.name}</p>
               <p className="review-meta">
-                {reviewSheet.exercises.length} exercise{reviewSheet.exercises.length !== 1 ? 's' : ''}
-                {' · '}
-                {reviewSheet.exercises.reduce((sum, ex) => sum + (ex.sets?.length ?? 0), 0)} sets
+                {reviewSheet.circuit ? <>
+                  {reviewSheet.exercises.length} exercise{reviewSheet.exercises.length !== 1 ? 's' : ''}
+                  {' · '}
+                  {circuitSummary(reviewSheet.circuit, reviewSheet.exercises.length)}
+                </> : <>
+                  {reviewSheet.exercises.length} exercise{reviewSheet.exercises.length !== 1 ? 's' : ''}
+                  {' · '}
+                  {reviewSheet.exercises.reduce((sum, ex) => sum + (ex.sets?.length ?? 0), 0)} sets
+                </>}
               </p>
             </div>
             <div className="review-exercises">
@@ -1161,7 +1170,9 @@ const NavShield = () => (
                 const dispW = first?.weight > 0
                   ? (settings.unit === 'kg' ? Math.round(first.weight / 2.2046) : first.weight)
                   : 0
-                const setsLabel = sourceSets.length === 0
+                const setsLabel = reviewSheet.circuit
+                  ? `${fmtShort(reviewSheet.circuit.work)} × ${reviewSheet.circuit.rounds} round${reviewSheet.circuit.rounds !== 1 ? 's' : ''}`
+                  : sourceSets.length === 0
                   ? ''
                   : dispW > 0
                     ? `${sourceSets.length} × ${first.reps} reps @ ${dispW} ${settings.unit}`
@@ -1181,7 +1192,7 @@ const NavShield = () => (
             >
               {startingTemplateId
                 ? <span className="overload-spinner" />
-                : <>Start Workout {settings.controllerSide === 'left' ? <ChevronLeftIcon /> : <ChevronRightIcon />}</>
+                : <>{reviewSheet.circuit ? 'Start Circuit' : 'Start Workout'} {settings.controllerSide === 'left' ? <ChevronLeftIcon /> : <ChevronRightIcon />}</>
               }
             </button>
           </div>
