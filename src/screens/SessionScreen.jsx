@@ -66,7 +66,7 @@ function elapsedFromStart(startedAt) {
 }
 
 export default function SessionScreen({ activeSession, settings, programId, onUpdate, onFinish, onMinimize, onAbandon, onUpdateSettings }) {
-  const { template, sessionId, startedAt, logs: initialLogs, prMap: initialPrMap, prRepsMap: initialPrRepsMap, repPRByWeightMap: initialRepPRByWeightMap, aiBreakdown } = activeSession
+  const { template, sessionId, startedAt, copiedFromLast, logs: initialLogs, prMap: initialPrMap, prRepsMap: initialPrRepsMap, repPRByWeightMap: initialRepPRByWeightMap, aiBreakdown } = activeSession
   const hasBreakdown = !!(aiBreakdown && (aiBreakdown.headline || aiBreakdown.suggestions?.length))
   const [showBreakdown, setShowBreakdown] = useState(false)
 
@@ -90,7 +90,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const [timerMinimized, setTimerMinimized] = useState(false)
   const [timerFlash, setTimerFlash] = useState(false)
   const [copiedBanner, setCopiedBanner] = useState(false)
-  const [hasCopiedLastSession, setHasCopiedLastSession] = useState(false)
+  const [hasCopiedLastSession, setHasCopiedLastSession] = useState(!!copiedFromLast)
   const [showAbandon, setShowAbandon]       = useState(false)
   const [showTimeLimit, setShowTimeLimit]   = useState(false)
   const timeLimitDismissedAt                = useRef(null)

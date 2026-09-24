@@ -866,6 +866,19 @@ export function saveSessionView(view) {
   try { localStorage.setItem(SESSION_VIEW_KEY, view) } catch { /* private mode — falls back to list */ }
 }
 
+const AUTO_COPY_LAST_KEY = 'wt_auto_copy_last'
+
+// Start every workout from the reps/weights of its last session instead of the
+// template's defaults. Per device, like the Workout View pick above.
+export function getAutoCopyLast() {
+  try { return localStorage.getItem(AUTO_COPY_LAST_KEY) === '1' }
+  catch { return false }
+}
+
+export function saveAutoCopyLast(on) {
+  try { localStorage.setItem(AUTO_COPY_LAST_KEY, on ? '1' : '0') } catch { /* private mode — stays off */ }
+}
+
 export async function abandonSession(sessionId) {
   if (!sessionId || !_uid) return
   await check('that change', supabase.from('sessions').delete().eq('id', sessionId).eq('user_id', _uid))
