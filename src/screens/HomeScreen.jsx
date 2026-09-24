@@ -70,7 +70,7 @@ function fmtElapsed(seconds) {
 export default function HomeScreen({
   templates, sessions, dataLoaded, settings,
   activeSession, startingTemplateId, startingQuickStart,
-  onNew, onNewCircuit, onEdit, onStart, onQuickStart, onResumeSession, onAbandon,
+  onNew, onNewGuided, onEdit, onStart, onQuickStart, onResumeSession, onAbandon,
   onNewGenerate, onNewGenerateSingle, weeklyInsight, onDismissInsight, onRefreshInsight,
   programs, activeProgram, onSwitchProgram, onCreateProgram, onRenameProgram, onDeleteProgram,
 }) {
@@ -249,9 +249,9 @@ export default function HomeScreen({
     onNew()
   }
 
-  function handleNewCircuit() {
+  function handleNewGuided() {
     setShowNewSheet(false)
-    onNewCircuit()
+    onNewGuided()
   }
 
   function handleNewGenerate() {
@@ -353,9 +353,8 @@ export default function HomeScreen({
                   <div className="home-card-info">
                     <p className="home-card-name">{t.name}</p>
                     <p className="home-card-meta">
-                      {t.circuit && <span className="home-card-circuit">Circuit</span>}
+                      {(t.guided || t.circuit) && <span className="home-card-guided">Guided</span>}
                       {t.exercises.length} exercise{t.exercises.length !== 1 ? 's' : ''}
-                      {t.circuit && ` · ${t.circuit.rounds} round${t.circuit.rounds !== 1 ? 's' : ''}`}
                       {fmtLastDone(lastSessionByTemplate[t.id]) && (
                         <span className="home-card-last-done"> · {fmtLastDone(lastSessionByTemplate[t.id])}</span>
                       )}
@@ -621,7 +620,7 @@ export default function HomeScreen({
               </div>
             </button>
 
-            <button className="home-sheet-option" onClick={handleNewCircuit}>
+            <button className="home-sheet-option" onClick={handleNewGuided}>
               <div className="home-sheet-option-icon">
                 <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="12" r="7.5" />
@@ -630,8 +629,8 @@ export default function HomeScreen({
                 </svg>
               </div>
               <div className="home-sheet-option-text">
-                <span className="home-sheet-option-label">Build a circuit</span>
-                <span className="home-sheet-option-sub">Timed intervals that run hands-free — great for abs</span>
+                <span className="home-sheet-option-label">Build a guided workout</span>
+                <span className="home-sheet-option-sub">Sets, timers and rests run on their own — great for abs</span>
               </div>
             </button>
 

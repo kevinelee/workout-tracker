@@ -217,3 +217,85 @@
 
   &::placeholder { color: var(--text); }
 }
+
+/* Guided workouts: one config for all of an exercise's sets */
+.ex-guided {
+  padding: 4px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ex-guided-types {
+  display: flex;
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.ex-guided-type {
+  flex: 1;
+  min-height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  font: 600 14px var(--sans);
+  cursor: pointer;
+  transition: background 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+.ex-guided-type--on { background: var(--accent); color: var(--on-accent); }
+
+.ex-guided-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.ex-guided-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ex-guided-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.ex-guided-stepper {
+  display: flex;
+  align-items: center;
+  background: var(--surface-2);
+  border-radius: 10px;
+  overflow: hidden;
+
+  button {
+    width: 32px;
+    height: 40px;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--text-h);
+    font-size: 18px;
+    cursor: pointer;
+
+    &:disabled { opacity: 0.3; cursor: default; }
+    &:active:not(:disabled) { background: var(--border); }
+  }
+}
+
+.ex-guided-value {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}

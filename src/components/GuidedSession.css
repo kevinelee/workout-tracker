@@ -1,10 +1,10 @@
-/* Circuit session — a timer-driven, hands-off view. Big countdown, the
-   current exercise, and what's up next; the thumb zone only holds
-   back / pause / skip. */
-.cs {
-  --cs-work: var(--accent);
-  --cs-rest: #4ade80;
-  --cs-ready: #fbbf24;
+/* Guided session — the player walks the workout: a set, a rest showing
+   what's next, the next set. Big current exercise and timer; the thumb zone
+   only holds back / pause-or-Done / skip. */
+.gs {
+  --gs-work: var(--accent);
+  --gs-rest: #4ade80;
+  --gs-ready: #fbbf24;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -13,13 +13,13 @@
   min-height: 0;
 }
 
-.cs-muted {
+.gs-muted {
   color: var(--text-muted);
   font-size: 14px;
   margin: 0;
 }
 
-.cs-center {
+.gs-center {
   flex: 1;
   display: flex;
   align-items: center;
@@ -27,29 +27,28 @@
 }
 
 /* Progress track: one row per round, one segment per exercise */
-.cs-track {
+.gs-track {
   display: flex;
   gap: 6px;
 }
 
-.cs-track-round {
+.gs-track-ex {
   flex: 1;
   display: flex;
   gap: 2px;
 }
 
-.cs-track-seg {
+.gs-track-seg {
   flex: 1;
   height: 4px;
   border-radius: 2px;
   background: var(--border);
   transition: background 0.25s ease-in-out;
 }
-.cs-track-seg--done    { background: var(--cs-rest); }
-.cs-track-seg--skipped { background: var(--text-muted); opacity: 0.5; }
-.cs-track-seg--now     { background: var(--cs-work); }
+.gs-track-seg--done    { background: var(--gs-rest); }
+.gs-track-seg--now     { background: var(--gs-work); }
 
-.cs-eyebrow {
+.gs-eyebrow {
   margin: 0;
   font-size: 13px;
   font-weight: 700;
@@ -60,16 +59,16 @@
 }
 
 /* ── Before start ─────────────────────────────── */
-.cs-intro {
+.gs-intro {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-height: 0;
-  animation: cs-fade-in 0.22s ease-in-out;
+  animation: gs-fade-in 0.22s ease-in-out;
 }
 
-.cs-intro-summary {
+.gs-intro-summary {
   margin: 0;
   text-align: center;
   font-size: 17px;
@@ -77,7 +76,7 @@
   color: var(--text-h);
 }
 
-.cs-intro-list {
+.gs-intro-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -88,7 +87,7 @@
   min-height: 0;
 }
 
-.cs-intro-row {
+.gs-intro-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -98,7 +97,7 @@
   border-radius: 12px;
 }
 
-.cs-intro-num {
+.gs-intro-num {
   width: 18px;
   font-size: 13px;
   font-weight: 700;
@@ -106,9 +105,21 @@
   text-align: center;
 }
 
-.cs-intro-icon { width: 20px; height: 20px; color: var(--accent); flex-shrink: 0; }
+.gs-intro-icon { width: 20px; height: 20px; color: var(--accent); flex-shrink: 0; }
 
-.cs-intro-name {
+.gs-intro-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.gs-intro-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.gs-intro-name {
   flex: 1;
   min-width: 0;
   font-weight: 600;
@@ -118,15 +129,9 @@
   white-space: nowrap;
 }
 
-.cs-intro-time {
-  font-size: 13px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
+.gs-intro-note { text-align: center; }
 
-.cs-intro-note { text-align: center; }
-
-.cs-primary {
+.gs-primary {
   margin-top: auto;
   width: 100%;
   min-height: 56px;
@@ -134,17 +139,17 @@
 }
 
 /* ── Running ──────────────────────────────────── */
-.cs-stage {
+.gs-stage {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 14px;
   min-height: 0;
-  animation: cs-fade-in 0.25s ease-in-out;
+  animation: gs-fade-in 0.25s ease-in-out;
 }
 
-.cs-now {
+.gs-now {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -152,9 +157,9 @@
   text-align: center;
 }
 
-.cs-now-icon { width: 34px; height: 34px; color: var(--cs-work); }
+.gs-now-icon { width: 34px; height: 34px; color: var(--gs-work); }
 
-.cs-now-name {
+.gs-now-name {
   margin: 0;
   font-size: 28px;
   line-height: 1.15;
@@ -162,7 +167,7 @@
   color: var(--text-h);
 }
 
-.cs-ring {
+.gs-ring {
   position: relative;
   width: min(62vw, 260px);
   aspect-ratio: 1;
@@ -173,7 +178,7 @@
   min-height: 150px;
 }
 
-.cs-ring-svg {
+.gs-ring-svg {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -181,26 +186,26 @@
   transform: rotate(-90deg);
 }
 
-.cs-ring-track { fill: none; stroke: var(--border); stroke-width: 7; }
+.gs-ring-track { fill: none; stroke: var(--border); stroke-width: 7; }
 
-.cs-ring-fill {
+.gs-ring-fill {
   fill: none;
-  stroke: var(--cs-work);
+  stroke: var(--gs-work);
   stroke-width: 7;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.25s linear, stroke 0.25s ease-in-out;
 }
-.cs-ring--rest  .cs-ring-fill { stroke: var(--cs-rest); }
-.cs-ring--ready .cs-ring-fill { stroke: var(--cs-ready); }
+.gs-ring--rest  .gs-ring-fill { stroke: var(--gs-rest); }
+.gs-ring--ready .gs-ring-fill { stroke: var(--gs-ready); }
 
-.cs-ring-inner {
+.gs-ring-inner {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.cs-count {
+.gs-count {
   font-size: clamp(48px, 16vw, 72px);
   font-weight: 800;
   color: var(--text-h);
@@ -208,17 +213,87 @@
   line-height: 1;
 }
 
-.cs-paused {
+.gs-ring-sub {
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.gs-now-set {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gs-work);
+}
+
+.gs-eyebrow--phase {
+  font-size: 22px;
+  color: var(--text-h);
+}
+.gs-stage--rest  .gs-eyebrow--phase { color: var(--gs-rest); }
+.gs-stage--ready .gs-eyebrow--phase { color: var(--gs-ready); }
+
+/* Reps set: no timer, just the target with −/+ to log what you actually did */
+.gs-reps {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  max-height: 260px;
+}
+
+.gs-reps-value {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+}
+
+.gs-reps-num {
+  font-size: clamp(64px, 22vw, 96px);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.gs-reps-label {
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.gs-reps-step {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  font-size: 24px;
+  cursor: pointer;
+
+  &:active { transform: scale(0.94); }
+}
+
+.gs-ctl--done {
+  font: 800 17px var(--sans);
+}
+
+.gs-paused {
   margin-top: 6px;
   font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-muted);
-  animation: cs-blink 1.2s ease-in-out infinite;
+  animation: gs-blink 1.2s ease-in-out infinite;
 }
 
-.cs-upnext-line {
+.gs-upnext-line {
   margin: 0;
   font-size: 15px;
   color: var(--text-muted);
@@ -227,7 +302,7 @@
   strong { color: var(--text-h); }
 }
 
-.cs-upnext-card {
+.gs-upnext-card {
   width: 100%;
   padding: 14px 16px;
   border: 1px solid var(--border);
@@ -236,17 +311,17 @@
   text-align: center;
 }
 
-.cs-upnext-label {
+.gs-upnext-label {
   margin: 0;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--cs-rest);
+  color: var(--gs-rest);
 }
-.cs-stage--ready .cs-upnext-label { color: var(--cs-ready); }
+.gs-stage--ready .gs-upnext-label { color: var(--gs-ready); }
 
-.cs-upnext-row {
+.gs-upnext-row {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -254,21 +329,21 @@
   margin-top: 6px;
 }
 
-.cs-upnext-icon { width: 24px; height: 24px; color: var(--accent); flex-shrink: 0; }
+.gs-upnext-icon { width: 24px; height: 24px; color: var(--accent); flex-shrink: 0; }
 
-.cs-upnext-name {
+.gs-upnext-name {
   font-size: 22px;
   font-weight: 800;
   color: var(--text-h);
 }
 
-.cs-upnext-meta {
+.gs-upnext-meta {
   margin: 4px 0 0;
   font-size: 13px;
   color: var(--text-muted);
 }
 
-.cs-controls {
+.gs-controls {
   margin-top: auto;
   display: flex;
   align-items: center;
@@ -276,7 +351,7 @@
   gap: 28px;
 }
 
-.cs-ctl {
+.gs-ctl {
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -292,17 +367,17 @@
   &:active { transform: scale(0.94); }
 }
 
-.cs-ctl--main {
+.gs-ctl--main {
   width: 76px;
   height: 76px;
   border: none;
   background: var(--accent);
   color: var(--on-accent);
 }
-.cs-stage--rest  .cs-ctl--main { background: var(--cs-rest);  color: #0a0f0a; }
-.cs-stage--ready .cs-ctl--main { background: var(--cs-ready); color: #1a1400; }
+.gs-stage--rest  .gs-ctl--main { background: var(--gs-rest);  color: #0a0f0a; }
+.gs-stage--ready .gs-ctl--main { background: var(--gs-ready); color: #1a1400; }
 
-.cs-add-time {
+.gs-add-time {
   background: none;
   border: none;
   color: var(--text-muted);
@@ -312,7 +387,7 @@
 }
 
 /* ── Complete ─────────────────────────────────── */
-.cs-done {
+.gs-done {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -320,52 +395,52 @@
   justify-content: center;
   gap: 8px;
   text-align: center;
-  animation: cs-fade-in 0.25s ease-in-out;
+  animation: gs-fade-in 0.25s ease-in-out;
 
-  .cs-primary { margin-top: 24px; }
+  .gs-primary { margin-top: 24px; }
 }
 
-.cs-done-check {
+.gs-done-check {
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: var(--cs-rest);
+  background: var(--gs-rest);
   color: #0a0f0a;
   font-size: 36px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: cs-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: gs-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.cs-done-title {
+.gs-done-title {
   margin: 8px 0 0;
   font-size: 24px;
   font-weight: 800;
   color: var(--text-h);
 }
 
-@keyframes cs-fade-in {
+@keyframes gs-fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 
-@keyframes cs-pop {
+@keyframes gs-pop {
   from { transform: scale(0.4); opacity: 0; }
   to   { transform: scale(1);   opacity: 1; }
 }
 
-@keyframes cs-blink {
+@keyframes gs-blink {
   50% { opacity: 0.4; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cs-stage, .cs-intro, .cs-done, .cs-done-check, .cs-paused { animation: none; }
+  .gs-stage, .gs-intro, .gs-done, .gs-done-check, .gs-paused { animation: none; }
 }
 
 /* Stands in for the List | Express toggle in SessionScreen's header */
-.session-circuit-badge {
+.session-guided-badge {
   flex-shrink: 0;
   height: 36px;
   padding: 0 12px;

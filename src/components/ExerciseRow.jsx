@@ -4,7 +4,7 @@ import { getCachedCustomExercises } from '../storage'
 import { createSet } from '../data/models'
 import MuscleIcon from './MuscleIcon'
 import SetRow from './SetRow'
-import { fmtShort } from '../utils/circuit'
+import { GUIDED_LIMITS, GUIDED_TYPES, TYPE_LABELS, fmtGuidedExercise, fmtSecs, isTimedType, targetLimits } from '../utils/guided'
 import './ExerciseRow.css'
 
 function NotesIcon() {
@@ -22,9 +22,70 @@ function findExercise(id) {
   return defaultExercises.find(e => e.id === id) ?? getCachedCustomExercises().find(e => e.id === id) ?? null
 }
 
-// circuitWork (seconds) marks a circuit workout: the timer sets the pace, so
-// there are no per-set targets to edit — just the exercise and its notes.
-export default function ExerciseRow({ templateExercise, onChange, onRemove, dragHandleListeners, dragHandleAttributes, unit, circuitWork }) {
+function Stepper({ label, value, display, limits, onChange }) {
+  const set = v => onChange(Math.min(limits.max, Math.max(limits.min, v)))
+  return (
+    <div className="ex-guided-field">
+      <span className="ex-guided-label">{label}</span>
+      <div className="ex-guided-stepper">
+        <button type="button" onClick={() => set(value - limits.step)} disabled={value <= limits.min} aria-label={`Decrease ${label}`}>−</button>
+        <span className="ex-guided-value">{display ?? value}</span>
+        <button type="button" onClick={() => set(value + limits.step)} disabled={value >= limits.max} aria-label={`Increase ${label}`}>+</button>
+      </div>
+    </div>
+  )
+}
+
+// A guided exercise's whole config: every set shares it, so it's edited once.
+function GuidedConfig({ config, onChange }) {
+  const put = patch => onChange({ ...config, ...patch })
+  function setType(type) {
+    if (type === config.type) return
+    // Reps and seconds don't translate — switching kind resets the target.
+    const target = isTimedType(type) === isTimedType(config.type) ? config.target : isTimedType(type) ? 30 : 10
+    put({ type, target })
+  }
+  const timed = isTimedType(config.type)
+  return (
+    <div className="ex-guided">
+      <div className="ex-guided-types" role="radiogroup" aria-label="Exercise type">
+        {GUIDED_TYPES.map(t => (
+          <button
+            key={t}
+            type="button"
+            role="radio"
+            aria-checked={config.type === t}
+            className={`ex-guided-type${config.type === t ? ' ex-guided-type--on' : ''}`}
+            onClick={() => setType(t)}
+          >
+            {TYPE_LABELS[t]}
+          </button>
+        ))}
+      </div>
+      <div className="ex-guided-grid">
+        <Stepper label="Sets" value={config.sets} limits={GUIDED_LIMITS.sets} onChange={sets => put({ sets })} />
+        <Stepper
+          label={timed ? 'Seconds' : 'Reps'}
+          value={config.target}
+          display={timed ? fmtSecs(config.target) : config.target}
+          limits={targetLimits(config.type)}
+          onChange={target => put({ target })}
+        />
+        <Stepper
+          label="Rest"
+          value={config.rest}
+          display={config.rest > 0 ? fmtSecs(config.rest) : 'None'}
+          limits={GUIDED_LIMITS.rest}
+          onChange={rest => put({ rest })}
+        />
+      </div>
+    </div>
+  )
+}
+
+// guidedConfig marks a guided workout: sets, type, target and rest are set
+// once for the exercise (GuidedConfig) instead of set by set.
+export default function ExerciseRow({ templateExercise, onChange, onRemove, dragHandleListeners, dragHandleAttributes, unit, guidedConfig, onGuidedChange }) {
   const [notesOpen, setNotesOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const notesRef = useRef(null)
@@ -73,9 +134,9 @@ export default function ExerciseRow({ templateExercise, onChange, onRemove, drag
         <div className="ex-row-info">
           <p className="ex-row-name">{exercise.name}</p>
           <p className="ex-row-meta">
-            {exercise.muscleGroup} · {exercise.category} · {circuitWork
-              ? `${fmtShort(circuitWork)} per round`
-              : `${sets.length} set${sets.length !== 1 ? 's' : ''}`}
+            {guidedConfig
+              ? fmtGuidedExercise(guidedConfig)
+              : `${exercise.muscleGroup} · ${exercise.category} · ${sets.length} set${sets.length !== 1 ? 's' : ''}`}
           </p>
         </div>
         <div className="ex-row-actions" onClick={e => e.stopPropagation()}>
@@ -103,7 +164,8 @@ export default function ExerciseRow({ templateExercise, onChange, onRemove, drag
       </div>
 
       <div className={`ex-body ${collapsed ? 'ex-body--collapsed' : ''}`}>
-        {!circuitWork && <div className="ex-sets">
+        {guidedConfig && <GuidedConfig config={guidedConfig} onChange={onGuidedChange} />}
+        {!guidedConfig && <div className="ex-sets">
           {sets.map((set, i) => (
             <SetRow
               key={i}

@@ -30,7 +30,7 @@ import GenerateWorkoutWizard from './screens/GenerateWorkoutWizard'
 import WhatsNewModal, { hasSeenLatest, LATEST_VERSION } from './components/WhatsNewModal'
 import { ProGateProvider } from './lib/proGate'
 import { startOfThisWeek } from './utils/streaks'
-import { DEFAULT_CIRCUIT, circuitSummary, fmtShort } from './utils/circuit'
+import { fmtGuidedExercise, guidedPlanFor, guidedSummary } from './utils/guided'
 import './App.css'
 
 const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -691,8 +691,8 @@ export default function App() {
       return
     }
     // Show overload sheet for templates that have prior session history.
-    // Not for circuits: the timer sets the pace, there's no load to progress.
-    const hasHistory = !template.isQuickStart && !template.circuit && sessions.some(s => s.templateId === template.id && s.finishedAt)
+    // Not for guided workouts: the player sets the pace, there's no load to progress.
+    const hasHistory = !template.isQuickStart && !template.guided && !template.circuit && sessions.some(s => s.templateId === template.id && s.finishedAt)
     if (hasHistory) {
       closeStartSheet()
       showOverloadSheet(template)
@@ -940,7 +940,7 @@ const NavShield = () => (
             settings={settings}
             activeSession={activeSession}
             onNew={() => goWizard()}
-            onNewCircuit={() => goBuilder({ circuit: DEFAULT_CIRCUIT, exercises: [] })}
+            onNewGuided={() => goBuilder({ guided: { exercises: [] }, exercises: [] })}
             onEdit={t => goBuilder(t)}
             onStart={handleStartSession}
             startingTemplateId={startingTemplateId}
@@ -1143,17 +1143,20 @@ const NavShield = () => (
       )}
 
       {/* Workout review sheet — preview before starting */}
-      {reviewSheet && (
+      {reviewSheet && (() => {
+        const findEx = id => [...defaultExercises, ...getCachedCustomExercises()].find(e => e.id === id) ?? null
+        const guidedPlan = guidedPlanFor(reviewSheet, findEx)
+        return (
         <div className="sheet-backdrop" onClick={() => { setReviewSheet(null); setReviewSheetLastSession(null) }}>
           <div className="sheet review-sheet" onClick={e => e.stopPropagation()}>
             <div className="sheet-handle" />
             <div className="review-header">
               <p className="review-title">{reviewSheet.name}</p>
               <p className="review-meta">
-                {reviewSheet.circuit ? <>
+                {guidedPlan ? <>
                   {reviewSheet.exercises.length} exercise{reviewSheet.exercises.length !== 1 ? 's' : ''}
                   {' · '}
-                  {circuitSummary(reviewSheet.circuit, reviewSheet.exercises.length)}
+                  {guidedSummary(guidedPlan.exercises)}
                 </> : <>
                   {reviewSheet.exercises.length} exercise{reviewSheet.exercises.length !== 1 ? 's' : ''}
                   {' · '}
@@ -1170,8 +1173,9 @@ const NavShield = () => (
                 const dispW = first?.weight > 0
                   ? (settings.unit === 'kg' ? Math.round(first.weight / 2.2046) : first.weight)
                   : 0
-                const setsLabel = reviewSheet.circuit
-                  ? `${fmtShort(reviewSheet.circuit.work)} × ${reviewSheet.circuit.rounds} round${reviewSheet.circuit.rounds !== 1 ? 's' : ''}`
+                const ge = guidedPlan?.exercises.find(e => e.exerciseId === ex.exerciseId)
+                const setsLabel = guidedPlan
+                  ? (ge ? fmtGuidedExercise(ge) : '')
                   : sourceSets.length === 0
                   ? ''
                   : dispW > 0
@@ -1192,12 +1196,13 @@ const NavShield = () => (
             >
               {startingTemplateId
                 ? <span className="overload-spinner" />
-                : <>{reviewSheet.circuit ? 'Start Circuit' : 'Start Workout'} {settings.controllerSide === 'left' ? <ChevronLeftIcon /> : <ChevronRightIcon />}</>
+                : <>{guidedPlan ? 'Start Guided Workout' : 'Start Workout'} {settings.controllerSide === 'left' ? <ChevronLeftIcon /> : <ChevronRightIcon />}</>
               }
             </button>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* Progressive overload pre-session sheet */}
       {overloadSheet && (
