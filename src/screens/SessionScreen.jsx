@@ -9,9 +9,10 @@ import SessionSetRow from '../components/SessionSetRow'
 import ExerciseSearch from '../components/ExerciseSearch'
 import RestTimer from '../components/RestTimer'
 import ExpressSession from '../components/ExpressSession'
-import CircuitSession from '../components/CircuitSession'
+import GuidedSession from '../components/GuidedSession'
 import { useProGate } from '../lib/proGate'
 import { fmtSet, upNextIndex } from '../utils/express'
+import { guidedPlanFor, guidedSetReps, normalizeGuidedExercise } from '../utils/guided'
 import { unlockChime, playChime } from '../utils/sound'
 import { alertSaveError } from '../lib/saveError'
 import './SessionScreen.css'
@@ -124,9 +125,10 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   // while the user can actually use it — revoking Pro drops them back to List.
   const { canUse } = useProGate()
   const [viewPref, setViewPref]     = useState(getSessionView)
-  // A circuit has its own timer-driven view and ignores the List/Express pick.
-  const circuit                     = template.circuit ?? null
-  const express                     = !circuit && viewPref === 'express' && canUse('expressMode')
+  // A guided workout has its own player and ignores the List/Express pick.
+  const [guidedPlan]                = useState(() => guidedPlanFor(template, findExercise))
+  const guided                      = !!guidedPlan
+  const express                     = !guided && viewPref === 'express' && canUse('expressMode')
   const [showProLock, setShowProLock] = useState(false)
   const [savedExpressPos]           = useState(() => getExpressPosition(sessionId))
   const [expressIndex, setExpressIndex] = useState(() => {
@@ -340,17 +342,31 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     }
   }
 
-  // Circuit intervals that ran to the end, as [logIndex, setIndex] pairs —
-  // several at once when the timer catches up after the screen was away. No
-  // PR check: the sets are timed intervals, not lifts (see circuitSetReps).
-  function completeCircuitSets(pairs) {
-    const todo = pairs.filter(([li, si]) => logs[li]?.sets[si] && !logs[li].sets[si].completed)
-    if (todo.length === 0) return
-    const newLogs = logs.map((log, li) => {
-      const sis = todo.filter(([l]) => l === li).map(([, si]) => si)
-      if (sis.length === 0) return log
-      return { ...log, sets: log.sets.map((s, si) => sis.includes(si) ? { ...s, completed: true, isPR: false, prKind: null } : s) }
-    })
+  // The guided plan in session order, one entry per log — set counts come from
+  // the logs, so it always lines up with what gets saved.
+  const guidedExercises = guided
+    ? logs.map(log => {
+        const ge = guidedPlan.exercises.find(e => e.exerciseId === log.exerciseId)
+        return normalizeGuidedExercise({ ...(ge ?? { exerciseId: log.exerciseId }), sets: log.sets.length }, findExercise(log.exerciseId))
+      })
+    : null
+
+  // Guided sets the player finished: [{ exIndex, setIndex, type, value }] —
+  // several at once when it catches up after the screen was away. No PR
+  // check: bodyweight sets on a timer aren't lifts (see guidedSetReps).
+  function completeGuidedSets(items) {
+    const byKey = new Map(items.map(it => [`${it.exIndex}:${it.setIndex}`, it]))
+    let changed = false
+    const newLogs = logs.map((log, li) => ({
+      ...log,
+      sets: log.sets.map((s, si) => {
+        const it = byKey.get(`${li}:${si}`)
+        if (!it || s.completed) return s
+        changed = true
+        return { ...s, reps: guidedSetReps(it.type, it.value, findExercise(log.exerciseId)), completed: true, isPR: false, prKind: null }
+      }),
+    }))
+    if (!changed) return
     lastActivityAt.current = Date.now()
     updateLogsAndSync(newLogs, null)
   }
@@ -679,8 +695,8 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
               {timerFrozen && manualDuration == null && <span className="session-timer-frozen">❄</span>}
             </button>
           </div>
-          {circuit ? (
-            <span className="session-circuit-badge">Circuit</span>
+          {guided ? (
+            <span className="session-guided-badge">Guided</span>
           ) : (
           <div className="session-view-toggle" role="group" aria-label="Session view">
             <button
@@ -706,7 +722,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
             </button>
           </div>
           )}
-          {express || circuit ? (
+          {express || guided ? (
             <button className="session-menu-btn" onClick={() => setExpressMenuOpen(true)} aria-label="Workout menu">⋯</button>
           ) : (
             <button
@@ -728,13 +744,13 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
         </div>
       </div>
 
-      {circuit ? (
-        <CircuitSession
+      {guided ? (
+        <GuidedSession
           sessionId={sessionId}
-          circuit={circuit}
+          plan={guidedExercises}
           logs={logs}
           findExercise={findExercise}
-          onCompleteSets={completeCircuitSets}
+          onCompleteSets={completeGuidedSets}
           onFinish={handleFinish}
           finishing={finishing}
           onAbandon={() => setShowAbandon(true)}
@@ -986,7 +1002,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
           exercise, so for any multi-exercise workout it's off-screen almost
           the entire time — showing the sticky version the whole workout,
           not just once there's something to finish. */}
-      {!express && !circuit && !finishInlineVisible && allDone && (
+      {!express && !guided && !finishInlineVisible && allDone && (
         <div className="session-finish-sticky">
           <button
             className={`session-finish-main session-finish-sticky-btn ${allDone ? 'session-finish-main--done' : ''} ${warnPending ? 'session-finish-main--warn' : ''}`}

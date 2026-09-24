@@ -50,7 +50,8 @@ function dbTemplateToApp(t) {
     name:       t.name,
     createdAt:  t.created_at,
     programId:  t.program_id ?? null,
-    circuit:    t.circuit ?? null,
+    guided:     t.guided ?? null,
+    circuit:    t.circuit ?? null, // v1.2.0 circuits — read as guided (see guidedPlanFor)
     exercises,
   }
 }
@@ -268,9 +269,11 @@ export async function saveTemplate(template) {
     name:       template.name,
     program_id: template.programId ?? null,
   }
-  // Only sent for circuits, so regular workouts keep saving on a database
-  // that hasn't had supabase-migration-circuits.sql run yet.
-  if (template.circuit) row.circuit = template.circuit
+  // Only sent for guided workouts, so regular ones keep saving on a database
+  // that hasn't had supabase-migration-guided.sql run yet. Saving an old
+  // circuit rewrites it as guided and retires the circuit config.
+  if (template.guided) row.guided = template.guided
+  if (template.circuit) row.circuit = null
   const { error: upsertErr } = await supabase.from('workout_templates').upsert(row)
   if (upsertErr) throw new SaveError('your workout', upsertErr)
 
@@ -766,16 +769,17 @@ const COLLAPSED_KEY = 'wt:collapsedExercises'
 // and without this you'd come back to the exercise you just skipped.
 const EXPRESS_POS_KEY = 'wt:expressPosition'
 
-// Where a circuit's timer is: { index, endsAt, pausedLeft } (see
-// CircuitSession). Wall-clock based, so it keeps counting while the session
-// screen is unmounted and picks up at the right interval on the way back.
-const CIRCUIT_PROGRESS_KEY = 'wt:circuitProgress'
+// Where a guided workout's player is: { index, endsAt, pausedLeft } (see
+// GuidedSession). Wall-clock based, so it keeps counting while the session
+// screen is unmounted and picks up at the right step on the way back.
+const GUIDED_PROGRESS_KEY = 'wt:guidedProgress'
 
 export function clearActiveSession() {
   localStorage.removeItem(ACTIVE_KEY)
   localStorage.removeItem(COLLAPSED_KEY)
   localStorage.removeItem(EXPRESS_POS_KEY)
-  localStorage.removeItem(CIRCUIT_PROGRESS_KEY)
+  localStorage.removeItem(GUIDED_PROGRESS_KEY)
+  localStorage.removeItem('wt:circuitProgress') // v1.2.0 key
   // The session row in DB will be updated to 'finished' by saveSession()
 }
 
@@ -811,20 +815,20 @@ export function saveExpressPosition(sessionId, { currentId, deferredId }) {
   } catch { /* quota — worst case you land on the first open exercise */ }
 }
 
-export function getCircuitProgress(sessionId) {
+export function getGuidedProgress(sessionId) {
   try {
-    const raw = localStorage.getItem(CIRCUIT_PROGRESS_KEY)
+    const raw = localStorage.getItem(GUIDED_PROGRESS_KEY)
     if (!raw) return null
     const { sessionId: savedId, progress } = JSON.parse(raw)
     return savedId === sessionId && progress ? progress : null
   } catch { return null }
 }
 
-export function saveCircuitProgress(sessionId, progress) {
+export function saveGuidedProgress(sessionId, progress) {
   if (!sessionId) return
   try {
-    localStorage.setItem(CIRCUIT_PROGRESS_KEY, JSON.stringify({ sessionId, progress }))
-  } catch { /* quota — worst case the circuit starts over from the intro */ }
+    localStorage.setItem(GUIDED_PROGRESS_KEY, JSON.stringify({ sessionId, progress }))
+  } catch { /* quota — worst case the player starts over from the intro */ }
 }
 
 // List vs Express session layout. Per device, like the collapsed set above —

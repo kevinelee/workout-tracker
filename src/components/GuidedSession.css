@@ -1,0 +1,428 @@
+/* Guided session — the player walks the workout: a set, a rest showing
+   what's next, the next set. Big current exercise and timer; the thumb zone
+   only holds back / pause-or-Done / skip. */
+.gs {
+  --gs-work: var(--accent);
+  --gs-rest: #4ade80;
+  --gs-ready: #fbbf24;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 16px 12px;
+  gap: 10px;
+  min-height: 0;
+}
+
+.gs-muted {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+.gs-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Progress track: one group per exercise, one segment per set */
+.gs-track {
+  display: flex;
+  gap: 6px;
+}
+
+.gs-track-ex {
+  flex: 1;
+  display: flex;
+  gap: 2px;
+}
+
+.gs-track-seg {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  transition: background 0.25s ease-in-out;
+}
+.gs-track-seg--done    { background: var(--gs-rest); }
+.gs-track-seg--now     { background: var(--gs-work); }
+
+.gs-eyebrow {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Before start ─────────────────────────────── */
+.gs-intro {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  animation: gs-fade-in 0.22s ease-in-out;
+}
+
+.gs-intro-summary {
+  margin: 0;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.gs-intro-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.gs-intro-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.gs-intro-num {
+  width: 18px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.gs-intro-icon { width: 20px; height: 20px; color: var(--accent); flex-shrink: 0; }
+
+.gs-intro-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.gs-intro-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.gs-intro-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  color: var(--text-h);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gs-intro-note { text-align: center; }
+
+.gs-primary {
+  margin-top: auto;
+  width: 100%;
+  min-height: 56px;
+  font-size: 17px;
+}
+
+/* ── Running ──────────────────────────────────── */
+/* Fixed slots, top to bottom: eyebrow, focus block, box (ring), "then"
+   line, controls, +15s. Everything but the box has a fixed height and the
+   box takes what's left, so the ring sits in the same place for a set, a
+   rest, a reps set and get-ready. */
+.gs-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-height: 0;
+  animation: gs-fade-in 0.25s ease-in-out;
+}
+
+.gs-focus {
+  width: 100%;
+  height: 104px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  animation: gs-fade-in 0.25s ease-in-out;
+}
+
+.gs-chip {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--accent-bg);
+  color: var(--gs-work);
+  transition: background 0.25s ease-in-out, color 0.25s ease-in-out;
+}
+.gs-chip--rest  { background: rgba(74, 222, 128, 0.15); color: var(--gs-rest); }
+.gs-chip--ready { background: rgba(251, 191, 36, 0.15); color: var(--gs-ready); }
+
+.gs-focus-name {
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  h3 {
+    margin: 0;
+    font-size: 26px;
+    line-height: 32px;
+    font-weight: 800;
+    color: var(--text-h);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.gs-focus-icon { width: 26px; height: 26px; color: var(--accent); flex-shrink: 0; }
+
+.gs-focus-detail {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--text-muted);
+}
+
+.gs-box {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 170px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gs-ring {
+  position: relative;
+  height: min(100%, 62vw, 260px);
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gs-ring-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.gs-ring-track { fill: none; stroke: var(--border); stroke-width: 7; }
+
+.gs-ring-fill {
+  fill: none;
+  stroke: var(--gs-work);
+  stroke-width: 7;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.25s linear, stroke 0.25s ease-in-out;
+}
+.gs-ring--rest  .gs-ring-fill { stroke: var(--gs-rest); }
+.gs-ring--ready .gs-ring-fill { stroke: var(--gs-ready); }
+
+.gs-ring-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gs-count {
+  font-size: clamp(48px, 16vw, 72px);
+  font-weight: 800;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.gs-ring-sub {
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 18px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.gs-paused { animation: gs-blink 1.2s ease-in-out infinite; }
+
+/* Reps −/+ sit on the box's edges, outside the ring, so they add no height */
+.gs-reps-step {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  font-size: 24px;
+  cursor: pointer;
+
+  &:active { scale: 0.94; }
+}
+.gs-reps-step--minus { left: 0; }
+.gs-reps-step--plus  { right: 0; }
+
+.gs-then {
+  width: 100%;
+  height: 22px;
+  flex-shrink: 0;
+  margin: 0;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--text-muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  strong { color: var(--text-h); }
+}
+
+.gs-controls {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+}
+
+.gs-ctl {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s ease-in-out, background 0.25s ease-in-out, color 0.25s ease-in-out;
+
+  &:active { transform: scale(0.94); }
+}
+
+.gs-ctl--main {
+  width: 76px;
+  height: 76px;
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.gs-ctl--done { font: 800 17px var(--sans); }
+.gs-stage--rest  .gs-ctl--main { background: var(--gs-rest);  color: #0a0f0a; }
+.gs-stage--ready .gs-ctl--main { background: var(--gs-ready); color: #1a1400; }
+
+.gs-add-time {
+  flex-shrink: 0;
+  height: 28px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font: 600 14px var(--sans);
+  padding: 0 12px;
+  cursor: pointer;
+  transition: opacity 0.2s ease-in-out;
+}
+.gs-add-time--hidden { opacity: 0; pointer-events: none; }
+
+/* ── Complete ─────────────────────────────────── */
+.gs-done {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  animation: gs-fade-in 0.25s ease-in-out;
+
+  .gs-primary { margin-top: 24px; }
+}
+
+.gs-done-check {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--gs-rest);
+  color: #0a0f0a;
+  font-size: 36px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: gs-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.gs-done-title {
+  margin: 8px 0 0;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-h);
+}
+
+@keyframes gs-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes gs-pop {
+  from { transform: scale(0.4); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+@keyframes gs-blink {
+  50% { opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gs-stage, .gs-focus, .gs-intro, .gs-done, .gs-done-check, .gs-paused { animation: none; }
+}
+
+/* Stands in for the List | Express toggle in SessionScreen's header */
+.session-guided-badge {
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
