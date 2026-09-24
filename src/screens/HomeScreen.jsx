@@ -70,7 +70,7 @@ function fmtElapsed(seconds) {
 export default function HomeScreen({
   templates, sessions, dataLoaded, settings,
   activeSession, startingTemplateId, startingQuickStart,
-  onNew, onEdit, onStart, onQuickStart, onResumeSession, onAbandon,
+  onNew, onNewCircuit, onEdit, onStart, onQuickStart, onResumeSession, onAbandon,
   onNewGenerate, onNewGenerateSingle, weeklyInsight, onDismissInsight, onRefreshInsight,
   programs, activeProgram, onSwitchProgram, onCreateProgram, onRenameProgram, onDeleteProgram,
 }) {
@@ -249,6 +249,11 @@ export default function HomeScreen({
     onNew()
   }
 
+  function handleNewCircuit() {
+    setShowNewSheet(false)
+    onNewCircuit()
+  }
+
   function handleNewGenerate() {
     setShowNewSheet(false)
     onNewGenerate()
@@ -348,7 +353,9 @@ export default function HomeScreen({
                   <div className="home-card-info">
                     <p className="home-card-name">{t.name}</p>
                     <p className="home-card-meta">
+                      {t.circuit && <span className="home-card-circuit">Circuit</span>}
                       {t.exercises.length} exercise{t.exercises.length !== 1 ? 's' : ''}
+                      {t.circuit && ` · ${t.circuit.rounds} round${t.circuit.rounds !== 1 ? 's' : ''}`}
                       {fmtLastDone(lastSessionByTemplate[t.id]) && (
                         <span className="home-card-last-done"> · {fmtLastDone(lastSessionByTemplate[t.id])}</span>
                       )}
@@ -611,6 +618,20 @@ export default function HomeScreen({
               <div className="home-sheet-option-text">
                 <span className="home-sheet-option-label">Build it myself</span>
                 <span className="home-sheet-option-sub">Pick exercises and set your defaults</span>
+              </div>
+            </button>
+
+            <button className="home-sheet-option" onClick={handleNewCircuit}>
+              <div className="home-sheet-option-icon">
+                <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="12" r="7.5" />
+                  <line x1="11" y1="12" x2="11" y2="8" />
+                  <line x1="9" y1="2.5" x2="13" y2="2.5" />
+                </svg>
+              </div>
+              <div className="home-sheet-option-text">
+                <span className="home-sheet-option-label">Build a circuit</span>
+                <span className="home-sheet-option-sub">Timed intervals that run hands-free — great for abs</span>
               </div>
             </button>
 

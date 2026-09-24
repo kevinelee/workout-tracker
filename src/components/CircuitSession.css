@@ -1,0 +1,380 @@
+/* Circuit session — a timer-driven, hands-off view. Big countdown, the
+   current exercise, and what's up next; the thumb zone only holds
+   back / pause / skip. */
+.cs {
+  --cs-work: var(--accent);
+  --cs-rest: #4ade80;
+  --cs-ready: #fbbf24;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 16px 12px;
+  gap: 10px;
+  min-height: 0;
+}
+
+.cs-muted {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+.cs-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Progress track: one row per round, one segment per exercise */
+.cs-track {
+  display: flex;
+  gap: 6px;
+}
+
+.cs-track-round {
+  flex: 1;
+  display: flex;
+  gap: 2px;
+}
+
+.cs-track-seg {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  transition: background 0.25s ease-in-out;
+}
+.cs-track-seg--done    { background: var(--cs-rest); }
+.cs-track-seg--skipped { background: var(--text-muted); opacity: 0.5; }
+.cs-track-seg--now     { background: var(--cs-work); }
+
+.cs-eyebrow {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Before start ─────────────────────────────── */
+.cs-intro {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  animation: cs-fade-in 0.22s ease-in-out;
+}
+
+.cs-intro-summary {
+  margin: 0;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.cs-intro-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.cs-intro-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.cs-intro-num {
+  width: 18px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.cs-intro-icon { width: 20px; height: 20px; color: var(--accent); flex-shrink: 0; }
+
+.cs-intro-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  color: var(--text-h);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-intro-time {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-intro-note { text-align: center; }
+
+.cs-primary {
+  margin-top: auto;
+  width: 100%;
+  min-height: 56px;
+  font-size: 17px;
+}
+
+/* ── Running ──────────────────────────────────── */
+.cs-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  min-height: 0;
+  animation: cs-fade-in 0.25s ease-in-out;
+}
+
+.cs-now {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.cs-now-icon { width: 34px; height: 34px; color: var(--cs-work); }
+
+.cs-now-name {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.15;
+  font-weight: 800;
+  color: var(--text-h);
+}
+
+.cs-ring {
+  position: relative;
+  width: min(62vw, 260px);
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 1;
+  min-height: 150px;
+}
+
+.cs-ring-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.cs-ring-track { fill: none; stroke: var(--border); stroke-width: 7; }
+
+.cs-ring-fill {
+  fill: none;
+  stroke: var(--cs-work);
+  stroke-width: 7;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.25s linear, stroke 0.25s ease-in-out;
+}
+.cs-ring--rest  .cs-ring-fill { stroke: var(--cs-rest); }
+.cs-ring--ready .cs-ring-fill { stroke: var(--cs-ready); }
+
+.cs-ring-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cs-count {
+  font-size: clamp(48px, 16vw, 72px);
+  font-weight: 800;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.cs-paused {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  animation: cs-blink 1.2s ease-in-out infinite;
+}
+
+.cs-upnext-line {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-muted);
+  text-align: center;
+
+  strong { color: var(--text-h); }
+}
+
+.cs-upnext-card {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.cs-upnext-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cs-rest);
+}
+.cs-stage--ready .cs-upnext-label { color: var(--cs-ready); }
+
+.cs-upnext-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.cs-upnext-icon { width: 24px; height: 24px; color: var(--accent); flex-shrink: 0; }
+
+.cs-upnext-name {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-h);
+}
+
+.cs-upnext-meta {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cs-controls {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+}
+
+.cs-ctl {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s ease-in-out;
+
+  &:active { transform: scale(0.94); }
+}
+
+.cs-ctl--main {
+  width: 76px;
+  height: 76px;
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.cs-stage--rest  .cs-ctl--main { background: var(--cs-rest);  color: #0a0f0a; }
+.cs-stage--ready .cs-ctl--main { background: var(--cs-ready); color: #1a1400; }
+
+.cs-add-time {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font: 600 14px var(--sans);
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+/* ── Complete ─────────────────────────────────── */
+.cs-done {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  animation: cs-fade-in 0.25s ease-in-out;
+
+  .cs-primary { margin-top: 24px; }
+}
+
+.cs-done-check {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--cs-rest);
+  color: #0a0f0a;
+  font-size: 36px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: cs-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.cs-done-title {
+  margin: 8px 0 0;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-h);
+}
+
+@keyframes cs-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes cs-pop {
+  from { transform: scale(0.4); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+@keyframes cs-blink {
+  50% { opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-stage, .cs-intro, .cs-done, .cs-done-check, .cs-paused { animation: none; }
+}
+
+/* Stands in for the List | Express toggle in SessionScreen's header */
+.session-circuit-badge {
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}

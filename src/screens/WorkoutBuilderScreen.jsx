@@ -8,11 +8,56 @@ import { alertSaveError } from '../lib/saveError'
 import { defaultExercises } from '../data/exerciseLibrary'
 import ExerciseSearch from '../components/ExerciseSearch'
 import ExerciseRow from '../components/ExerciseRow'
+import { CIRCUIT_LIMITS, circuitSummary, circuitTemplateSets, fmtShort, normalizeCircuit } from '../utils/circuit'
 import './WorkoutBuilderScreen.css'
 
+function findExercise(id) {
+  return defaultExercises.find(e => e.id === id) ?? getCachedCustomExercises().find(e => e.id === id) ?? null
+}
+
 function findExerciseName(id) {
-  const ex = defaultExercises.find(e => e.id === id) ?? getCachedCustomExercises().find(e => e.id === id)
-  return ex?.name ?? 'this exercise'
+  return findExercise(id)?.name ?? 'this exercise'
+}
+
+const CIRCUIT_FIELDS = [
+  { key: 'rounds',    label: 'Rounds',     fmt: v => String(v) },
+  { key: 'work',      label: 'Work',       fmt: fmtShort },
+  { key: 'rest',      label: 'Rest',       fmt: v => v > 0 ? fmtShort(v) : 'None' },
+  { key: 'roundRest', label: 'Round rest', fmt: v => v > 0 ? fmtShort(v) : 'None' },
+]
+
+function CircuitSettings({ circuit, exerciseCount, onChange }) {
+  function bump(key, dir) {
+    const { min, max, step } = CIRCUIT_LIMITS[key]
+    onChange({ ...circuit, [key]: Math.min(max, Math.max(min, circuit[key] + dir * step)) })
+  }
+  return (
+    <div className="builder-circuit">
+      <div className="builder-circuit-grid">
+        {CIRCUIT_FIELDS.map(f => (
+          <div key={f.key} className="builder-circuit-field">
+            <span className="builder-circuit-label">{f.label}</span>
+            <div className="builder-circuit-stepper">
+              <button
+                type="button"
+                onClick={() => bump(f.key, -1)}
+                disabled={circuit[f.key] <= CIRCUIT_LIMITS[f.key].min}
+                aria-label={`Decrease ${f.label}`}
+              >−</button>
+              <span className="builder-circuit-value">{f.fmt(circuit[f.key])}</span>
+              <button
+                type="button"
+                onClick={() => bump(f.key, 1)}
+                disabled={circuit[f.key] >= CIRCUIT_LIMITS[f.key].max}
+                aria-label={`Increase ${f.label}`}
+              >+</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="builder-circuit-summary">{circuitSummary(circuit, exerciseCount)}</p>
+    </div>
+  )
 }
 
 function SortableExerciseRow({ id, ...props }) {
@@ -38,6 +83,7 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
   const [exercises, setExercises] = useState(
     initial?.exercises ?? []
   )
+  const [circuit, setCircuit] = useState(initial?.circuit ? normalizeCircuit(initial.circuit) : null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmRemoveIndex, setConfirmRemoveIndex] = useState(null)
   const [saving,         setSaving]        = useState(false)
@@ -81,9 +127,13 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
     if (!name.trim() || exercises.length === 0 || saving) return
     setSaving(true)
     try {
+      // A circuit's sets are derived: one per round, sized to the work time.
+      const saved = circuit
+        ? exercises.map(ex => ({ ...ex, sets: circuitTemplateSets(findExercise(ex.exerciseId), circuit) }))
+        : exercises
       const template = isNew
-        ? { ...createWorkoutTemplate({ name: name.trim(), exercises }), programId: programId ?? null }
-        : { ...initial, name: name.trim(), exercises, programId: initial.programId ?? programId ?? null }
+        ? { ...createWorkoutTemplate({ name: name.trim(), exercises: saved }), programId: programId ?? null, circuit }
+        : { ...initial, name: name.trim(), exercises: saved, programId: initial.programId ?? programId ?? null, circuit }
       await saveTemplate(template)
       onSave(template)
     } catch (err) {
@@ -134,7 +184,7 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
       {/* Header */}
       <div className="builder-header">
         <button className="builder-back" onClick={onBack} aria-label="Back">‹</button>
-        <h2 className="builder-title">{isNew ? 'New Workout' : 'Edit Workout'}</h2>
+        <h2 className="builder-title">{isNew ? (circuit ? 'New Circuit' : 'New Workout') : (circuit ? 'Edit Circuit' : 'Edit Workout')}</h2>
         <button
           className="builder-save-btn"
           onClick={handleSave}
@@ -148,13 +198,17 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
         {/* Workout name */}
         <input
           className="builder-name-input"
-          placeholder="Workout name…"
+          placeholder={circuit ? "Circuit name… e.g. Ab finisher" : "Workout name…"}
           value={name}
           onChange={e => setName(e.target.value)}
           autoFocus={isNew}
           enterKeyHint="done"
           onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
         />
+
+        {circuit && (
+          <CircuitSettings circuit={circuit} exerciseCount={exercises.length} onChange={setCircuit} />
+        )}
 
         {/* Exercise search */}
         <ExerciseSearch
@@ -175,6 +229,7 @@ export default function WorkoutBuilderScreen({ template: initial, onSave, onBack
                     onChange={updated => updateExercise(i, updated)}
                     onRemove={() => setConfirmRemoveIndex(i)}
                     unit={unit}
+                    circuitWork={circuit?.work}
                   />
                 ))}
               </div>

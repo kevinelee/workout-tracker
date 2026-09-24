@@ -50,6 +50,7 @@ function dbTemplateToApp(t) {
     name:       t.name,
     createdAt:  t.created_at,
     programId:  t.program_id ?? null,
+    circuit:    t.circuit ?? null,
     exercises,
   }
 }
@@ -261,12 +262,16 @@ export async function getTemplates() {
 }
 
 export async function saveTemplate(template) {
-  const { error: upsertErr } = await supabase.from('workout_templates').upsert({
+  const row = {
     id:         template.id,
     user_id:    _uid,
     name:       template.name,
     program_id: template.programId ?? null,
-  })
+  }
+  // Only sent for circuits, so regular workouts keep saving on a database
+  // that hasn't had supabase-migration-circuits.sql run yet.
+  if (template.circuit) row.circuit = template.circuit
+  const { error: upsertErr } = await supabase.from('workout_templates').upsert(row)
   if (upsertErr) throw new SaveError('your workout', upsertErr)
 
   await check('your workout', supabase.from('template_exercises').delete().eq('template_id', template.id))
@@ -761,10 +766,16 @@ const COLLAPSED_KEY = 'wt:collapsedExercises'
 // and without this you'd come back to the exercise you just skipped.
 const EXPRESS_POS_KEY = 'wt:expressPosition'
 
+// Where a circuit's timer is: { index, endsAt, pausedLeft } (see
+// CircuitSession). Wall-clock based, so it keeps counting while the session
+// screen is unmounted and picks up at the right interval on the way back.
+const CIRCUIT_PROGRESS_KEY = 'wt:circuitProgress'
+
 export function clearActiveSession() {
   localStorage.removeItem(ACTIVE_KEY)
   localStorage.removeItem(COLLAPSED_KEY)
   localStorage.removeItem(EXPRESS_POS_KEY)
+  localStorage.removeItem(CIRCUIT_PROGRESS_KEY)
   // The session row in DB will be updated to 'finished' by saveSession()
 }
 
@@ -798,6 +809,22 @@ export function saveExpressPosition(sessionId, { currentId, deferredId }) {
   try {
     localStorage.setItem(EXPRESS_POS_KEY, JSON.stringify({ sessionId, currentId, deferredId }))
   } catch { /* quota — worst case you land on the first open exercise */ }
+}
+
+export function getCircuitProgress(sessionId) {
+  try {
+    const raw = localStorage.getItem(CIRCUIT_PROGRESS_KEY)
+    if (!raw) return null
+    const { sessionId: savedId, progress } = JSON.parse(raw)
+    return savedId === sessionId && progress ? progress : null
+  } catch { return null }
+}
+
+export function saveCircuitProgress(sessionId, progress) {
+  if (!sessionId) return
+  try {
+    localStorage.setItem(CIRCUIT_PROGRESS_KEY, JSON.stringify({ sessionId, progress }))
+  } catch { /* quota — worst case the circuit starts over from the intro */ }
 }
 
 // List vs Express session layout. Per device, like the collapsed set above —
