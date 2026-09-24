@@ -33,6 +33,33 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
   const tickedRef = useRef(new Set())
   const rootRef = useRef(null)
   const [editingDuration, setEditingDuration] = useState(false)
+  // Express only: swiping up sends the full-screen timer back to the ribbon,
+  // the same as "Back to exercise". dragY follows the finger while it moves.
+  const swipeRef = useRef(null)
+  const [dragY, setDragY] = useState(0)
+  const swipeable = express && !minimized && !!onMinimize
+
+  function handleTouchStart(e) {
+    if (!swipeable || e.touches.length !== 1) return
+    swipeRef.current = { y: e.touches[0].clientY, t: Date.now() }
+  }
+
+  function handleTouchMove(e) {
+    if (!swipeRef.current) return
+    const dy = e.touches[0].clientY - swipeRef.current.y
+    // Follows the finger upward; pulling down just resists a little.
+    setDragY(dy < 0 ? dy : dy / 4)
+  }
+
+  function handleTouchEnd(e) {
+    if (!swipeRef.current) return
+    const dy = e.changedTouches[0].clientY - swipeRef.current.y
+    const velocity = dy / Math.max(1, Date.now() - swipeRef.current.t)
+    swipeRef.current = null
+    setDragY(0)
+    // A long drag or a quick flick both count.
+    if (dy < -80 || (dy < -30 && velocity < -0.5)) onMinimize()
+  }
 
   useEffect(() => {
     function tick() {
@@ -112,6 +139,10 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
       onClick={minimized ? onExpand : undefined}
       role={minimized ? 'button' : undefined}
       tabIndex={minimized ? 0 : undefined}
+      onTouchStart={swipeable ? handleTouchStart : undefined}
+      onTouchMove={swipeable ? handleTouchMove : undefined}
+      onTouchEnd={swipeable ? handleTouchEnd : undefined}
+      onTouchCancel={swipeable ? () => { swipeRef.current = null; setDragY(0) } : undefined}
     >
       {minimized ? (
         <div className="rest-ribbon-inner">
@@ -127,7 +158,10 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
           </button>
         </div>
       ) : (
-        <div className="rest-timer-inner">
+        <div
+          className={`rest-timer-inner${dragY ? ' rest-timer-inner--dragging' : ''}`}
+          style={dragY ? { transform: `translateY(${dragY}px)`, opacity: Math.max(0.3, 1 + dragY / 300) } : undefined}
+        >
           <p className="rest-label">Rest</p>
           {editingDuration ? (
             <div className="rest-duration-picker">
@@ -179,7 +213,12 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
                 <button className="rest-skip-btn" onClick={onSkip}>{express ? 'Skip rest' : 'Skip'}</button>
               )}
               {express && onMinimize && (
-                <button className="rest-back-btn" onClick={onMinimize}>Back to exercise</button>
+                <button className="rest-back-btn" onClick={onMinimize}>
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="5 12 10 7 15 12" />
+                  </svg>
+                  Back to exercise
+                </button>
               )}
             </>
           )}

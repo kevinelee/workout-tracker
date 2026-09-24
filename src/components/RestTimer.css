@@ -323,6 +323,11 @@
 }
 
 .rest-back-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  align-self: center;
   background: none;
   border: none;
   color: var(--accent);
@@ -331,4 +336,26 @@
   padding: 10px 16px;
   min-height: 44px;
   cursor: pointer;
+}
+
+.rest-back-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Swipe up to minimize (Express): the content follows the finger, then
+   springs back if the swipe falls short. No transition while dragging so it
+   tracks 1:1. */
+.rest-timer--express .rest-timer-inner {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+}
+
+/* The whole takeover is the swipe surface; keep the browser from scrolling
+   or pull-to-refreshing the page behind it. */
+.rest-timer--express {
+  touch-action: none;
+}
+
+.rest-timer--express .rest-timer-inner--dragging {
+  transition: none;
 }
