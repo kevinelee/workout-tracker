@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { sessionVolume, sessionPRCount, logVolume, fmtVolume, fmtDuration } from '../utils/volume'
 import { estimateCalories } from '../utils/calories'
-import { calcStreak } from '../utils/streaks'
+import { streakStatus } from '../utils/streaks'
 import { getCachedCustomExercises } from '../storage'
 import { alertSaveError } from '../lib/saveError'
 import { defaultExercises } from '../data/exerciseLibrary'
@@ -139,7 +139,14 @@ function inDateRange(session, range) {
 }
 
 export default function HistoryScreen({ sessions, templates, checkIns, settings, profile, onViewSession, onDeleteSession }) {
-  const streak = calcStreak(sessions, checkIns)
+  const { streak, doneThisWeek, target, weekMet } = streakStatus(sessions, checkIns, profile?.targetDaysPerWeek ?? 3)
+  const remaining = target - doneThisWeek
+  const plural    = n => n === 1 ? 'workout' : 'workouts'
+  const streakSub = weekMet
+    ? `This week's done. Keep it going!`
+    : streak > 0
+      ? `${remaining} more ${plural(remaining)} until your ${streak + 1} week streak!`
+      : `${remaining} more ${plural(remaining)} this week to start your streak`
   const finished = sessions.filter(s => s.finishedAt).sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))
 
   const [filterId,           setFilterId]           = useState(null)
@@ -241,9 +248,14 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
       {/* Streak banner */}
       <div className="history-streak-banner">
         <span className="history-streak-fire"><FlameIcon /></span>
-        <div>
+        <div className="history-streak-body">
           <p className="history-streak-count">{streak} week streak</p>
-          <p className="history-streak-sub">{streak === 0 ? 'Start a session to begin your streak' : 'Keep it going!'}</p>
+          <p className="history-streak-sub">{streakSub}</p>
+          <div className="history-streak-dots" role="img" aria-label={`${Math.min(doneThisWeek, target)} of ${target} workouts this week`}>
+            {Array.from({ length: target }, (_, i) => (
+              <span key={i} className={`history-streak-dot${i < doneThisWeek ? ' history-streak-dot--done' : ''}`} />
+            ))}
+          </div>
         </div>
       </div>
 
