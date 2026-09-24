@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { createSet } from '../data/models'
 import { defaultExercises } from '../data/exerciseLibrary'
-import { getCachedCustomExercises, getCollapsedExercises, getExpressPosition, getLastSessionForTemplate, getSessionView, saveCollapsedExercises, saveExpressPosition, saveSession, saveSessionView, saveTemplate } from '../storage'
+import { getCachedCustomExercises, getCollapsedExercises, getExpressPosition, getLastLogForExercise, getLastSessionForTemplate, getSessionView, saveCollapsedExercises, saveExpressPosition, saveSession, saveSessionView, saveTemplate } from '../storage'
 import { initLogsFromSession } from '../App'
 import { createTemplateExercise } from '../data/models'
 import MuscleIcon from '../components/MuscleIcon'
@@ -42,6 +42,17 @@ function bestRepsAtOrAboveWeight(weightBucket, weight) {
   return best
 }
 
+// Fresh sets pre-filled from a previous log of the exercise, padding with its
+// last set when today calls for more sets than were done then.
+function inheritSets(lastLog, count) {
+  const prev = lastLog?.sets ?? []
+  const fallback = prev[prev.length - 1] ?? { reps: 0, weight: 0 }
+  return Array.from({ length: count }, (_, i) => {
+    const s = prev[i] ?? fallback
+    return { reps: s.reps, weight: s.weight, completed: false, isPR: false, prKind: null }
+  })
+}
+
 function fmtElapsed(seconds) {
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
@@ -55,7 +66,7 @@ function elapsedFromStart(startedAt) {
 }
 
 export default function SessionScreen({ activeSession, settings, programId, onUpdate, onFinish, onMinimize, onAbandon, onUpdateSettings }) {
-  const { template, sessionId, startedAt, logs: initialLogs, prMap: initialPrMap, prRepsMap: initialPrRepsMap, repPRByWeightMap: initialRepPRByWeightMap, aiBreakdown } = activeSession
+  const { template, sessionId, startedAt, copiedFromLast, logs: initialLogs, prMap: initialPrMap, prRepsMap: initialPrRepsMap, repPRByWeightMap: initialRepPRByWeightMap, aiBreakdown } = activeSession
   const hasBreakdown = !!(aiBreakdown && (aiBreakdown.headline || aiBreakdown.suggestions?.length))
   const [showBreakdown, setShowBreakdown] = useState(false)
 
@@ -79,7 +90,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const [timerMinimized, setTimerMinimized] = useState(false)
   const [timerFlash, setTimerFlash] = useState(false)
   const [copiedBanner, setCopiedBanner] = useState(false)
-  const [hasCopiedLastSession, setHasCopiedLastSession] = useState(false)
+  const [hasCopiedLastSession, setHasCopiedLastSession] = useState(!!copiedFromLast)
   const [showAbandon, setShowAbandon]       = useState(false)
   const [showTimeLimit, setShowTimeLimit]   = useState(false)
   const timeLimitDismissedAt                = useRef(null)
@@ -150,6 +161,22 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     if (template.isQuickStart) return
     getLastSessionForTemplate(template.id).then(setLastSession)
   }, [template.id])
+
+  // History for exercises added or swapped in mid-session, which this
+  // template's last session may never have included. Keyed by exerciseId.
+  const [exerciseHistory, setExerciseHistory] = useState({})
+  const lastLogFor = id => lastSession?.logs?.find(l => l.exerciseId === id) ?? exerciseHistory[id] ?? null
+  const addingExerciseRef = useRef(false)
+
+  async function fetchLastLog(exerciseId) {
+    const cached = lastLogFor(exerciseId)
+    if (cached) return cached
+    // Never let a slow or offline lookup block adding the exercise.
+    const timeout = new Promise(resolve => setTimeout(() => resolve(null), 2500))
+    const found = await Promise.race([getLastLogForExercise(exerciseId).catch(() => null), timeout])
+    if (found) setExerciseHistory(prev => ({ ...prev, [exerciseId]: found }))
+    return found
+  }
 
   useLayoutEffect(() => {
     const el = stickyRef.current
@@ -453,13 +480,17 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     updateLogsAndSync(newLogs, newPrMap, newPrRepsMap, newRepPRByWeightMap)
   }
 
-  function addExerciseToSession(exercise) {
-    if (logs.some(l => l.exerciseId === exercise.id)) return
+  async function addExerciseToSession(exercise) {
+    if (logs.some(l => l.exerciseId === exercise.id) || addingExerciseRef.current) return
+    addingExerciseRef.current = true
+    const last = await fetchLastLog(exercise.id)
+    addingExerciseRef.current = false
     if (express) setExpressIndex(logs.length) // jump straight to what was just added
+    const setCount = last?.sets.length || 3
     const newLog = {
       exerciseId: exercise.id,
-      targetCount: 3,
-      sets: Array.from({ length: 3 }, () => ({ reps: 0, weight: 0, completed: false, isPR: false, prKind: null, isBonus: false })),
+      targetCount: setCount,
+      sets: inheritSets(last, setCount).map(s => ({ ...s, isBonus: false })),
       notes: '',
     }
     updateLogsAndSync([...logs, newLog], null)
@@ -476,16 +507,21 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     else setSubstituteIndex(logIndex)
   }
 
-  function doSubstituteExercise(newExercise) {
-    const oldLog = logs[substituteIndex]
+  async function doSubstituteExercise(newExercise) {
+    if (addingExerciseRef.current) return
+    const index = substituteIndex
+    const oldLog = logs[index]
     const setCount = oldLog.targetCount ?? oldLog.sets.length
+    addingExerciseRef.current = true
+    const last = await fetchLastLog(newExercise.id)
+    addingExerciseRef.current = false
     const newLog = {
       exerciseId:  newExercise.id,
       targetCount: setCount,
-      sets: Array.from({ length: setCount }, () => ({ reps: 0, weight: 0, completed: false, isPR: false, prKind: null })),
+      sets: inheritSets(last, setCount),
       notes: '',
     }
-    updateLogsAndSync(logs.map((l, i) => i === substituteIndex ? newLog : l), null)
+    updateLogsAndSync(logs.map((l, i) => i === index ? newLog : l), null)
     setSubstituteIndex(null)
   }
 
@@ -769,7 +805,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
           settings={settings}
           prMap={prMap}
           bestRepsAt={(exerciseId, weight) => bestRepsAtOrAboveWeight(repPRByWeightMap[exerciseId] ?? {}, weight)}
-          lastSession={lastSession}
+          lastLogFor={lastLogFor}
           celebratingExercise={celebratingExercise}
           onUpdateSet={updateSet}
           onCompleteSet={completeSet}
@@ -836,7 +872,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
                 ? `${Math.round(exPR / 2.2046)} kg${exPRReps > 0 ? ` × ${exPRReps}` : ''}`
                 : `${exPR} lbs${exPRReps > 0 ? ` × ${exPRReps}` : ''}`
             : null
-          const lastLog = lastSession?.logs?.find(l => l.exerciseId === log.exerciseId)
+          const lastLog = lastLogFor(log.exerciseId)
           const lastHint = (() => {
             if (!lastLog || isCardio || isStretch) return null
             const s = lastLog.sets?.[0]

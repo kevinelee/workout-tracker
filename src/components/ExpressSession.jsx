@@ -336,7 +336,7 @@ function ExerciseCard({
 }
 
 export default function ExpressSession({
-  logs, currentIndex, deferredId, onChangeIndex, findExercise, settings, prMap, bestRepsAt, lastSession, celebratingExercise,
+  logs, currentIndex, deferredId, onChangeIndex, findExercise, settings, prMap, bestRepsAt, lastLogFor, celebratingExercise,
   onUpdateSet, onCompleteSet, onRescindSet, onAddSet, onRemoveSet, onConfirmRemoveSet, onNotes, onLater,
   onAddExercise, onSubstitute, onRemoveExercise, onCopyLast, onShowBreakdown, onAbandon,
   onFinish, finishing, totalSets, completedSets,
@@ -401,7 +401,7 @@ export default function ExpressSession({
           settings={settings}
           prMap={prMap}
           bestRepsAt={w => bestRepsAt(log.exerciseId, w)}
-          lastLog={lastSession?.logs?.find(l => l.exerciseId === log.exerciseId)}
+          lastLog={lastLogFor(log.exerciseId)}
           celebrating={celebratingExercise === log.exerciseId}
           leaving={switching}
           canLater={canLater}

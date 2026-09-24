@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getCachedCustomExercises, getCustomExercises, saveCustomExercise, deleteCustomExercise, clearAll, getSessionView, saveSessionView } from '../storage'
+import { getCachedCustomExercises, getCustomExercises, saveCustomExercise, deleteCustomExercise, clearAll, getAutoCopyLast, getSessionView, saveAutoCopyLast, saveSessionView } from '../storage'
 import { useProGate } from '../lib/proGate'
 import { exportJSON, exportCSV } from '../utils/export'
 import { updatePassword, supabase, callFunction } from '../lib/supabase'
@@ -54,6 +54,7 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
   const { canUse } = useProGate()
   const expressAllowed = canUse('expressMode')
   const [sessionView, setSessionView] = useState(() => expressAllowed ? getSessionView() : 'list')
+  const [autoCopyLast, setAutoCopyLast] = useState(getAutoCopyLast)
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -201,6 +202,15 @@ export default function SettingsScreen({ settings, onSave, sessions, templates, 
             setSessionView(v)
             saveSessionView(v)
           }}
+        />
+      </Section>
+
+      {/* Start from last session */}
+      <Section title="Starting Weights" hint="Fill each workout with the reps and weights from the last time you did it, instead of the workout's defaults.">
+        <Toggle
+          label="Always copy last session"
+          value={autoCopyLast}
+          onChange={v => { setAutoCopyLast(v); saveAutoCopyLast(v) }}
         />
       </Section>
 

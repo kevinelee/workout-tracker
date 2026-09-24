@@ -34,6 +34,32 @@
   margin: 2px 0 0;
 }
 
+.history-streak-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-streak-dots {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.history-streak-dot {
+  flex: 1;
+  max-width: 40px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--accent-border);
+  opacity: 0.45;
+  transition: background 0.3s ease, opacity 0.3s ease;
+}
+
+.history-streak-dot--done {
+  background: var(--accent);
+  opacity: 1;
+}
+
 .history-section {
   display: flex;
   flex-direction: column;

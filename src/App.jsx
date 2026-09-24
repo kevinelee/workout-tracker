@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, Component } from 'react'
 import {
   getTemplates, saveTemplate, getCachedTemplates, getSessions, getCachedSessions, getSettings, getCachedSettings, saveSettings,
-  getLastSessionForTemplate, getPRMap,
+  getAutoCopyLast, getLastSessionForTemplate, getPRMap,
   getActiveSession, saveActiveSession, clearActiveSession, abandonSession,
   deleteSession, setStorageUser, clearUserCache, getCustomExercises, getCachedCustomExercises,
   getProfile, saveProfile, getBodyWeightLogs, saveBodyWeightLog, deleteBodyWeightLog,
@@ -664,9 +664,14 @@ export default function App() {
     const prTypes = Object.fromEntries(
       exerciseIds.map(id => [id, allExercises.find(e => e.id === id)?.prType ?? 'weight'])
     )
-    const { prMap, prRepsMap, repPRByWeightMap } = await getPRMap(exerciseIds, prTypes)
-    const logs = initLogsFromTemplate(template)
-    const data = { template, sessionId: session.id, startedAt: session.startedAt, logs, prMap, prRepsMap, repPRByWeightMap, aiBreakdown }
+    // Guided workouts run from their plan, so there's nothing to copy into them.
+    const autoCopy = getAutoCopyLast() && !template.isQuickStart && !template.guided && !template.circuit
+    const [{ prMap, prRepsMap, repPRByWeightMap }, lastSession] = await Promise.all([
+      getPRMap(exerciseIds, prTypes),
+      autoCopy ? getLastSessionForTemplate(template.id).catch(() => null) : null,
+    ])
+    const logs = lastSession ? initLogsFromSession(template, lastSession) : initLogsFromTemplate(template)
+    const data = { template, sessionId: session.id, startedAt: session.startedAt, logs, prMap, prRepsMap, repPRByWeightMap, aiBreakdown, copiedFromLast: !!lastSession }
     saveActiveSession(data)
     setActiveSession(data)
     setStartingTemplateId(null)

@@ -539,6 +539,27 @@ export async function getLastSessionForTemplate(templateId) {
   return data?.[0] ? dbSessionToApp(data[0]) : null
 }
 
+// The most recent finished log of this exercise from any workout, so an
+// exercise added mid-session starts from what the user last did instead of 0s.
+// Skips logs where no set was completed (added then ignored) — a few recent
+// sessions are fetched so one of those doesn't hide real history behind it.
+export async function getLastLogForExercise(exerciseId) {
+  const { data } = await supabase
+    .from('sessions')
+    .select('id, finished_at, session_logs!inner(exercise_id, notes, position, session_sets(*))')
+    .eq('user_id', _uid)
+    .eq('status', 'finished')
+    .eq('session_logs.exercise_id', exerciseId)
+    .order('finished_at', { ascending: false })
+    .limit(5)
+  for (const row of data ?? []) {
+    const log = dbSessionToApp(row).logs.find(l => l.exerciseId === exerciseId)
+    const done = log?.sets.filter(s => s.completed) ?? []
+    if (done.length) return { ...log, sets: done }
+  }
+  return null
+}
+
 
 // ── Settings ─────────────────────────────────────────────────
 
@@ -843,6 +864,19 @@ export function getSessionView() {
 
 export function saveSessionView(view) {
   try { localStorage.setItem(SESSION_VIEW_KEY, view) } catch { /* private mode — falls back to list */ }
+}
+
+const AUTO_COPY_LAST_KEY = 'wt_auto_copy_last'
+
+// Start every workout from the reps/weights of its last session instead of the
+// template's defaults. Per device, like the Workout View pick above.
+export function getAutoCopyLast() {
+  try { return localStorage.getItem(AUTO_COPY_LAST_KEY) === '1' }
+  catch { return false }
+}
+
+export function saveAutoCopyLast(on) {
+  try { localStorage.setItem(AUTO_COPY_LAST_KEY, on ? '1' : '0') } catch { /* private mode — stays off */ }
 }
 
 export async function abandonSession(sessionId) {

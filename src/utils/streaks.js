@@ -45,28 +45,41 @@ function toWeekStartStr(date) {
   return toDateStr(d)
 }
 
-// Consecutive weeks (Monday-Sunday) with at least one workout or check-in --
-// a missed single day no longer breaks it, only a whole week with nothing
-// logged does. Alive if this week or last week has activity, same one-period
-// grace the old day-based version gave "today or yesterday", so the streak
-// doesn't zero out before you've had a chance to train this week.
-export function calcStreak(sessions, checkIns) {
-  const dates = buildActivitySet(sessions, checkIns)
-  const weeks = new Set([...dates].map(d => toWeekStartStr(new Date(d + 'T12:00:00'))))
+// Weeks starting on or after this Monday have to hit the profile's target
+// days/week to count toward the streak. Earlier weeks keep the original rule
+// (any activity at all) so switching rules didn't wipe out existing streaks.
+const TARGET_RULE_SINCE = '2026-09-21'
+
+// Consecutive weeks (Monday-Sunday) that hit their goal, counted in distinct
+// active days. The week in progress never breaks the streak -- it only adds
+// to it once its goal is hit -- so the streak doesn't zero out on a Monday
+// before you've had a chance to train.
+//
+// Returns { streak, doneThisWeek, target, weekMet } so the banner can show
+// progress through the current week, not just the total.
+export function streakStatus(sessions, checkIns, targetDaysPerWeek = 3) {
+  const target = Math.max(1, targetDaysPerWeek)
+  const daysPerWeek = new Map()
+  for (const d of buildActivitySet(sessions, checkIns)) {
+    const week = toWeekStartStr(new Date(d + 'T12:00:00'))
+    daysPerWeek.set(week, (daysPerWeek.get(week) ?? 0) + 1)
+  }
+  // Week keys are zero-padded YYYY-MM-DD, so string order is date order.
+  const goalFor = week => week >= TARGET_RULE_SINCE ? target : 1
+  const met = week => (daysPerWeek.get(week) ?? 0) >= goalFor(week)
 
   const cursor = new Date()
   cursor.setHours(0, 0, 0, 0)
-  if (!weeks.has(toWeekStartStr(cursor))) {
-    cursor.setDate(cursor.getDate() - 7)
-    if (!weeks.has(toWeekStartStr(cursor))) return 0
-  }
+  const thisWeek = toWeekStartStr(cursor)
+  const weekMet = met(thisWeek)
 
-  let streak = 0
-  while (weeks.has(toWeekStartStr(cursor))) {
+  let streak = weekMet ? 1 : 0
+  cursor.setDate(cursor.getDate() - 7)
+  while (met(toWeekStartStr(cursor))) {
     streak++
     cursor.setDate(cursor.getDate() - 7)
   }
-  return streak
+  return { streak, doneThisWeek: daysPerWeek.get(thisWeek) ?? 0, target: goalFor(thisWeek), weekMet }
 }
 
 // Returns array of { date: 'YYYY-MM-DD', count: number } for the last `weeks` weeks
