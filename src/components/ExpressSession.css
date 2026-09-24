@@ -488,6 +488,14 @@
 .xs-confirm--pr   { background: #facc15; color: #1a1400; }
 .xs-confirm--done { background: #4ade80; color: #0a0f0a; }
 
+/* Room for the minimized rest timer, which docks here (RestTimer.css
+   .rest-timer--docked) instead of over the sets. Height matches the bar. */
+.xs-rest-slot {
+  height: var(--rest-docked-height, 44px);
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
 .xs-next-row {
   display: flex;
   gap: 6px;

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import HoldButton from './HoldButton'
 import MuscleIcon from './MuscleIcon'
@@ -116,13 +116,39 @@ export function Sheet({ onClose, title, children }) {
 
 function ExerciseCard({
   log, logIndex, exercise, settings, prMap, bestRepsAt, lastLog, celebrating, leaving,
-  canLater, nextName, upNextButton, workoutDone, finishing,
+  canLater, nextName, upNextButton, workoutDone, finishing, restDocked, onRestSlot,
   onUpdateSet, onCompleteSet, onRescindSet, onAddSet, onRemoveSet, onConfirmRemoveSet, onNotes, onLater, onNext, onFinish,
 }) {
   const [focusOverride, setFocusOverride] = useState(null)
   const [editingSets, setEditingSets] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
   const [armedSi, setArmedSi] = useState(null)    // done set showing its "Reopen" button
+
+  // While the rest timer is minimized it docks in this slot above Up next
+  // (it's position: fixed, so the slot just holds the space open and reports
+  // where it sits). The thumb zone is sticky, so this only moves on resize or
+  // when the card itself is shorter than the screen and scrolls.
+  const restSlotRef = useRef(null)
+  useLayoutEffect(() => {
+    if (!restDocked) return
+    function report() {
+      const el = restSlotRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      onRestSlot?.({ top: r.top, left: r.left, right: window.innerWidth - r.right })
+    }
+    report()
+    window.addEventListener('resize', report)
+    document.addEventListener('scroll', report, true)
+    const ro = new ResizeObserver(report)
+    ro.observe(document.body)
+    return () => {
+      window.removeEventListener('resize', report)
+      document.removeEventListener('scroll', report, true)
+      ro.disconnect()
+      onRestSlot?.(null)
+    }
+  }, [restDocked]) // eslint-disable-line react-hooks/exhaustive-deps
   const [removingSi, setRemovingSi] = useState(null)
   const [seenCount, setSeenCount] = useState(log.sets.length) // rows past this just got added
   const notesRef = useRef(null)
@@ -310,6 +336,7 @@ function ExerciseCard({
       {/* Thumb zone, top to bottom: what's next (+ swap it in), PR hint,
           and the Confirm button pinned to the bottom edge. */}
       <div className="xs-actions">
+        {restDocked && <div className="xs-rest-slot" ref={restSlotRef} />}
         <div className="xs-next-row">
           {upNextButton}
           {canLater && doneCount === 0 && (
@@ -340,7 +367,7 @@ export default function ExpressSession({
   onUpdateSet, onCompleteSet, onRescindSet, onAddSet, onRemoveSet, onConfirmRemoveSet, onNotes, onLater,
   onAddExercise, onSubstitute, onRemoveExercise, onCopyLast, onShowBreakdown, onAbandon,
   onFinish, finishing, totalSets, completedSets,
-  menuOpen, onCloseMenu,
+  menuOpen, onCloseMenu, restDocked, onRestSlot,
 }) {
   const [queueOpen, setQueueOpen] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
@@ -407,6 +434,8 @@ export default function ExpressSession({
           canLater={canLater}
           nextName={upNext?.name}
           upNextButton={upNextButton}
+          restDocked={restDocked}
+          onRestSlot={onRestSlot}
           workoutDone={workoutDone}
           finishing={finishing}
           onUpdateSet={onUpdateSet}

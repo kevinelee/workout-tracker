@@ -88,6 +88,9 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   // down from the set before silently did nothing.
   const restKeyRef = useRef(0)
   const [timerMinimized, setTimerMinimized] = useState(false)
+  // Express: where the minimized timer docks (viewport box of the slot above
+  // Up next), or null to fall back to docking under the header.
+  const [restSlot, setRestSlot] = useState(null) // { top, left, right }
   const [timerFlash, setTimerFlash] = useState(false)
   const [copiedBanner, setCopiedBanner] = useState(false)
   const [hasCopiedLastSession, setHasCopiedLastSession] = useState(!!copiedFromLast)
@@ -708,7 +711,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const underHalf = totalSets > 0 && completedSets < totalSets / 2
 
   return (
-    <div className="session" style={{ '--session-sticky-height': `${stickyHeight}px` }}>
+    <div className="session" style={{ '--session-sticky-height': `${stickyHeight}px`, ...(restSlot && { '--xs-rest-top': `${restSlot.top}px`, '--xs-rest-left': `${restSlot.left}px`, '--xs-rest-right': `${restSlot.right}px` }) }}>
       {/* Sticky header + progress bar */}
       <div className="session-sticky" ref={stickyRef}>
         <div className="session-header">
@@ -827,6 +830,8 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
           completedSets={completedSets}
           menuOpen={expressMenuOpen}
           onCloseMenu={() => setExpressMenuOpen(false)}
+          restDocked={restDuration !== null && timerMinimized}
+          onRestSlot={setRestSlot}
         />
       ) : (
       <div className="session-body">
@@ -1071,6 +1076,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
             variant={express ? 'express' : 'modal'}
             preview={express ? expressRestPreview() : null}
             minimized={timerMinimized}
+            docked={express && timerMinimized && !!restSlot}
             onExpand={() => setTimerMinimized(false)}
             onMinimize={() => setTimerMinimized(true)}
             restTimerDuration={settings.restTimerDuration}

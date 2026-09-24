@@ -26,7 +26,7 @@ function fmt(seconds) {
 // variant="express" expands to a full-screen takeover instead of the centered
 // modal, with `preview` (what's coming next) under the ring and an explicit
 // "Back to exercise" that minimizes — there's no "outside" to tap there.
-export default function RestTimer({ duration, onDone, onSkip, showFinish, onFinish, minimized, onExpand, onMinimize, restTimerDuration, onChangeRestTimerDuration, variant = 'modal', preview }) {
+export default function RestTimer({ duration, onDone, onSkip, showFinish, onFinish, minimized, docked, onExpand, onMinimize, restTimerDuration, onChangeRestTimerDuration, variant = 'modal', preview }) {
   const express = variant === 'express'
   const endAtRef = useRef(Date.now() + duration * 1000)
   const [remaining, setRemaining] = useState(duration)
@@ -135,7 +135,7 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
   return (
     <div
       ref={rootRef}
-      className={`rest-timer ${minimized ? 'rest-timer--minimized' : ''} ${express && !minimized ? 'rest-timer--express' : ''}`}
+      className={`rest-timer ${minimized ? 'rest-timer--minimized' : ''} ${express && !minimized ? 'rest-timer--express' : ''} ${docked ? 'rest-timer--docked' : ''}`}
       onClick={minimized ? onExpand : undefined}
       role={minimized ? 'button' : undefined}
       tabIndex={minimized ? 0 : undefined}

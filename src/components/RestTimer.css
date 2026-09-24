@@ -62,6 +62,21 @@
   cursor: pointer;
 }
 
+/* Express, minimized: docked in the slot ExpressSession holds open just above
+   Up next (--xs-rest-top, measured there), so the bar sits in the thumb zone
+   instead of covering the exercise under the header. Fixed height so the
+   slot can reserve exactly the right amount of room. */
+.rest-timer--docked {
+  top: var(--xs-rest-top);
+  left: var(--xs-rest-left);
+  right: var(--xs-rest-right);
+  height: var(--rest-docked-height, 44px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 @keyframes rest-content-fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
