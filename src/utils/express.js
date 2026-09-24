@@ -18,6 +18,14 @@ export function displayWeight(weight, unit) {
   return unit === 'kg' ? Math.round(weight / 2.2046) : weight
 }
 
+// One −/+ tap on a weight, in display units: 5 lb steps (1 kg). Snaps to the
+// step grid, so an odd weight like 137 goes to 140 / 135 rather than 142 / 132.
+export function stepWeight(value, direction, unit) {
+  const step = unit === 'kg' ? 1 : 5
+  const next = direction > 0 ? Math.floor(value / step) * step + step : Math.ceil(value / step) * step - step
+  return Math.max(0, next)
+}
+
 export function displayDistance(dist, unit) {
   return unit === 'kg' ? Math.round(dist * 1.60934 * 10) / 10 : dist
 }

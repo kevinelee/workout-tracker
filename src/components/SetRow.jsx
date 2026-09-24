@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import HoldButton from './HoldButton'
+import { stepWeight } from '../utils/express'
 import './SetRow.css'
 
 function EditableValue({ value, onSet, decimal = false }) {
@@ -197,8 +198,8 @@ export default function SetRow({ set, index, onChange, onRemove, isCardio, cardi
             label={unit === 'kg' ? 'kg' : 'lbs'}
             value={dispWeight}
             useHold
-            onDec={() => storeWeight(dispWeight - 1)}
-            onInc={() => storeWeight(dispWeight + 1)}
+            onDec={() => storeWeight(stepWeight(dispWeight, -1, unit))}
+            onInc={() => storeWeight(stepWeight(dispWeight, 1, unit))}
             onSet={v => storeWeight(v)}
           />
         </>

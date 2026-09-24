@@ -2,18 +2,19 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import HoldButton from './HoldButton'
 import MuscleIcon from './MuscleIcon'
-import { exerciseKind, displayWeight, displayDistance, fmtSet, hasOpenSets, upNextIndex } from '../utils/express'
+import { exerciseKind, displayWeight, stepWeight, displayDistance, fmtSet, hasOpenSets, upNextIndex } from '../utils/express'
 import './ExpressSession.css'
 
 // A big tappable number with −/+ underneath. Tapping the number opens the
 // keypad; the weight field's buttons use HoldButton for long-press repeat.
-function BigValue({ label, value, onSet, step, min = 0, decimal = false, hold = false, highlight = false, small = false }) {
+function BigValue({ label, value, onSet, step, stepFn, min = 0, decimal = false, hold = false, highlight = false, small = false }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const Btn = hold ? HoldButton : 'button'
   const round = v => decimal ? Math.round(v * 10) / 10 : v
-  const minus = () => onSet(Math.max(min, round(value - step)))
-  const plus  = () => onSet(round(value + step))
+  // stepFn overrides the flat step (weight snaps to its plate grid).
+  const minus = () => onSet(Math.max(min, stepFn ? stepFn(value, -1) : round(value - step)))
+  const plus  = () => onSet(stepFn ? stepFn(value, 1) : round(value + step))
   const btnProps = fn => hold ? { onTap: fn } : { onClick: fn, type: 'button' }
 
   function commit() {
@@ -74,7 +75,7 @@ function valueFields({ exercise, set, unit, onChange }) {
     case 'both':     fields = [min, sec, dist]; break
     default:
       fields = [
-        { key: 'weight', label: unit === 'kg' ? 'kg' : 'lbs', value: displayWeight(set.weight, unit), step: 1, hold: true, onSet: storeWeight },
+        { key: 'weight', label: unit === 'kg' ? 'kg' : 'lbs', value: displayWeight(set.weight, unit), stepFn: (v, dir) => stepWeight(v, dir, unit), hold: true, onSet: storeWeight },
         { key: 'reps', label: 'reps', value: set.reps, step: 1, onSet: v => put('reps', v) },
       ]
   }
