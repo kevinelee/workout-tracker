@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MuscleIcon from './MuscleIcon'
 import { Sheet } from './ExpressSession'
-import { buildGuidedSteps, fmtClock, fmtGuidedExercise, fmtSecs, fmtTarget, guidedSummary } from '../utils/guided'
+import { buildGuidedSteps, fmtClock, fmtGuidedExercise, fmtTarget, guidedSummary } from '../utils/guided'
 import { getGuidedProgress, saveGuidedProgress } from '../storage'
 import { playChime, playTick, unlockChime } from '../utils/sound'
 import './GuidedSession.css'
@@ -230,8 +230,12 @@ export default function GuidedSession({
   const progress = step?.duration ? msLeft / (step.duration * 1000) : 0
   const phase = !step ? 'idle' : step.kind === 'rest' ? 'rest' : step.kind === 'ready' ? 'ready' : 'work'
   const setsOf = i => plan[i]?.sets ?? 0
-  // The set after this one, for "Up next" while a set is running.
-  const nextSet = step?.kind === 'set' ? steps.slice(prog.index + 1).find(s => s.kind === 'set') : null
+  // The set in focus: the one running, or during a rest/get-ready the one
+  // coming up. `after` is the set that follows it, for the "Then" line.
+  const focusIndex = !step ? -1 : step.kind === 'set' ? prog.index : steps.findIndex((s, i) => i > prog.index && s.kind === 'set')
+  const focus = focusIndex >= 0 ? steps[focusIndex] : step
+  const focusKey = focus ? `${focus.exIndex}:${focus.setIndex}` : 'none'
+  const after = focusIndex >= 0 ? steps.slice(focusIndex + 1).find(s => s.kind === 'set') : null
   const reps = step?.kind === 'set' && step.type === 'reps'
     ? (repsDraft?.index === prog.index ? repsDraft.reps : step.target)
     : null
@@ -277,65 +281,54 @@ export default function GuidedSession({
         </div>
       )}
 
+      {/* Every step uses the same slots — focus block, center box, "then"
+          line, controls — so moving between a set, a rest and a reps set only
+          swaps what's inside them; nothing on screen jumps. */}
       {step && (
-        <div className={`gs-stage gs-stage--${phase}`} key={prog.index}>
-          {step.kind === 'set' ? (
-            <>
-              <p className="gs-eyebrow">Exercise {step.exIndex + 1} of {plan.length}</p>
-              <div className="gs-now">
-                <MuscleIcon muscleGroup={exGroup(step.exIndex)} className="gs-now-icon" />
-                <h3 className="gs-now-name">{exName(step.exIndex)}</h3>
-                <p className="gs-now-set">Set {step.setIndex + 1} of {setsOf(step.exIndex)}</p>
-              </div>
-            </>
-          ) : (
-            <p className="gs-eyebrow gs-eyebrow--phase">{step.kind === 'rest' ? 'Rest' : 'Get ready'}</p>
-          )}
+        <div className={`gs-stage gs-stage--${phase}`}>
+          <p className="gs-eyebrow">Exercise {focus.exIndex + 1} of {plan.length}</p>
 
-          {step.duration != null ? (
-            <Ring progress={progress} phase={phase}>
-              <span className="gs-count">{step.kind === 'ready' ? secsLeft : fmtClock(secsLeft)}</span>
-              {step.kind === 'set'
-                ? <span className="gs-ring-sub">{step.type === 'hold' ? 'Hold' : 'Go'} · {fmtSecs(step.target)}</span>
-                : paused && <span className="gs-ring-sub">Paused</span>}
-              {step.kind === 'set' && paused && <span className="gs-ring-sub gs-paused">Paused</span>}
-            </Ring>
-          ) : (
-            // A reps set: no timer — the target, adjustable if you got more or fewer.
-            <div className="gs-reps">
-              <button className="gs-reps-step" onClick={() => setReps(reps - 1)} aria-label="One fewer rep">−</button>
-              <div className="gs-reps-value">
-                <span className="gs-reps-num">{reps}</span>
-                <span className="gs-reps-label">reps{reps !== step.target && ` · target ${step.target}`}</span>
-              </div>
-              <button className="gs-reps-step" onClick={() => setReps(reps + 1)} aria-label="One more rep">+</button>
+          <div className="gs-focus" key={focusKey}>
+            <span className={`gs-chip gs-chip--${phase}`}>
+              {step.kind === 'rest' ? 'Rest · up next' : step.kind === 'ready' ? 'Get ready · first up' : 'Now'}
+            </span>
+            <div className="gs-focus-name">
+              <MuscleIcon muscleGroup={exGroup(focus.exIndex)} className="gs-focus-icon" />
+              <h3>{exName(focus.exIndex)}</h3>
             </div>
-          )}
-
-          {/* What's coming. During a rest it's the point of the screen, so
-              it's big; during a set it's a quiet line. */}
-          {step.kind === 'set' ? (
-            <p className="gs-upnext-line">
-              {nextSet
-                ? nextSet.exIndex === step.exIndex
-                  ? <>Next: set {nextSet.setIndex + 1} of {setsOf(nextSet.exIndex)}</>
-                  : <>Next exercise: <strong>{exName(nextSet.exIndex)}</strong></>
-                : <strong>Last set — finish strong</strong>}
+            <p className="gs-focus-detail">
+              Set {focus.setIndex + 1} of {setsOf(focus.exIndex)} · {fmtTarget(focus.type, focus.target)}
             </p>
-          ) : (
-            <div className="gs-upnext-card">
-              <p className="gs-upnext-label">
-                {step.kind === 'ready' ? 'First up' : step.setIndex === 0 ? 'Next exercise' : 'Up next'}
-              </p>
-              <div className="gs-upnext-row">
-                <MuscleIcon muscleGroup={exGroup(step.exIndex)} className="gs-upnext-icon" />
-                <span className="gs-upnext-name">{exName(step.exIndex)}</span>
-              </div>
-              <p className="gs-upnext-meta">
-                Set {step.setIndex + 1} of {setsOf(step.exIndex)} · {fmtTarget(step.type, step.target)}
-              </p>
-            </div>
-          )}
+          </div>
+
+          <div className="gs-box">
+            {step.duration != null ? (
+              <Ring progress={progress} phase={phase}>
+                <span className="gs-count">{step.kind === 'ready' ? secsLeft : fmtClock(secsLeft)}</span>
+                <span className={`gs-ring-sub${paused ? ' gs-paused' : ''}`}>
+                  {paused ? 'Paused' : step.kind === 'rest' ? 'Rest' : step.kind === 'ready' ? 'Starting' : step.type === 'hold' ? 'Hold' : 'Go'}
+                </span>
+              </Ring>
+            ) : (
+              // A reps set: no timer — the target, adjustable if you did more or fewer.
+              <>
+                <Ring progress={1} phase="work">
+                  <span className="gs-count">{reps}</span>
+                  <span className="gs-ring-sub">{reps === step.target ? 'reps' : `reps · target ${step.target}`}</span>
+                </Ring>
+                <button className="gs-reps-step gs-reps-step--minus" onClick={() => setReps(reps - 1)} aria-label="One fewer rep">−</button>
+                <button className="gs-reps-step gs-reps-step--plus" onClick={() => setReps(reps + 1)} aria-label="One more rep">+</button>
+              </>
+            )}
+          </div>
+
+          <p className="gs-then">
+            {after
+              ? after.exIndex === focus.exIndex
+                ? <>Then: set {after.setIndex + 1} of {setsOf(after.exIndex)}</>
+                : <>Then: <strong>{exName(after.exIndex)}</strong></>
+              : <strong>{step.kind === 'set' ? 'Last set — finish strong' : 'Then: done'}</strong>}
+          </p>
 
           <div className="gs-controls">
             <button className="gs-ctl" onClick={back} aria-label="Previous set">
@@ -356,7 +349,15 @@ export default function GuidedSession({
               <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M16 5h2v14h-2zM4 5v14l11-7z" /></svg>
             </button>
           </div>
-          {step.kind === 'rest' && <button className="gs-add-time" onClick={addRest}>+15s rest</button>}
+          {/* Always takes its space; only shown (and tappable) during a rest. */}
+          <button
+            className={`gs-add-time${step.kind === 'rest' ? '' : ' gs-add-time--hidden'}`}
+            onClick={addRest}
+            tabIndex={step.kind === 'rest' ? 0 : -1}
+            aria-hidden={step.kind !== 'rest'}
+          >
+            +15s rest
+          </button>
         </div>
       )}
 
