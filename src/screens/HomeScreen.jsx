@@ -4,17 +4,21 @@ import { getTemplateOrder, saveTemplateOrder } from '../storage'
 import { useProGate } from '../lib/proGate'
 import './HomeScreen.css'
 
+// Calendar days, not 24h blocks — a workout at 11pm is "yesterday" at 8am.
+// Exact day counts up to a month, then the date itself.
 function fmtLastDone(isoDate) {
   if (!isoDate) return null
-  const now = new Date()
   const then = new Date(isoDate)
-  const diffDays = Math.floor((now - then) / (1000 * 60 * 60 * 24))
-  if (diffDays === 0) return 'Last done: today'
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const thenDay = new Date(then)
+  thenDay.setHours(0, 0, 0, 0)
+  const diffDays = Math.round((today - thenDay) / (1000 * 60 * 60 * 24))
+  if (diffDays <= 0) return 'Last done: today'
   if (diffDays === 1) return 'Last done: yesterday'
-  if (diffDays < 7) return `Last done: ${diffDays} days ago`
-  if (diffDays < 14) return 'Last done: 1 week ago'
-  if (diffDays < 30) return `Last done: ${Math.floor(diffDays / 7)} weeks ago`
-  return `Last done: ${then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+  if (diffDays < 30) return `Last done: ${diffDays} days ago`
+  const sameYear = then.getFullYear() === today.getFullYear()
+  return `Last done: ${then.toLocaleDateString(undefined, { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) })}`
 }
 
 function ChevronRightIcon() {
