@@ -657,6 +657,9 @@
   margin: 4px 0 0;
 }
 
+/* "25 lbs × 10" wraps as one piece under a long exercise name */
+.xs-rest-set { white-space: nowrap; }
+
 /* Header view toggle (List | Express) — lives in SessionScreen's header */
 .session-view-toggle {
   display: flex;

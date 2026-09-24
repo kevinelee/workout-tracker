@@ -674,16 +674,25 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
       return (
         <>
           <p className="rest-label">Next · Set {nextSet + 1} of {log.sets.length}</p>
-          <p className="xs-rest-next">{exercise?.name} · {fmtSet(log.sets[nextSet], exercise, settings.unit)}</p>
+          <p className="xs-rest-next">{exercise?.name} · <span className="xs-rest-set">{fmtSet(log.sets[nextSet], exercise, settings.unit)}</span></p>
         </>
       )
     }
     const ni = upNextIndex(logs, currentExpressIndex, deferredId)
     if (ni === -1) return null
+    // Same detail for the next exercise: its first open set (it may have been
+    // started and pushed back with Later), skipped while it's still blank.
+    const nextLog = logs[ni]
+    const nextExercise = findExercise(nextLog.exerciseId)
+    const si = Math.max(0, nextLog.sets.findIndex(s => !s.completed))
+    const nextSetOf = nextLog.sets[si]
+    const detail = nextSetOf && (nextSetOf.reps > 0 || nextSetOf.weight > 0 || nextSetOf.secs > 0)
+      ? fmtSet(nextSetOf, nextExercise, settings.unit)
+      : null
     return (
       <>
-        <p className="rest-label">Up next</p>
-        <p className="xs-rest-next">{findExercise(logs[ni].exerciseId)?.name}</p>
+        <p className="rest-label">Up next · Set {si + 1} of {nextLog.sets.length}</p>
+        <p className="xs-rest-next">{nextExercise?.name}{detail && <> · <span className="xs-rest-set">{detail}</span></>}</p>
       </>
     )
   }
