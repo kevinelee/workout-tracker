@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import HoldButton from './HoldButton'
+import { stepWeight } from '../utils/express'
 import './SessionSetRow.css'
 
 function EditableValue({ value, onSet, disabled, decimal = false }) {
@@ -221,9 +222,9 @@ export default function SessionSetRow({ set, index, onChange, onComplete, onResc
           <div className={`ssr-stepper${isPRPending && prType === 'weight' ? ' ssr-stepper--pr' : ''}`}>
             <span className="ssr-stepper-label">{unit === 'kg' ? 'kg' : 'lbs'}</span>
             <div className="ssr-stepper-controls" onClick={e => e.stopPropagation()}>
-              <HoldButton className="ssr-step-btn" onTap={() => storeWeight(dispWeight - 1)} disabled={set.completed}>−</HoldButton>
+              <HoldButton className="ssr-step-btn" onTap={() => storeWeight(stepWeight(dispWeight, -1, unit))} disabled={set.completed}>−</HoldButton>
               <EditableValue value={dispWeight} onSet={v => storeWeight(v)} disabled={set.completed} />
-              <HoldButton className="ssr-step-btn" onTap={() => storeWeight(dispWeight + 1)} disabled={set.completed}>+</HoldButton>
+              <HoldButton className="ssr-step-btn" onTap={() => storeWeight(stepWeight(dispWeight, 1, unit))} disabled={set.completed}>+</HoldButton>
             </div>
           </div>
         </>

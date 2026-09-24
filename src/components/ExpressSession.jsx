@@ -1,19 +1,20 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import HoldButton from './HoldButton'
 import MuscleIcon from './MuscleIcon'
-import { exerciseKind, displayWeight, displayDistance, fmtSet, hasOpenSets, upNextIndex } from '../utils/express'
+import { exerciseKind, displayWeight, stepWeight, displayDistance, fmtSet, hasOpenSets, upNextIndex } from '../utils/express'
 import './ExpressSession.css'
 
 // A big tappable number with −/+ underneath. Tapping the number opens the
 // keypad; the weight field's buttons use HoldButton for long-press repeat.
-function BigValue({ label, value, onSet, step, min = 0, decimal = false, hold = false, highlight = false, small = false }) {
+function BigValue({ label, value, onSet, step, stepFn, min = 0, decimal = false, hold = false, highlight = false, small = false }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const Btn = hold ? HoldButton : 'button'
   const round = v => decimal ? Math.round(v * 10) / 10 : v
-  const minus = () => onSet(Math.max(min, round(value - step)))
-  const plus  = () => onSet(round(value + step))
+  // stepFn overrides the flat step (weight snaps to its plate grid).
+  const minus = () => onSet(Math.max(min, stepFn ? stepFn(value, -1) : round(value - step)))
+  const plus  = () => onSet(stepFn ? stepFn(value, 1) : round(value + step))
   const btnProps = fn => hold ? { onTap: fn } : { onClick: fn, type: 'button' }
 
   function commit() {
@@ -74,7 +75,7 @@ function valueFields({ exercise, set, unit, onChange }) {
     case 'both':     fields = [min, sec, dist]; break
     default:
       fields = [
-        { key: 'weight', label: unit === 'kg' ? 'kg' : 'lbs', value: displayWeight(set.weight, unit), step: 1, hold: true, onSet: storeWeight },
+        { key: 'weight', label: unit === 'kg' ? 'kg' : 'lbs', value: displayWeight(set.weight, unit), stepFn: (v, dir) => stepWeight(v, dir, unit), hold: true, onSet: storeWeight },
         { key: 'reps', label: 'reps', value: set.reps, step: 1, onSet: v => put('reps', v) },
       ]
   }
@@ -116,13 +117,39 @@ export function Sheet({ onClose, title, children }) {
 
 function ExerciseCard({
   log, logIndex, exercise, settings, prMap, bestRepsAt, lastLog, celebrating, leaving,
-  canLater, nextName, upNextButton, workoutDone, finishing,
+  canLater, nextName, upNextButton, workoutDone, finishing, restDocked, onRestSlot,
   onUpdateSet, onCompleteSet, onRescindSet, onAddSet, onRemoveSet, onConfirmRemoveSet, onNotes, onLater, onNext, onFinish,
 }) {
   const [focusOverride, setFocusOverride] = useState(null)
   const [editingSets, setEditingSets] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
   const [armedSi, setArmedSi] = useState(null)    // done set showing its "Reopen" button
+
+  // While the rest timer is minimized it docks in this slot above Up next
+  // (it's position: fixed, so the slot just holds the space open and reports
+  // where it sits). The thumb zone is sticky, so this only moves on resize or
+  // when the card itself is shorter than the screen and scrolls.
+  const restSlotRef = useRef(null)
+  useLayoutEffect(() => {
+    if (!restDocked) return
+    function report() {
+      const el = restSlotRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      onRestSlot?.({ top: r.top, left: r.left, right: window.innerWidth - r.right })
+    }
+    report()
+    window.addEventListener('resize', report)
+    document.addEventListener('scroll', report, true)
+    const ro = new ResizeObserver(report)
+    ro.observe(document.body)
+    return () => {
+      window.removeEventListener('resize', report)
+      document.removeEventListener('scroll', report, true)
+      ro.disconnect()
+      onRestSlot?.(null)
+    }
+  }, [restDocked]) // eslint-disable-line react-hooks/exhaustive-deps
   const [removingSi, setRemovingSi] = useState(null)
   const [seenCount, setSeenCount] = useState(log.sets.length) // rows past this just got added
   const notesRef = useRef(null)
@@ -310,6 +337,7 @@ function ExerciseCard({
       {/* Thumb zone, top to bottom: what's next (+ swap it in), PR hint,
           and the Confirm button pinned to the bottom edge. */}
       <div className="xs-actions">
+        {restDocked && <div className="xs-rest-slot" ref={restSlotRef} />}
         <div className="xs-next-row">
           {upNextButton}
           {canLater && doneCount === 0 && (
@@ -340,7 +368,7 @@ export default function ExpressSession({
   onUpdateSet, onCompleteSet, onRescindSet, onAddSet, onRemoveSet, onConfirmRemoveSet, onNotes, onLater,
   onAddExercise, onSubstitute, onRemoveExercise, onCopyLast, onShowBreakdown, onAbandon,
   onFinish, finishing, totalSets, completedSets,
-  menuOpen, onCloseMenu,
+  menuOpen, onCloseMenu, restDocked, onRestSlot,
 }) {
   const [queueOpen, setQueueOpen] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
@@ -407,6 +435,8 @@ export default function ExpressSession({
           canLater={canLater}
           nextName={upNext?.name}
           upNextButton={upNextButton}
+          restDocked={restDocked}
+          onRestSlot={onRestSlot}
           workoutDone={workoutDone}
           finishing={finishing}
           onUpdateSet={onUpdateSet}
