@@ -374,3 +374,43 @@
 .rest-timer--express .rest-timer-inner--dragging {
   transition: none;
 }
+
+/* Express moves between its two states with motion that follows the
+   gesture rather than morphing top/left/right: the full-screen box can't
+   interpolate its height, so a morph snapped it to a bar at the top of the
+   screen that then slid down into place. Instead the takeover leaves upward
+   (the way you swiped), the bar rises into its slot, and tapping the bar
+   brings the takeover back down from above. */
+.rest-timer--xs {
+  transition: none;
+}
+
+.rest-timer--xs.rest-timer--leaving {
+  transform: translateY(-100%);
+  transition: transform 0.26s cubic-bezier(0.4, 0, 1, 1);
+  pointer-events: none;
+}
+
+.rest-timer--xs.rest-timer--minimized {
+  animation: rest-dock-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.rest-timer--express.rest-timer--from-bar {
+  animation: rest-express-down 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes rest-dock-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes rest-express-down {
+  from { transform: translateY(-100%); }
+  to   { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rest-timer--xs.rest-timer--leaving { transition: none; }
+  .rest-timer--xs.rest-timer--minimized,
+  .rest-timer--express.rest-timer--from-bar { animation: none; }
+}

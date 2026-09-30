@@ -657,6 +657,18 @@
   margin: 4px 0 0;
 }
 
+.xs-rest-detail {
+  font-size: 14px;
+  color: var(--text);
+  margin: 4px 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.xs-rest-value {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* Header view toggle (List | Express) — lives in SessionScreen's header */
 .session-view-toggle {
   display: flex;

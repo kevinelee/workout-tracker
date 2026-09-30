@@ -23,13 +23,20 @@ function fmt(seconds) {
 // restTimerDuration/onChangeRestTimerDuration let the countdown digits open
 // an inline picker for the *default* rest length going forward — this never
 // retroactively changes the rest period already in progress.
+// endAt (epoch ms) pins the countdown to the wall clock, so a remount — the
+// session screen coming back from another tab — resumes it rather than
+// starting the rest over.
 // variant="express" expands to a full-screen takeover instead of the centered
 // modal, with `preview` (what's coming next) under the ring and an explicit
 // "Back to exercise" that minimizes — there's no "outside" to tap there.
-export default function RestTimer({ duration, onDone, onSkip, showFinish, onFinish, minimized, docked, onExpand, onMinimize, restTimerDuration, onChangeRestTimerDuration, variant = 'modal', preview }) {
+// Express: how long the takeover takes to slide up and away (matches
+// .rest-timer--leaving) before the bar takes its place.
+const EXPRESS_EXIT_MS = 260
+
+export default function RestTimer({ duration, endAt, onDone, onSkip, showFinish, onFinish, minimized, docked, onExpand, onMinimize, restTimerDuration, onChangeRestTimerDuration, variant = 'modal', preview }) {
   const express = variant === 'express'
-  const endAtRef = useRef(Date.now() + duration * 1000)
-  const [remaining, setRemaining] = useState(duration)
+  const endAtRef = useRef(endAt ?? Date.now() + duration * 1000)
+  const [remaining, setRemaining] = useState(() => Math.max(0, Math.ceil((endAtRef.current - Date.now()) / 1000)))
   const tickedRef = useRef(new Set())
   const rootRef = useRef(null)
   const [editingDuration, setEditingDuration] = useState(false)
@@ -38,6 +45,28 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
   const swipeRef = useRef(null)
   const [dragY, setDragY] = useState(0)
   const swipeable = express && !minimized && !!onMinimize
+  // Express: minimizing slides the takeover up and off the screen (the way
+  // you swiped it), then the bar settles into its slot above Up next;
+  // expanding again brings the takeover back down over it.
+  const [leaving, setLeaving] = useState(false)
+  const [fromBar, setFromBar] = useState(false)
+  const [prevMinimized, setPrevMinimized] = useState(minimized)
+  if (prevMinimized !== minimized) {
+    setPrevMinimized(minimized)
+    setLeaving(false)
+    setDragY(0)
+    setFromBar(!minimized)
+  }
+
+  const leaveTimerRef = useRef(null)
+  useEffect(() => () => clearTimeout(leaveTimerRef.current), [])
+
+  function minimize() {
+    if (!express) { onMinimize(); return }
+    if (leaving) return
+    setLeaving(true)
+    leaveTimerRef.current = setTimeout(onMinimize, EXPRESS_EXIT_MS)
+  }
 
   function handleTouchStart(e) {
     if (!swipeable || e.touches.length !== 1) return
@@ -56,9 +85,10 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
     const dy = e.changedTouches[0].clientY - swipeRef.current.y
     const velocity = dy / Math.max(1, Date.now() - swipeRef.current.t)
     swipeRef.current = null
-    setDragY(0)
-    // A long drag or a quick flick both count.
-    if (dy < -80 || (dy < -30 && velocity < -0.5)) onMinimize()
+    // A long drag or a quick flick both count — the content stays where the
+    // finger left it and the whole screen carries on upward from there.
+    if (dy < -80 || (dy < -30 && velocity < -0.5)) minimize()
+    else setDragY(0)
   }
 
   useEffect(() => {
@@ -135,7 +165,15 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
   return (
     <div
       ref={rootRef}
-      className={`rest-timer ${minimized ? 'rest-timer--minimized' : ''} ${express && !minimized ? 'rest-timer--express' : ''} ${docked ? 'rest-timer--docked' : ''}`}
+      className={[
+        'rest-timer',
+        minimized && 'rest-timer--minimized',
+        express && 'rest-timer--xs',
+        express && !minimized && 'rest-timer--express',
+        express && !minimized && fromBar && 'rest-timer--from-bar',
+        leaving && 'rest-timer--leaving',
+        docked && 'rest-timer--docked',
+      ].filter(Boolean).join(' ')}
       onClick={minimized ? onExpand : undefined}
       role={minimized ? 'button' : undefined}
       tabIndex={minimized ? 0 : undefined}
@@ -213,7 +251,7 @@ export default function RestTimer({ duration, onDone, onSkip, showFinish, onFini
                 <button className="rest-skip-btn" onClick={onSkip}>{express ? 'Skip rest' : 'Skip'}</button>
               )}
               {express && onMinimize && (
-                <button className="rest-back-btn" onClick={onMinimize}>
+                <button className="rest-back-btn" onClick={minimize}>
                   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <polyline points="5 12 10 7 15 12" />
                   </svg>
