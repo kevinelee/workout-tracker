@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, Component } from 'react'
 import {
   getTemplates, saveTemplate, getCachedTemplates, getSessions, getCachedSessions, getSettings, getCachedSettings, saveSettings,
   getAutoCopyLast, getLastSessionForTemplate, getPRMap,
-  getActiveSession, saveActiveSession, clearActiveSession, abandonSession,
+  getActiveSession, saveActiveSession, clearActiveSession, abandonSession, getRestTimer, saveRestTimer,
   deleteSession, setStorageUser, clearUserCache, getCustomExercises, getCachedCustomExercises,
   getProfile, saveProfile, getBodyWeightLogs, saveBodyWeightLog, deleteBodyWeightLog,
   getNewFeedbackCount, encodeTheme,
@@ -31,6 +31,7 @@ import WhatsNewModal, { hasSeenLatest, LATEST_VERSION } from './components/Whats
 import { ProGateProvider } from './lib/proGate'
 import { startOfThisWeek } from './utils/streaks'
 import { fmtGuidedExercise, guidedPlanFor, guidedSummary } from './utils/guided'
+import { playChime } from './utils/sound'
 import './App.css'
 
 const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -554,6 +555,34 @@ export default function App() {
   // Active session — persisted to localStorage so it survives navigation & sleep
   const [activeSession, setActiveSession] = useState(() => getActiveSession())
 
+  // A rest period keeps counting while you're off the session screen (it's
+  // stored by end time — see getRestTimer): the nav badge shows what's left,
+  // and the chime still plays when it runs out. On the session screen the
+  // RestTimer itself does both, so this stands down there.
+  const [awayRestLeft, setAwayRestLeft] = useState(null)
+  const activeSessionId = activeSession?.sessionId
+  const onSessionScreen = screen.name === 'session'
+  useEffect(() => {
+    if (!activeSessionId || onSessionScreen) { setAwayRestLeft(null); return }
+    function tick() {
+      const rest = getRestTimer(activeSessionId)
+      if (!rest) { setAwayRestLeft(null); return }
+      const left = Math.ceil((rest.endAt - Date.now()) / 1000)
+      if (left > 0) { setAwayRestLeft(left); return }
+      saveRestTimer(activeSessionId, null)
+      setAwayRestLeft(null)
+      // Only if it ran out just now — not one that expired while the app was closed.
+      if (left > -5) {
+        navigator.vibrate?.([200, 100, 200])
+        playChime()
+      }
+    }
+    tick()
+    const id = setInterval(tick, 500)
+    document.addEventListener('visibilitychange', tick)
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', tick) }
+  }, [activeSessionId, onSessionScreen])
+
   // Start sheet (▶ nav tab) + conflict-guard state
   const [startSheetOpen,    setStartSheetOpen]    = useState(false)
   const [startSheetClosing, setStartSheetClosing] = useState(false)
@@ -920,7 +949,9 @@ const NavShield = () => (
       id: 'session',
       label: activeSession ? (activeSession.template?.name ?? 'Session') : 'Start',
       icon: activeSession ? <NavDumbbell /> : <NavPlay />,
-      badge: activeSession ? `${completedSets}/${totalSets}` : null,
+      badge: activeSession
+        ? awayRestLeft != null ? `${Math.floor(awayRestLeft / 60)}:${String(awayRestLeft % 60).padStart(2, '0')}` : `${completedSets}/${totalSets}`
+        : null,
       live: !!activeSession,
     },
     { id: 'history',  label: 'History',  icon: <NavChart /> },

@@ -795,11 +795,17 @@ const EXPRESS_POS_KEY = 'wt:expressPosition'
 // screen is unmounted and picks up at the right step on the way back.
 const GUIDED_PROGRESS_KEY = 'wt:guidedProgress'
 
+// The rest period in progress: { endAt, duration, minimized }. Wall-clock
+// based like the guided player, so the countdown keeps running while you're
+// on another tab and is still there (at the right time) when you come back.
+const REST_TIMER_KEY = 'wt:restTimer'
+
 export function clearActiveSession() {
   localStorage.removeItem(ACTIVE_KEY)
   localStorage.removeItem(COLLAPSED_KEY)
   localStorage.removeItem(EXPRESS_POS_KEY)
   localStorage.removeItem(GUIDED_PROGRESS_KEY)
+  localStorage.removeItem(REST_TIMER_KEY)
   localStorage.removeItem('wt:circuitProgress') // v1.2.0 key
   // The session row in DB will be updated to 'finished' by saveSession()
 }
@@ -850,6 +856,23 @@ export function saveGuidedProgress(sessionId, progress) {
   try {
     localStorage.setItem(GUIDED_PROGRESS_KEY, JSON.stringify({ sessionId, progress }))
   } catch { /* quota — worst case the player starts over from the intro */ }
+}
+
+export function getRestTimer(sessionId) {
+  try {
+    const raw = localStorage.getItem(REST_TIMER_KEY)
+    if (!raw) return null
+    const { sessionId: savedId, timer } = JSON.parse(raw)
+    return savedId === sessionId && timer ? timer : null
+  } catch { return null }
+}
+
+// timer = null clears it (rest skipped or finished).
+export function saveRestTimer(sessionId, timer) {
+  try {
+    if (!timer) localStorage.removeItem(REST_TIMER_KEY)
+    else if (sessionId) localStorage.setItem(REST_TIMER_KEY, JSON.stringify({ sessionId, timer }))
+  } catch { /* quota — worst case the timer is gone when you come back */ }
 }
 
 // List vs Express session layout. Per device, like the collapsed set above —

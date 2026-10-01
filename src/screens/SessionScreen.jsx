@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { createSet } from '../data/models'
 import { defaultExercises } from '../data/exerciseLibrary'
-import { getCachedCustomExercises, getCollapsedExercises, getExpressPosition, getLastLogForExercise, getLastSessionForTemplate, getSessionView, saveCollapsedExercises, saveExpressPosition, saveSession, saveSessionView, saveTemplate } from '../storage'
+import { getCachedCustomExercises, getCollapsedExercises, getExpressPosition, getLastLogForExercise, getLastSessionForTemplate, getRestTimer, getSessionView, saveCollapsedExercises, saveExpressPosition, saveRestTimer, saveSession, saveSessionView, saveTemplate } from '../storage'
 import { initLogsFromSession } from '../App'
 import { createTemplateExercise } from '../data/models'
 import MuscleIcon from '../components/MuscleIcon'
@@ -78,7 +78,14 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   const basePrRepsMapRef          = useRef(initialPrRepsMap ?? {})
   const baseRepPRByWeightMapRef   = useRef(initialRepPRByWeightMap ?? {})
   const [elapsed, setElapsed] = useState(() => elapsedFromStart(startedAt))
-  const [restDuration, setRestDuration] = useState(null)
+  // A rest period still running from before this screen last unmounted (a
+  // trip to Home and back) picks up where it is instead of vanishing.
+  const [savedRest] = useState(() => {
+    const r = getRestTimer(sessionId)
+    return r && r.endAt > Date.now() ? r : null
+  })
+  const [restDuration, setRestDuration] = useState(savedRest?.duration ?? null)
+  const [restEndAt, setRestEndAt] = useState(savedRest?.endAt ?? null)
   // Forces RestTimer to remount on every new rest period, even when the
   // duration is identical to the previous one (the common case — most
   // workouts use one fixed rest length). Keying on restDuration itself
@@ -87,7 +94,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   // of restarting — completing a set while the ribbon was still counting
   // down from the set before silently did nothing.
   const restKeyRef = useRef(0)
-  const [timerMinimized, setTimerMinimized] = useState(false)
+  const [timerMinimized, setTimerMinimized] = useState(savedRest?.minimized ?? false)
   // Express: where the minimized timer docks (viewport box of the slot above
   // Up next), or null to fall back to docking under the header.
   const [restSlot, setRestSlot] = useState(null) // { top, left, right }
@@ -158,6 +165,10 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
   useEffect(() => {
     saveExpressPosition(sessionId, { currentId: currentExpressId, deferredId })
   }, [sessionId, currentExpressId, deferredId])
+
+  useEffect(() => {
+    saveRestTimer(sessionId, restDuration !== null ? { endAt: restEndAt, duration: restDuration, minimized: timerMinimized } : null)
+  }, [sessionId, restDuration, restEndAt, timerMinimized])
 
   const [lastSession, setLastSession] = useState(null)
   useEffect(() => {
@@ -359,7 +370,15 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
       unlockChime() // primes audio now, inside this tap, so the chime can play later from the timer callback
       restKeyRef.current += 1
       setRestDuration(settings.restTimerDuration)
+      setRestEndAt(Date.now() + settings.restTimerDuration * 1000)
       setTimerMinimized(false) // each new rest period starts as the full modal
+
+      // Express, last set of the exercise: move on to the next one behind the
+      // rest screen, so it's already up when the rest ends.
+      if (express && logIndex === currentExpressIndex && !newLogs[logIndex].sets.some(s => !s.completed)) {
+        const next = upNextIndex(newLogs, logIndex, deferredId)
+        if (next >= 0) setExpressIndex(next)
+      }
     }
 
     // Celebrate when all sets (including any added extras) are done
@@ -671,19 +690,26 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
     const exercise = findExercise(log.exerciseId)
     const nextSet = log.sets.findIndex(s => !s.completed)
     if (nextSet >= 0) {
-      return (
-        <>
-          <p className="rest-label">Next · Set {nextSet + 1} of {log.sets.length}</p>
-          <p className="xs-rest-next">{exercise?.name} · {fmtSet(log.sets[nextSet], exercise, settings.unit)}</p>
-        </>
-      )
+      // Nothing logged yet means this exercise is new (we just moved onto it).
+      return restPreview(log.sets.some(s => s.completed) ? 'Next set' : 'Up next', log, exercise, nextSet)
     }
     const ni = upNextIndex(logs, currentExpressIndex, deferredId)
     if (ni === -1) return null
+    const nextLog = logs[ni]
+    return restPreview('Up next', nextLog, findExercise(nextLog.exerciseId), nextLog.sets.findIndex(s => !s.completed))
+  }
+
+  function restPreview(label, log, exercise, si) {
+    const set = log.sets[si]
     return (
       <>
-        <p className="rest-label">Up next</p>
-        <p className="xs-rest-next">{findExercise(logs[ni].exerciseId)?.name}</p>
+        <p className="rest-label">{label}</p>
+        <p className="xs-rest-next">{exercise?.name ?? 'Unknown exercise'}</p>
+        {set && (
+          <p className="xs-rest-detail">
+            Set {si + 1} of {log.sets.length} · <span className="xs-rest-value">{fmtSet(set, exercise, settings.unit)}</span>
+          </p>
+        )}
       </>
     )
   }
@@ -1073,6 +1099,7 @@ export default function SessionScreen({ activeSession, settings, programId, onUp
           <RestTimer
             key={restKeyRef.current}
             duration={restDuration}
+            endAt={restEndAt}
             variant={express ? 'express' : 'modal'}
             preview={express ? expressRestPreview() : null}
             minimized={timerMinimized}
