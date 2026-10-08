@@ -702,6 +702,46 @@ export async function hasCheckedInToday() {
 }
 
 
+// ── Streak Pauses ────────────────────────────────────────────
+
+function dbPauseToApp(r) {
+  return { id: r.id, startWeek: r.start_week, endWeek: r.end_week, reason: r.reason, createdAt: r.created_at }
+}
+
+export async function getStreakPauses() {
+  const { data } = await supabase
+    .from('streak_pauses')
+    .select('*')
+    .eq('user_id', _uid)
+    .order('start_week', { ascending: true })
+  return (data ?? []).map(dbPauseToApp)
+}
+
+// Starts an open pause at startWeek (a Monday, YYYY-MM-DD). Any pause still
+// open is closed first, so there's only ever one running.
+export async function startStreakPause(startWeek, reason) {
+  await check('your streak pause', supabase
+    .from('streak_pauses')
+    .update({ end_week: startWeek })
+    .eq('user_id', _uid)
+    .is('end_week', null))
+  const data = await check('your streak pause', supabase
+    .from('streak_pauses')
+    .insert({ user_id: _uid, start_week: startWeek, reason: reason ?? null })
+    .select()
+    .single())
+  return dbPauseToApp(data)
+}
+
+export async function endStreakPause(id, endWeek) {
+  await check('your streak pause', supabase.from('streak_pauses').update({ end_week: endWeek }).eq('id', id))
+}
+
+export async function deleteStreakPause(id) {
+  await check('that deletion', supabase.from('streak_pauses').delete().eq('id', id))
+}
+
+
 // ── PR Tracking ──────────────────────────────────────────────
 
 // prTypes: { [exerciseId]: 'weight' | 'reps' } — controls which column is used per exercise
@@ -1120,6 +1160,7 @@ export async function clearAll() {
     check('that deletion', supabase.from('workout_templates').delete().eq('user_id', _uid)),
     check('that deletion', supabase.from('sessions').delete().eq('user_id', _uid)),
     check('that deletion', supabase.from('check_ins').delete().eq('user_id', _uid)),
+    check('that deletion', supabase.from('streak_pauses').delete().eq('user_id', _uid)),
     check('that deletion', supabase.from('custom_exercises').delete().eq('user_id', _uid)),
     check('that deletion', supabase.from('settings').delete().eq('user_id', _uid)),
   ])

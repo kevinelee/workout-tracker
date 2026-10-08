@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { uploadAvatar, getCachedCustomExercises } from "../storage";
 import { sessionVolume, fmtVolume, fmtDuration } from "../utils/volume";
-import { startOfThisWeek } from "../utils/streaks";
+import { startOfThisWeek, streakStatus, PAUSE_BUDGET_WEEKS } from "../utils/streaks";
 import { defaultExercises } from "../data/exerciseLibrary";
 import { supabase, callFunction } from "../lib/supabase";
 import WeightChart from "../components/WeightChart";
@@ -25,6 +25,12 @@ const WEEK_START_OPTIONS = [
 ];
 
 const TARGET_DAYS_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
+
+const PAUSE_REASON_OPTIONS = [
+  { label: "Injury", value: "injury" },
+  { label: "Travel", value: "travel" },
+  { label: "Other", value: "other" },
+];
 
 const ACTIVITY_OPTIONS = [
   { label: "Sedentary", value: "sedentary", sub: "Little to no exercise" },
@@ -97,6 +103,9 @@ export default function ProfileScreen({
   profile,
   sessions,
   checkIns,
+  streakPauses,
+  onPauseStreak,
+  onResumeStreak,
   settings,
   authUser,
   onSaveProfile,
@@ -297,6 +306,36 @@ export default function ProfileScreen({
     if (field === "targetDaysPerWeek") setTargetDaysPerWeek(value);
     onSaveProfile(buildPayload({ [field]: value }));
   }
+
+  const { activePause, pauseWeeksLeft } = streakStatus(
+    sessions ?? [],
+    checkIns ?? [],
+    targetDaysPerWeek,
+    streakPauses ?? [],
+  );
+  const [pauseConfirm, setPauseConfirm] = useState(false);
+  const [pauseReason, setPauseReason] = useState("injury");
+  const [pauseBusy, setPauseBusy] = useState(false);
+
+  async function handlePauseToggle() {
+    setPauseBusy(true);
+    try {
+      if (activePause) await onResumeStreak();
+      else await onPauseStreak(pauseReason);
+      setPauseConfirm(false);
+    } finally {
+      setPauseBusy(false);
+    }
+  }
+
+  const weeks = (n) => `${n} ${n === 1 ? "week" : "weeks"}`;
+  const pauseBody = activePause
+    ? pauseWeeksLeft > 0
+      ? `Missed weeks won't break your streak. ${weeks(pauseWeeksLeft)} more covered after this one. Hit your weekly target and the pause ends by itself.`
+      : "This is the last week your pause covers. Hit your weekly target next week to keep your streak."
+    : pauseWeeksLeft > 0
+      ? `Hurt or away? Weeks you miss while paused won't break your streak, and won't add to it. ${pauseWeeksLeft} of ${PAUSE_BUDGET_WEEKS} weeks available.`
+      : `You've used all ${PAUSE_BUDGET_WEEKS} pause weeks from the last 12 months.`;
 
   async function handleWeightOptIn(accept) {
     setTrackWeight(accept);
@@ -711,6 +750,62 @@ export default function ProfileScreen({
         <div className="profile-info-card">
           <InfoRow label="Week starts" value={weekStartLabel} />
           <InfoRow label="Target" value={`${targetDaysPerWeek} days / week`} />
+        </div>
+        <div className={`profile-pause${activePause ? " profile-pause--active" : ""}`}>
+          <p className="profile-pause-title">
+            {activePause ? "Streak paused" : "Pause streak"}
+          </p>
+          <p className="profile-pause-body">{pauseBody}</p>
+          {pauseConfirm && !activePause && (
+            <div className="profile-pills">
+              {PAUSE_REASON_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  className={`profile-pill${pauseReason === o.value ? " profile-pill--active" : ""}`}
+                  onClick={() => setPauseReason(o.value)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {(activePause || pauseWeeksLeft > 0) && (
+            <div className="profile-pause-actions">
+              {activePause ? (
+                <button
+                  className="profile-pause-btn profile-pause-btn--primary"
+                  onClick={handlePauseToggle}
+                  disabled={pauseBusy}
+                >
+                  Resume streak
+                </button>
+              ) : pauseConfirm ? (
+                <>
+                  <button
+                    className="profile-pause-btn profile-pause-btn--primary"
+                    onClick={handlePauseToggle}
+                    disabled={pauseBusy}
+                  >
+                    Pause streak
+                  </button>
+                  <button
+                    className="profile-pause-btn"
+                    onClick={() => setPauseConfirm(false)}
+                    disabled={pauseBusy}
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="profile-pause-btn"
+                  onClick={() => setPauseConfirm(true)}
+                >
+                  Pause
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </section>
 

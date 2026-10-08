@@ -21,6 +21,13 @@
   color: var(--accent);
 }
 
+.history-streak-banner--paused {
+  background: var(--surface);
+  border-color: var(--border);
+
+  & .history-streak-fire { color: var(--text); }
+}
+
 .history-streak-count {
   font-size: 18px;
   font-weight: 700;

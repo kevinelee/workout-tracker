@@ -66,6 +66,7 @@ serve(async (req) => {
     await admin.from('profiles').delete().eq('id', user.id).throwOnError().catch(() => {})
     await admin.from('settings').delete().eq('user_id', user.id).throwOnError().catch(() => {})
     await admin.from('check_ins').delete().eq('user_id', user.id).throwOnError().catch(() => {})
+    await admin.from('streak_pauses').delete().eq('user_id', user.id).throwOnError().catch(() => {})
     await admin.from('feedback').delete().eq('user_id', user.id).throwOnError().catch(() => {})
 
     // Delete the auth user last

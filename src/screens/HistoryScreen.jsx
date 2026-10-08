@@ -22,6 +22,15 @@ function FlameIcon() {
   )
 }
 
+function PauseIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 28, height: 28 }}>
+      <circle cx="10" cy="10" r="8" />
+      <path d="M8 7v6M12 7v6" />
+    </svg>
+  )
+}
+
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 }
@@ -138,11 +147,16 @@ function inDateRange(session, range) {
   return true
 }
 
-export default function HistoryScreen({ sessions, templates, checkIns, settings, profile, onViewSession, onDeleteSession }) {
-  const { streak, doneThisWeek, target, weekMet } = streakStatus(sessions, checkIns, profile?.targetDaysPerWeek ?? 3)
+export default function HistoryScreen({ sessions, templates, checkIns, streakPauses, settings, profile, onViewSession, onDeleteSession }) {
+  const { streak, doneThisWeek, target, weekMet, activePause, pauseWeeksLeft } = streakStatus(sessions, checkIns, profile?.targetDaysPerWeek ?? 3, streakPauses)
+  const paused = !!activePause && !weekMet
   const remaining = target - doneThisWeek
   const plural    = n => n === 1 ? 'workout' : 'workouts'
-  const streakSub = weekMet
+  const streakSub = paused
+    ? pauseWeeksLeft > 0
+      ? `Paused. ${pauseWeeksLeft} more ${pauseWeeksLeft === 1 ? 'week' : 'weeks'} covered after this one.`
+      : `Paused. This is the last week covered.`
+    : weekMet
     ? `This week's done. Keep it going!`
     : streak > 0
       ? `${remaining} more ${plural(remaining)} until your ${streak + 1} week streak!`
@@ -246,8 +260,8 @@ export default function HistoryScreen({ sessions, templates, checkIns, settings,
   return (
     <div className="history">
       {/* Streak banner */}
-      <div className="history-streak-banner">
-        <span className="history-streak-fire"><FlameIcon /></span>
+      <div className={`history-streak-banner${paused ? ' history-streak-banner--paused' : ''}`}>
+        <span className="history-streak-fire">{paused ? <PauseIcon /> : <FlameIcon />}</span>
         <div className="history-streak-body">
           <p className="history-streak-count">{streak} week streak</p>
           <p className="history-streak-sub">{streakSub}</p>
