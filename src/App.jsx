@@ -5,6 +5,7 @@ import {
   getActiveSession, saveActiveSession, clearActiveSession, abandonSession, getRestTimer, saveRestTimer,
   deleteSession, setStorageUser, clearUserCache, getCustomExercises, getCachedCustomExercises,
   getProfile, saveProfile, getBodyWeightLogs, saveBodyWeightLog, deleteBodyWeightLog,
+  getStreakPauses, startStreakPause, endStreakPause, deleteStreakPause,
   getNewFeedbackCount, encodeTheme,
   getPrograms, createProgram, renameProgram, deleteProgram, setActiveProgram, reassignProgramTemplates, ensureDefaultProgram,
 } from './storage'
@@ -29,7 +30,7 @@ import GeneratePlanWizard from './screens/GeneratePlanWizard'
 import GenerateWorkoutWizard from './screens/GenerateWorkoutWizard'
 import WhatsNewModal, { hasSeenLatest, LATEST_VERSION } from './components/WhatsNewModal'
 import { ProGateProvider } from './lib/proGate'
-import { startOfThisWeek } from './utils/streaks'
+import { startOfThisWeek, streakStatus, pauseStartWeek } from './utils/streaks'
 import { fmtGuidedExercise, guidedPlanFor, guidedSummary } from './utils/guided'
 import { playChime } from './utils/sound'
 import './App.css'
@@ -303,6 +304,7 @@ export default function App() {
       if (p?.role === 'admin') getNewFeedbackCount().then(setFeedbackCount).catch(console.error)
     }).catch(console.error)
     getBodyWeightLogs().then(setBodyWeightLogs).catch(console.error)
+    getStreakPauses().then(setStreakPauses).catch(console.error)
 
     setDataLoaded(true)
   }
@@ -319,7 +321,25 @@ export default function App() {
     setFeedbackCount(0)
     setProfile(null)
     setBodyWeightLogs(null)
+    setStreakPauses([])
     setAuthUser(null)
+  }
+
+  // Reaches back to last week when that's what keeps the streak alive.
+  async function handlePauseStreak(reason) {
+    const target = profile?.targetDaysPerWeek ?? 3
+    await startStreakPause(pauseStartWeek(sessions, [], target, streakPauses), reason)
+    setStreakPauses(await getStreakPauses())
+  }
+
+  // The week you resume in stays covered. A pause that only started this
+  // week is undone instead, so it costs nothing.
+  async function handleResumeStreak() {
+    const { activePause, thisWeek } = streakStatus(sessions, [], profile?.targetDaysPerWeek ?? 3, streakPauses)
+    if (!activePause) return
+    if (activePause.startWeek === thisWeek) await deleteStreakPause(activePause.id)
+    else await endStreakPause(activePause.id, thisWeek)
+    setStreakPauses(await getStreakPauses())
   }
 
   async function handleOnboardingComplete({ answers, summary, templates = [] }) {
@@ -530,6 +550,7 @@ export default function App() {
   const [feedbackCount, setFeedbackCount]     = useState(0)
   const [profile, setProfile]                 = useState(null)
   const [bodyWeightLogs, setBodyWeightLogs]   = useState(null) // null = loading, [] = loaded empty
+  const [streakPauses, setStreakPauses]       = useState([])
   const [showOnboarding, setShowOnboarding]   = useState(null) // null = profile not yet loaded
   // Apply theme to document root
   useEffect(() => {
@@ -1048,6 +1069,7 @@ const NavShield = () => (
             sessions={sessions}
             templates={templates}
             checkIns={[]}
+            streakPauses={streakPauses}
             settings={settings}
             profile={profile}
             onViewSession={s => goSessionDetail(s)}
@@ -1071,6 +1093,9 @@ const NavShield = () => (
             profile={profile}
             sessions={sessions}
             checkIns={[]}
+            streakPauses={streakPauses}
+            onPauseStreak={handlePauseStreak}
+            onResumeStreak={handleResumeStreak}
             settings={settings}
             authUser={authUser}
             onSaveProfile={async data => {
