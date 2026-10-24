@@ -276,6 +276,13 @@
   padding: 10px 0 2px;
 }
 
+.profile-energy-sub {
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.5;
+  margin-top: -2px;
+}
+
 .profile-energy-note {
   font-size: 12px;
   color: var(--text);

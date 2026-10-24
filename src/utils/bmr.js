@@ -26,6 +26,26 @@ export function calcBMR({ weightKg, heightCm, age, gender }) {
   return Math.round(10 * weightKg + 6.25 * heightCm - 5 * age + offset)
 }
 
+// WHO adult BMI categories (upper bound exclusive)
+const BMI_CATEGORIES = [
+  { max: 18.5,     label: 'Underweight' },
+  { max: 25,       label: 'Healthy' },
+  { max: 30,       label: 'Overweight' },
+  { max: Infinity, label: 'Obese' },
+]
+
+/**
+ * Body mass index = kg / m², rounded to one decimal.
+ * Returns { value, category } or null if height or weight is missing.
+ */
+export function calcBMI({ weightKg, heightCm }) {
+  if (!weightKg || !heightCm) return null
+  const m = heightCm / 100
+  const value = Math.round((weightKg / (m * m)) * 10) / 10
+  const category = BMI_CATEGORIES.find(c => value < c.max).label
+  return { value, category }
+}
+
 /**
  * Total daily energy expenditure (maintenance kcal/day) = BMR × activity multiplier.
  * Returns null if BMR or activity level is missing.
