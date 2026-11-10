@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { uploadAvatar, getCachedCustomExercises } from "../storage";
 import { sessionVolume, fmtVolume, fmtDuration } from "../utils/volume";
 import { startOfThisWeek, streakStatus, PAUSE_BUDGET_WEEKS } from "../utils/streaks";
+import { calcBMI, calcBMR, calcTDEE } from "../utils/bmr";
 import { defaultExercises } from "../data/exerciseLibrary";
 import { supabase, callFunction } from "../lib/supabase";
 import WeightChart from "../components/WeightChart";
@@ -624,6 +625,24 @@ export default function ProfileScreen({
   const hasAboutData =
     heightDisplay || weightDisplay || computedAge || genderLabel || activityLabel;
 
+  const bmr = calcBMR({
+    weightKg: profile?.weightKg,
+    heightCm: profile?.heightCm,
+    age: computedAge,
+    gender,
+  });
+  const tdee = calcTDEE(bmr, activityLevel);
+  const bmi = calcBMI({
+    weightKg: profile?.weightKg,
+    heightCm: profile?.heightCm,
+  });
+  const bmrMissing = [
+    !profile?.heightCm && "height",
+    !profile?.weightKg && "weight",
+    computedAge == null && "birthdate",
+    !gender && "gender",
+  ].filter(Boolean);
+
   return (
     <div className="profile">
       {cropFile && (
@@ -734,6 +753,62 @@ export default function ProfileScreen({
               onClick={() => setView("edit")}
             >
               Tap Edit to add your details
+            </button>
+          )}
+        </div>
+      </section>
+
+      {/* Body Stats */}
+      <section className="profile-section">
+        <h3 className="profile-section-title">Body Stats</h3>
+        <div className="profile-info-card">
+          {bmi != null && (
+            <div className="profile-card-stats profile-energy-stats">
+              <div className="profile-card-stat">
+                <span className="profile-card-stat-value">
+                  {bmi.value.toFixed(1)}
+                </span>
+                <span className="profile-card-stat-label">BMI</span>
+                <span className="profile-energy-sub">{bmi.category}</span>
+              </div>
+              {bmr != null && (
+                <>
+                  <div className="profile-card-stat-sep" />
+                  <div className="profile-card-stat">
+                    <span className="profile-card-stat-value">
+                      {bmr.toLocaleString()}
+                    </span>
+                    <span className="profile-card-stat-label">BMR</span>
+                    <span className="profile-energy-sub">kcal / day</span>
+                  </div>
+                  <div className="profile-card-stat-sep" />
+                  <div className="profile-card-stat">
+                    <span className="profile-card-stat-value">
+                      {tdee != null ? tdee.toLocaleString() : "—"}
+                    </span>
+                    <span className="profile-card-stat-label">Maintenance</span>
+                    <span className="profile-energy-sub">kcal / day</span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          {bmr != null ? (
+            <p className="profile-energy-note">
+              {tdee == null
+                ? "Set your activity level to see maintenance calories. "
+                : "BMR is what you burn at rest; maintenance adds your activity level. "}
+              {gender === "other" &&
+                "BMR uses the average of the male and female formulas. "}
+              Estimates, not medical advice.
+            </p>
+          ) : (
+            <button
+              className="profile-info-empty"
+              onClick={() => setView("edit")}
+            >
+              Add your {bmrMissing.join(", ")} to see your{" "}
+              {bmi != null ? "BMR" : "BMI and BMR"}
             </button>
           )}
         </div>
