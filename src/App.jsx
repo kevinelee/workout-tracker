@@ -325,7 +325,8 @@ export default function App() {
     setAuthUser(null)
   }
 
-  // Reaches back to last week when that's what keeps the streak alive.
+  // Reaches back over missed weeks when that's what keeps the streak alive --
+  // including a whole stretch away, to restore a streak that broke meanwhile.
   async function handlePauseStreak(reason) {
     const target = profile?.targetDaysPerWeek ?? 3
     await startStreakPause(pauseStartWeek(sessions, [], target, streakPauses), reason)
@@ -1074,6 +1075,7 @@ const NavShield = () => (
             profile={profile}
             onViewSession={s => goSessionDetail(s)}
             onDeleteSession={async id => { await deleteSession(id); setSessions(await getSessions()) }}
+            onPauseStreak={handlePauseStreak}
           />
         )
       case 'sessionDetail':

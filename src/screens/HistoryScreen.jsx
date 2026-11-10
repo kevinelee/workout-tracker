@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { sessionVolume, sessionPRCount, logVolume, fmtVolume, fmtDuration } from '../utils/volume'
 import { estimateCalories } from '../utils/calories'
-import { streakStatus } from '../utils/streaks'
+import { streakStatus, restoreOffer } from '../utils/streaks'
 import { getCachedCustomExercises } from '../storage'
 import { alertSaveError } from '../lib/saveError'
 import { defaultExercises } from '../data/exerciseLibrary'
@@ -27,6 +27,15 @@ function PauseIcon() {
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 28, height: 28 }}>
       <circle cx="10" cy="10" r="8" />
       <path d="M8 7v6M12 7v6" />
+    </svg>
+  )
+}
+
+function FreezeIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 28, height: 28 }}>
+      <path d="M10 2v16M3.07 6l13.86 8M3.07 14l13.86-8" />
+      <path d="M7.5 3.5L10 5l2.5-1.5M7.5 16.5L10 15l2.5 1.5" />
     </svg>
   )
 }
@@ -147,15 +156,25 @@ function inDateRange(session, range) {
   return true
 }
 
-export default function HistoryScreen({ sessions, templates, checkIns, streakPauses, settings, profile, onViewSession, onDeleteSession }) {
-  const { streak, doneThisWeek, target, weekMet, activePause, pauseWeeksLeft } = streakStatus(sessions, checkIns, profile?.targetDaysPerWeek ?? 3, streakPauses)
-  const paused = !!activePause && !weekMet
+export default function HistoryScreen({ sessions, templates, checkIns, streakPauses, settings, profile, onViewSession, onDeleteSession, onPauseStreak }) {
+  const targetDays = profile?.targetDaysPerWeek ?? 3
+  const { streak, doneThisWeek, target, weekMet, activePause, pauseWeeksLeft, autoFrozen, weeksMissed } = streakStatus(sessions, checkIns, targetDays, streakPauses)
+  const restore   = weekMet ? null : restoreOffer(sessions, checkIns, targetDays, streakPauses)
+  const paused    = !!activePause && !weekMet
+  // Weeks frozen automatically right before this one -- you were away and
+  // the streak held without you doing anything.
+  const justFrozen = !paused && !weekMet && streak > 0 ? Math.min(weeksMissed, autoFrozen.length) : 0
   const remaining = target - doneThisWeek
   const plural    = n => n === 1 ? 'workout' : 'workouts'
-  const streakSub = paused
+  const [restoring, setRestoring] = useState(false)
+  const streakSub = restore
+    ? `Your ${restore.streak} week streak broke while you were away. Hurt or sick? You can pick it back up.`
+    : paused
     ? pauseWeeksLeft > 0
       ? `Paused. ${pauseWeeksLeft} more ${pauseWeeksLeft === 1 ? 'week' : 'weeks'} covered after this one.`
       : `Paused. This is the last week covered.`
+    : justFrozen
+    ? `Welcome back! ${justFrozen === 1 ? 'Last week' : `Your last ${justFrozen} weeks`} froze automatically, so your streak is safe. ${remaining} more ${plural(remaining)} this week to keep it going.`
     : weekMet
     ? `This week's done. Keep it going!`
     : streak > 0
@@ -260,11 +279,25 @@ export default function HistoryScreen({ sessions, templates, checkIns, streakPau
   return (
     <div className="history">
       {/* Streak banner */}
-      <div className={`history-streak-banner${paused ? ' history-streak-banner--paused' : ''}`}>
-        <span className="history-streak-fire">{paused ? <PauseIcon /> : <FlameIcon />}</span>
+      <div className={`history-streak-banner${paused || justFrozen || restore ? ' history-streak-banner--paused' : ''}`}>
+        <span className="history-streak-fire">{paused ? <PauseIcon /> : justFrozen || restore ? <FreezeIcon /> : <FlameIcon />}</span>
         <div className="history-streak-body">
-          <p className="history-streak-count">{streak} week streak</p>
+          <p className="history-streak-count">{restore ? 'Welcome back' : `${streak} week streak`}</p>
           <p className="history-streak-sub">{streakSub}</p>
+          {restore && (
+            <button
+              className="history-streak-restore"
+              disabled={restoring}
+              onClick={async () => {
+                setRestoring(true)
+                try { await onPauseStreak('injury') }
+                catch (err) { alertSaveError(err) }
+                finally { setRestoring(false) }
+              }}
+            >
+              Restore {restore.streak} week streak
+            </button>
+          )}
           <div className="history-streak-dots" role="img" aria-label={`${Math.min(doneThisWeek, target)} of ${target} workouts this week`}>
             {Array.from({ length: target }, (_, i) => (
               <span key={i} className={`history-streak-dot${i < doneThisWeek ? ' history-streak-dot--done' : ''}`} />
