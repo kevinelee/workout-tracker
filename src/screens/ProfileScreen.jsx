@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { uploadAvatar, getCachedCustomExercises } from "../storage";
 import { sessionVolume, fmtVolume, fmtDuration } from "../utils/volume";
-import { startOfThisWeek, streakStatus, PAUSE_BUDGET_WEEKS } from "../utils/streaks";
+import { startOfThisWeek, streakStatus, restoreOffer, PAUSE_BUDGET_WEEKS, AUTO_FREEZE_WEEKS } from "../utils/streaks";
 import { defaultExercises } from "../data/exerciseLibrary";
 import { supabase, callFunction } from "../lib/supabase";
 import WeightChart from "../components/WeightChart";
@@ -313,6 +313,12 @@ export default function ProfileScreen({
     targetDaysPerWeek,
     streakPauses ?? [],
   );
+  const restore = restoreOffer(
+    sessions ?? [],
+    checkIns ?? [],
+    targetDaysPerWeek,
+    streakPauses ?? [],
+  );
   const [pauseConfirm, setPauseConfirm] = useState(false);
   const [pauseReason, setPauseReason] = useState("injury");
   const [pauseBusy, setPauseBusy] = useState(false);
@@ -329,12 +335,14 @@ export default function ProfileScreen({
   }
 
   const weeks = (n) => `${n} ${n === 1 ? "week" : "weeks"}`;
-  const pauseBody = activePause
+  const pauseBody = restore
+    ? `Your ${restore.streak} week streak broke while you were away for ${weeks(restore.missedWeeks)}. Hurt or sick? Restore it and the missed weeks are covered. It stays paused until you hit your weekly target again.`
+    : activePause
     ? pauseWeeksLeft > 0
       ? `Missed weeks won't break your streak. ${weeks(pauseWeeksLeft)} more covered after this one. Hit your weekly target and the pause ends by itself.`
       : "This is the last week your pause covers. Hit your weekly target next week to keep your streak."
     : pauseWeeksLeft > 0
-      ? `Hurt or away? Weeks you miss while paused won't break your streak, and won't add to it. ${pauseWeeksLeft} of ${PAUSE_BUDGET_WEEKS} weeks available.`
+      ? `Hurt or away? Weeks you miss while paused won't break your streak, and won't add to it. Miss up to ${AUTO_FREEZE_WEEKS} weeks without pausing and your streak freezes itself. ${pauseWeeksLeft} of ${PAUSE_BUDGET_WEEKS} weeks available.`
       : `You've used all ${PAUSE_BUDGET_WEEKS} pause weeks from the last 12 months.`;
 
   async function handleWeightOptIn(accept) {
@@ -751,9 +759,9 @@ export default function ProfileScreen({
           <InfoRow label="Week starts" value={weekStartLabel} />
           <InfoRow label="Target" value={`${targetDaysPerWeek} days / week`} />
         </div>
-        <div className={`profile-pause${activePause ? " profile-pause--active" : ""}`}>
+        <div className={`profile-pause${activePause || restore ? " profile-pause--active" : ""}`}>
           <p className="profile-pause-title">
-            {activePause ? "Streak paused" : "Pause streak"}
+            {restore ? "Welcome back" : activePause ? "Streak paused" : "Pause streak"}
           </p>
           <p className="profile-pause-body">{pauseBody}</p>
           {pauseConfirm && !activePause && (
@@ -769,7 +777,7 @@ export default function ProfileScreen({
               ))}
             </div>
           )}
-          {(activePause || pauseWeeksLeft > 0) && (
+          {(activePause || restore || pauseWeeksLeft > 0) && (
             <div className="profile-pause-actions">
               {activePause ? (
                 <button
@@ -786,7 +794,7 @@ export default function ProfileScreen({
                     onClick={handlePauseToggle}
                     disabled={pauseBusy}
                   >
-                    Pause streak
+                    {restore ? "Restore streak" : "Pause streak"}
                   </button>
                   <button
                     className="profile-pause-btn"
@@ -798,10 +806,10 @@ export default function ProfileScreen({
                 </>
               ) : (
                 <button
-                  className="profile-pause-btn"
+                  className={`profile-pause-btn${restore ? " profile-pause-btn--primary" : ""}`}
                   onClick={() => setPauseConfirm(true)}
                 >
-                  Pause
+                  {restore ? `Restore ${restore.streak} week streak` : "Pause"}
                 </button>
               )}
             </div>
